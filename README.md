@@ -2,7 +2,7 @@
 
 A web application that replaces Excel-sheet record keeping for a movie & series catalogue. It runs in the browser, so the admin can work from any laptop, desktop or mobile once it is deployed to the internet.
 
-**Stack:** Node.js · Express 5 · EJS (server-rendered views) · SQLite (`better-sqlite3`) · bcrypt password hashing · session-based auth
+**Stack:** Node.js · Express 5 · EJS (server-rendered views) · SQLite (built-in `node:sqlite`, no native build) · bcrypt password hashing · session-based auth
 
 ---
 
@@ -41,7 +41,7 @@ Works on mobile — collapsible navigation, and tables turn into stacked cards o
 
 ## 🚀 Run locally
 
-**Requirements:** Node.js 20 or newer.
+**Requirements:** Node.js 22.13 or newer.
 
 ```bash
 git clone https://github.com/<your-username>/cinebase.git

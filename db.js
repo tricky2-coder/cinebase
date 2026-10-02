@@ -1,14 +1,13 @@
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite'); // built into Node 22.13+, no native build needed
 const bcrypt = require('bcryptjs');
 
 const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(path.join(dataDir, 'cinebase.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = new DatabaseSync(path.join(dataDir, 'cinebase.db'));
+db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -66,7 +65,9 @@ if (db.prepare('SELECT COUNT(*) AS c FROM titles').get().c === 0) {
     { title: 'Stranger Things', type: 'Series', genre: 'Horror', language: 'English', release_year: 2016, director: 'The Duffer Brothers', cast_members: 'Millie Bobby Brown, Finn Wolfhard', seasons: 5, duration_min: 51, rating: 8.7, platform: 'Netflix', status: 'Ended', synopsis: 'Kids in a small town uncover supernatural experiments and a parallel world.' },
     { title: 'RRR', type: 'Movie', genre: 'Action', language: 'Telugu', release_year: 2022, director: 'S. S. Rajamouli', cast_members: 'N. T. Rama Rao Jr., Ram Charan', seasons: null, duration_min: 187, rating: 7.8, platform: 'Netflix', status: 'Released', synopsis: 'A fictional story of two revolutionaries in 1920s India.' }
   ];
-  db.transaction(rows => rows.forEach(r => ins.run(r)))(samples);
+  db.exec('BEGIN');
+  try { samples.forEach(r => ins.run(r)); db.exec('COMMIT'); }
+  catch (e) { db.exec('ROLLBACK'); throw e; }
   console.log(`Seeded ${samples.length} sample titles`);
 }
 

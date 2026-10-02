@@ -168,8 +168,7 @@ Existing databases are upgraded automatically on start (new columns are added in
 - Session ID is regenerated on login; cookies are `httpOnly` + `sameSite=lax`.
 - Server-side validation on every form, not just browser checks.
 
-## 👤 Author
-**Aneesh Ajay Deokar** — E&CS, Thakur College of Engineering and Technology
+
 
 ## 📄 License
 MIT

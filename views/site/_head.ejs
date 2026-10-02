@@ -27,5 +27,11 @@
   <form class="s-search" action="<%= tmdbEnabled ? '/search' : '/browse' %>" method="GET" role="search">
     <input type="search" name="q" value="<%= q %>" placeholder="Search movies & series…" aria-label="Search">
   </form>
-  <a href="/admin" class="s-admin"><%= user ? 'Dashboard' : 'Admin' %></a>
+  <% if (user && user.role === 'admin') { %><a href="/dashboard" class="s-admin">Dashboard</a><% } %>
+  <% if (user) { %>
+  <form action="/logout" method="POST" class="s-user">
+    <span><%= user.name %></span>
+    <button type="submit" class="s-admin">Sign out</button>
+  </form>
+  <% } %>
 </header>

@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<% if (user) { %>
+<% const isAdmin = user && user.role === 'admin'; %>
+<% if (isAdmin) { %>
 <header class="topbar">
   <a href="/dashboard" class="brand"><span class="reel">●</span> CINEBASE</a>
   <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu">
@@ -27,7 +28,7 @@
   </nav>
 </header>
 <% } %>
-<main class="<%= user ? 'container' : '' %>">
+<main class="<%= isAdmin ? 'container' : '' %>">
 <% if (flash) { %>
   <div class="flash flash-<%= flash.type %>" role="status"><%= flash.msg %></div>
 <% } %>

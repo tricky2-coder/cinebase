@@ -8,11 +8,13 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 
 ## ✨ Features
 
-### Authentication (Role: Admin)
-- Admin logs in with username + password.
+### Authentication (roles: admin, user)
+- Everyone signs in with username + password; the whole site (including the movie pages) requires an account.
 - **Wrong credentials →** stays on the login page with the message **"Wrong credentials"**.
-- **Correct credentials →** redirected to the **Dashboard**.
+- **Correct credentials →** admins go to the **Dashboard**, users go to the movie site (or the page they were trying to open).
 - Every page except login is protected; un-authenticated visits are redirected to `/login`.
+- **user** accounts can only watch and browse; the dashboard and all admin pages are **admin**-only.
+- Accounts are created by an admin on the *Users* page (no public sign-up). Deleting a user or changing their role takes effect immediately.
 - Passwords are stored as bcrypt hashes; sessions are HTTP-only cookies.
 
 ### Movies & Series — full CRUDL
@@ -29,7 +31,7 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 ### Users — full CRUDL
 - Admin sees the **users list** and can add, edit, delete and search users (by name / username / email, filter by role).
 - Safety rules: you can't delete yourself, and the last admin can't be deleted or demoted.
-- Only users with role `admin` can log in to the panel.
+- Give friends and family the `user` role so they can watch without access to the admin panel.
 
 ### Public site (streaming-style frontend)
 - **Every movie & series (with `TMDB_API_KEY`):** the public site reads the live TMDB catalogue.
@@ -41,7 +43,7 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
   - TMDB responses are cached in memory for a few hours.
 - **My CineBase** (`/browse`): your own catalogue with type, genre, language and sort filters. Without a TMDB key, the whole site shows only this catalogue.
 - **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", a **▶ Play on Plex** button for titles on your server, and an embedded VidSrc player with a mirror switcher (remembered per browser) and a season/episode picker for series.
-- No login needed to browse. Editing stays behind the admin login.
+- Signing in is required to browse; editing stays admin-only.
 ### Plex Media Server integration
 - Admin → **Plex** shows connection status and your movie and TV libraries.
 - **Sync library** imports every item with its poster, backdrop, cast, runtime and rating. Re-syncing refreshes items without duplicating them, and existing CineBase titles with the same name and year get linked instead of copied.

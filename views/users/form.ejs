@@ -35,7 +35,7 @@
       <input type="password" name="confirm_password" minlength="6" <%= isEdit ? '' : 'required' %> autocomplete="new-password">
     </label>
   </div>
-  <p class="muted small">Only users with the <b>admin</b> role can log in to this panel.</p>
+  <p class="muted small"><b>user</b> accounts can sign in and watch on the movie site only. <b>admin</b> accounts also get this dashboard and can manage titles, users and Plex.</p>
   <div class="form-actions">
     <a href="/users" class="btn btn-ghost">Cancel</a>
     <button type="submit" class="btn btn-primary"><%= isEdit ? 'Save Changes' : 'Create User' %></button>

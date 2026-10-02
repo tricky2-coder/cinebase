@@ -1,5 +1,5 @@
 </main>
-<% if (user) { %>
+<% if (user && user.role === 'admin') { %>
 <footer class="footer">CineBase · Movie &amp; Series Database System</footer>
 <% } %>
 <script src="/js/admin.js"></script>

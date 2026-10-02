@@ -24,7 +24,7 @@
         <% if (player) { %><a class="sbtn sbtn-play" href="#watch">▶ Watch</a><% } %>
         <% if (item.plex_rating_key && plexEnabled) { %><a class="sbtn <%= player ? 'sbtn-glass' : 'sbtn-play' %>" href="/t/<%= item.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
         <% if (item.trailer_key) { %><button class="sbtn sbtn-glass" data-trailer="<%= item.trailer_key %>">Trailer</button><% } %>
-        <% if (user) { %>
+        <% if (user && user.role === 'admin') { %>
           <% if (!source) { %>
             <a class="sbtn sbtn-glass" href="/titles/<%= item.id %>/edit">Edit</a>
           <% } else if (source.localId) { %>

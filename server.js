@@ -16,7 +16,7 @@ if (!process.env.SESSION_SECRET) {
 
 const db = require('./db');
 const SqliteStore = require('./services/session-store');
-const { requireLogin } = require('./middleware/auth');
+const { requireUser, requireAdmin } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -67,6 +67,17 @@ app.use(session({
   }
 }));
 
+// Re-read the signed-in account on every request, so deleting a user or changing their role applies immediately
+const findSessionUser = db.prepare('SELECT id, name, username, role FROM users WHERE id = ?');
+app.use((req, res, next) => {
+  if (req.session.user) {
+    const fresh = findSessionUser.get(req.session.user.id);
+    if (fresh) req.session.user = { ...fresh };
+    else delete req.session.user;
+  }
+  next();
+});
+
 // Flash messages + current user available in every view
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
@@ -77,11 +88,11 @@ app.use((req, res, next) => {
 });
 
 app.use('/', require('./routes/auth'));
-app.use('/dashboard', requireLogin, require('./routes/dashboard'));
-app.use('/titles', requireLogin, require('./routes/titles'));
-app.use('/users', requireLogin, require('./routes/users'));
-app.use('/plex', requireLogin, require('./routes/plex'));
-app.use('/', require('./routes/site')); // public catalogue frontend
+app.use('/dashboard', requireAdmin, require('./routes/dashboard'));
+app.use('/titles', requireAdmin, require('./routes/titles'));
+app.use('/users', requireAdmin, require('./routes/users'));
+app.use('/plex', requireAdmin, require('./routes/plex'));
+app.use('/', requireUser, require('./routes/site')); // the movie site — any signed-in account
 
 app.use((req, res) => res.status(404).render('error', { title: 'Not found', message: 'Page not found.' }));
 app.use((err, req, res, next) => {

@@ -114,6 +114,26 @@ router.get('/search', async (req, res) => {
   } catch (e) { tmdbDown(res, e); }
 });
 
+// Live search suggestions for the header search box (JSON). Links open the title page at its player.
+router.get('/suggest', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  res.set('Cache-Control', 'private, max-age=300');
+  if (!tmdb.enabled() || q.length < 2) return res.json([]);
+  try {
+    const { items } = await tmdb.searchAll(q.slice(0, 100), 1);
+    res.json(items.slice(0, 8).map(i => ({
+      title: i.title,
+      year: i.release_year,
+      type: i.type,
+      poster: i.poster_url ? i.poster_url.replace('/w342/', '/w92/') : null,
+      href: `${i.href}#watch`
+    })));
+  } catch (e) {
+    console.error('TMDB suggest failed:', e.message);
+    res.status(502).json([]);
+  }
+});
+
 // BROWSE — your own CineBase catalogue
 router.get('/browse', (req, res) => {
   const where = [];

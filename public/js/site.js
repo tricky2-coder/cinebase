@@ -38,6 +38,75 @@
   });
   addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
 
+  // Live search suggestions: type -> TMDB matches -> click opens the title at its player
+  const searchForm = document.querySelector('.s-search[data-suggest]');
+  if (searchForm) {
+    const input = searchForm.querySelector('input[name="q"]');
+    const list = searchForm.querySelector('.s-suggest');
+    let items = [], active = -1, timer, ctrl;
+
+    const closeList = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; };
+    const highlight = i => {
+      active = i;
+      [...list.children].forEach((li, n) => li.classList.toggle('on', n === i));
+      input.setAttribute('aria-activedescendant', i >= 0 ? `sg-${i}` : '');
+    };
+    const render = results => {
+      items = results;
+      list.replaceChildren(...results.map((r, i) => {
+        const li = document.createElement('li');
+        li.id = `sg-${i}`;
+        li.setAttribute('role', 'option');
+        const a = document.createElement('a');
+        a.href = r.href;
+        if (r.poster) {
+          const img = document.createElement('img');
+          img.src = r.poster; img.alt = ''; img.loading = 'lazy';
+          a.append(img);
+        } else {
+          const ph = document.createElement('span');
+          ph.className = 'sg-noimg';
+          a.append(ph);
+        }
+        const text = document.createElement('span');
+        const b = document.createElement('b'); b.textContent = r.title;
+        const small = document.createElement('small'); small.textContent = [r.year, r.type].filter(Boolean).join(' · ');
+        text.append(b, small);
+        const play = document.createElement('span'); play.className = 'sg-play'; play.textContent = '▶';
+        a.append(text, play);
+        li.append(a);
+        li.addEventListener('mouseenter', () => highlight(i));
+        return li;
+      }));
+      list.hidden = !results.length;
+      input.setAttribute('aria-expanded', String(!!results.length));
+      highlight(-1);
+    };
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (q.length < 2) { ctrl?.abort(); closeList(); return; }
+      timer = setTimeout(async () => {
+        ctrl?.abort();
+        ctrl = new AbortController();
+        try {
+          const r = await fetch(`${searchForm.dataset.suggest}?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+          if (r.ok && input.value.trim() === q) render(await r.json());
+        } catch {} // aborted or offline: keep the plain search form working
+      }, 250);
+    });
+    input.addEventListener('keydown', e => {
+      if (list.hidden) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); highlight((active + 1) % items.length); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); highlight((active - 1 + items.length) % items.length); }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.href = items[active].href; }
+      else if (e.key === 'Escape') closeList();
+    });
+    input.addEventListener('focus', () => { if (list.children.length && input.value.trim().length >= 2) { list.hidden = false; input.setAttribute('aria-expanded', 'true'); } });
+    document.addEventListener('click', e => { if (!searchForm.contains(e.target)) closeList(); });
+  }
+
   // VidSrc player: mirror switcher (remembered per browser) + season/episode picker
   const player = document.getElementById('player');
   if (player) {

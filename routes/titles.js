@@ -80,8 +80,9 @@ function validate(body) {
   if (t.seasons !== null && (isNaN(t.seasons) || t.seasons < 1)) errors.push('Seasons must be a positive number.');
   if (t.duration_min !== null && (isNaN(t.duration_min) || t.duration_min < 1)) errors.push('Duration must be a positive number.');
   if (!STATUSES.includes(t.status)) errors.push('Invalid status.');
+  // No quotes/brackets/whitespace: backdrops are placed inside CSS url('…') on the public site
   for (const f of ['poster_url', 'backdrop_url'])
-    if (t[f] && !/^(https?:\/\/|\/media\/plex-art\?)/.test(t[f])) errors.push(`${f.replace('_', ' ')} must be an http(s) URL.`);
+    if (t[f] && !/^(https?:\/\/|\/media\/plex-art\?)[^\s'"()<>\\]+$/.test(t[f])) errors.push(`${f.replace('_', ' ')} must be an http(s) URL.`);
   if (body.trailer_key && !t.trailer_key) errors.push('Trailer must be a YouTube link or video ID.');
   if (t.type === 'Movie') t.seasons = null;
   return { t, errors };
@@ -128,30 +129,50 @@ router.get('/tmdb/:media/:id', async (req, res) => {
   catch (e) { res.status(502).json({ error: e.message }); }
 });
 
-// Fill missing posters/trailers for every title from TMDB
+// Fill missing posters/trailers for every title from TMDB.
+// Runs a few lookups in parallel and stops before typical proxy timeouts; run again to continue.
+// Titles checked in the last 30 days are skipped so unmatched ones aren't retried every run.
+const ENRICH_CONCURRENCY = 4;
+const ENRICH_BUDGET_MS = 60 * 1000;
+
 router.post('/tmdb/enrich', async (req, res) => {
   if (!tmdb.enabled()) { setFlash(req, 'error', 'Set TMDB_API_KEY first.'); return res.redirect('/titles'); }
-  const rows = db.prepare('SELECT id,title,type,release_year,tmdb_id FROM titles WHERE poster_url IS NULL OR backdrop_url IS NULL OR trailer_key IS NULL').all();
+  const rows = db.prepare(`SELECT id,title,type,release_year,tmdb_id FROM titles
+    WHERE (poster_url IS NULL OR backdrop_url IS NULL OR trailer_key IS NULL)
+      AND (tmdb_checked_at IS NULL OR tmdb_checked_at < datetime('now','-30 days'))`).all();
   const upd = db.prepare(`UPDATE titles SET tmdb_id=COALESCE(tmdb_id,@tmdb_id), poster_url=COALESCE(poster_url,NULLIF(@poster_url,'')),
-    backdrop_url=COALESCE(backdrop_url,NULLIF(@backdrop_url,'')), trailer_key=COALESCE(trailer_key,NULLIF(@trailer_key,'')),
+    backdrop_url=COALESCE(backdrop_url,NULLIF(@backdrop_url,'')), trailer_key=COALESCE(trailer_key,@trailer_key),
     cast_members=COALESCE(cast_members,NULLIF(@cast_members,'')), synopsis=COALESCE(synopsis,NULLIF(@synopsis,'')),
-    updated_at=datetime('now') WHERE id=@id`);
-  let done = 0, missed = 0;
-  for (const r of rows) {
-    try {
-      const media = r.type === 'Series' ? 'tv' : 'movie';
-      let id = r.tmdb_id;
-      if (!id) {
-        const hits = (await tmdb.search(r.title, r.release_year)).filter(h => h.media === media);
-        id = hits[0]?.tmdb_id;
-      }
-      if (!id) { missed++; continue; }
-      const d = await tmdb.details(media, id);
-      upd.run({ id: r.id, tmdb_id: d.tmdb_id, poster_url: d.poster_url, backdrop_url: d.backdrop_url, trailer_key: d.trailer_key, cast_members: d.cast_members, synopsis: d.synopsis });
-      done++;
-    } catch { missed++; }
+    tmdb_checked_at=datetime('now'), updated_at=datetime('now') WHERE id=@id`);
+  const markChecked = db.prepare("UPDATE titles SET tmdb_checked_at=datetime('now') WHERE id=?");
+
+  const deadline = Date.now() + ENRICH_BUDGET_MS;
+  let next = 0, done = 0, missed = 0, failed = 0;
+  async function worker() {
+    while (next < rows.length && Date.now() < deadline) {
+      const r = rows[next++];
+      try {
+        const media = r.type === 'Series' ? 'tv' : 'movie';
+        let id = r.tmdb_id;
+        if (!id) {
+          const hits = (await tmdb.search(r.title, r.release_year)).filter(h => h.media === media);
+          id = hits[0]?.tmdb_id;
+        }
+        if (!id) { markChecked.run(r.id); missed++; continue; }
+        const d = await tmdb.details(media, id);
+        upd.run({ id: r.id, tmdb_id: d.tmdb_id, poster_url: d.poster_url, backdrop_url: d.backdrop_url, trailer_key: youtubeId(d.trailer_key), cast_members: d.cast_members, synopsis: d.synopsis });
+        done++;
+      } catch { failed++; } // network/API errors: leave unchecked so the next run retries
+    }
   }
-  setFlash(req, missed ? 'error' : 'success', `TMDB: updated ${done} title(s)${missed ? `, ${missed} not matched` : ''}.`);
+  await Promise.all(Array.from({ length: ENRICH_CONCURRENCY }, worker));
+
+  const remaining = rows.length - next;
+  const parts = [`updated ${done} title(s)`];
+  if (missed) parts.push(`${missed} not found on TMDB`);
+  if (failed) parts.push(`${failed} failed (will retry)`);
+  if (remaining) parts.push(`${remaining} left — click again to continue`);
+  setFlash(req, missed || failed ? 'error' : 'success', `TMDB: ${parts.join(', ')}.`);
   res.redirect('/titles');
 });
 

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server.js",
-    "dev": "node --env-file-if-exists=.env --watch --disable-warning=ExperimentalWarning server.js"
+    "dev": "node --env-file-if-exists=.env --watch --disable-warning=ExperimentalWarning server.js",
+    "import:omdb": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning scripts/import-omdb.js"
   },
   "keywords": [
     "movies",
@@ -20,7 +21,9 @@
     "bcryptjs": "^3.0.3",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
     "method-override": "^3.0.0"
   },
   "engines": {

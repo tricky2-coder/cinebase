@@ -2,9 +2,11 @@
 const express = require('express');
 const db = require('../db');
 const plex = require('../services/plex');
+const vidsrc = require('../services/vidsrc');
 
 const router = express.Router();
 const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,plex_rating_key';
+const BROWSE_PAGE_SIZE = 24;
 
 router.use((req, res, next) => {
   res.locals.plexEnabled = plex.enabled();
@@ -43,31 +45,26 @@ router.get('/browse', (req, res) => {
   if (req.query.source === 'plex') where.push('plex_rating_key IS NOT NULL');
   const sorts = { rating: 'rating DESC', new: 'id DESC', year: 'release_year DESC', title: 'title COLLATE NOCASE' };
   const sort = sorts[req.query.sort] ? req.query.sort : 'rating';
-  const items = db.prepare(`SELECT ${CARD_COLS} FROM titles ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY ${sorts[sort]} LIMIT 200`).all(p);
+  const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const total = db.prepare(`SELECT COUNT(*) c FROM titles ${clause}`).get(p).c;
+  const pages = Math.max(1, Math.ceil(total / BROWSE_PAGE_SIZE));
+  const page = Math.min(Math.max(1, parseInt(req.query.page, 10) || 1), pages);
+  const items = db.prepare(`SELECT ${CARD_COLS} FROM titles ${clause} ORDER BY ${sorts[sort]}, id LIMIT @lim OFFSET @off`)
+    .all({ ...p, lim: BROWSE_PAGE_SIZE, off: (page - 1) * BROWSE_PAGE_SIZE });
   const genres = db.prepare('SELECT DISTINCT genre FROM titles ORDER BY genre').all().map(r => r.genre);
   const languages = db.prepare('SELECT DISTINCT language FROM titles ORDER BY language').all().map(r => r.language);
   const heading = q ? `Results for "${q}"` : req.query.type === 'Movie' ? 'Movies' : req.query.type === 'Series' ? 'Series' : req.query.genre || (req.query.source === 'plex' ? 'On Your Plex' : 'Browse');
-  res.render('site/browse', { title: heading, heading, items, genres, languages, query: req.query, sort, q });
+  const qs = new URLSearchParams(req.query);
+  qs.delete('page');
+  res.render('site/browse', { title: heading, heading, items, total, page, pages, qs: qs.toString(), genres, languages, query: req.query, sort, q });
 });
 
 // DETAIL
 router.get('/t/:id', (req, res, next) => {
   const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
   if (!item) return next();
-
-  let embedUrl = null;
-  const isSeries = item.type === 'Series' || item.type === 'tv';
-  const mediaType = isSeries ? 'tv' : 'movie';
-
-  // Using vidsrc.pm mirror
-  if (item.imdb_id) {
-    embedUrl = `https://vidsrc.pm/embed/${mediaType}/${item.imdb_id}${isSeries ? '?season=1&episode=1' : ''}`;
-  } else if (item.tmdb_id) {
-    embedUrl = `https://vidsrc.pm/embed/${mediaType}/${item.tmdb_id}${isSeries ? '?season=1&episode=1' : ''}`;
-  }
-
   const similar = db.prepare(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`).all(item.genre, item.id);
-  res.render('site/detail', { title: item.title, item, embedUrl, similar });
+  res.render('site/detail', { title: item.title, item, player: vidsrc.player(item), similar });
 });
 
 // Open on Plex

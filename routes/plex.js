@@ -37,13 +37,16 @@ router.post('/sync/:key', async (req, res) => {
     db.exec('BEGIN');
     try {
       for (const it of items) {
-        const existing = match.get(it.type, it.title, it.release_year, it.release_year);
-        if (!find.get(it.plex_rating_key) && existing) { link.run(it.plex_rating_key, existing.id); linked++; }
-        if (find.get(it.plex_rating_key)) {
-          const { type, genre, language, platform, status, ...rest } = it;
-          upd.run(rest);
-          if (!existing) updated++;
-        } else { ins.run(it); added++; }
+        const wasLinked = !!find.get(it.plex_rating_key);
+        if (!wasLinked) {
+          const existing = match.get(it.type, it.title, it.release_year, it.release_year);
+          if (!existing) { ins.run(it); added++; continue; }
+          link.run(it.plex_rating_key, existing.id);
+          linked++;
+        }
+        const { type, genre, language, platform, status, ...rest } = it;
+        upd.run(rest);
+        if (wasLinked) updated++;
       }
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }

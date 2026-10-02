@@ -1,0 +1,7 @@
+// Confirm before any delete
+document.querySelectorAll('form[data-confirm]').forEach(f =>
+  f.addEventListener('submit', e => { if (!confirm(f.dataset.confirm)) e.preventDefault(); }));
+
+// Auto-hide flash
+const fl = document.querySelector('.flash');
+if (fl) setTimeout(() => fl.classList.add('hide'), 4000);

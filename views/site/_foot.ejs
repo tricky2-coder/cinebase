@@ -1,6 +1,6 @@
 <footer class="s-foot">
   <span>CINEBASE</span>
-  <p>Movie &amp; series catalogue. Metadata and images may be provided by TMDB. Playback is available only for titles on your own Plex server.</p>
+  <p>Movie &amp; series catalogue. Metadata and images may be provided by TMDB. Streams come from third-party embeds that CineBase does not host or control; "Play on Plex" uses your own Plex server.</p>
 </footer>
 <div class="modal" id="trailer-modal" hidden>
   <div class="modal-box">
@@ -8,31 +8,6 @@
     <div class="modal-frame"></div>
   </div>
 </div>
-<script>
-  // Header turns solid on scroll
-  const top = document.getElementById('s-top');
-  const onScroll = () => top.classList.toggle('solid', scrollY > 30);
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
-
-  // Row arrows
-  document.querySelectorAll('.row').forEach(row => {
-    const track = row.querySelector('.track');
-    row.querySelectorAll('.arrow').forEach(b => b.addEventListener('click', () =>
-      track.scrollBy({ left: (b.dataset.dir === 'r' ? 1 : -1) * track.clientWidth * 0.85, behavior: 'smooth' })));
-  });
-
-  // Trailer modal (privacy-enhanced YouTube embed)
-  const modal = document.getElementById('trailer-modal'), frame = modal.querySelector('.modal-frame');
-  const close = () => { modal.hidden = true; frame.innerHTML = ''; document.body.style.overflow = ''; };
-  document.addEventListener('click', e => {
-    const t = e.target.closest('[data-trailer]');
-    if (t) {
-      e.preventDefault();
-      frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.trailer)}?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Trailer"></iframe>`;
-      modal.hidden = false; document.body.style.overflow = 'hidden';
-    } else if (e.target === modal || e.target.closest('.modal-x')) close();
-  });
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
-</script>
+<script src="/js/site.js"></script>
 </body>
 </html>

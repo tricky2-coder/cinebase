@@ -48,18 +48,37 @@ const newCols = {
   trailer_key: 'TEXT',          // YouTube video id
   imdb_id: 'TEXT',              // IMDb ID (e.g. tt1375666) for VidSrc playback
   tmdb_id: 'INTEGER',           // TMDB ID for VidSrc playback
-  plex_rating_key: 'TEXT'       // links the record to an item on your Plex server
+  plex_rating_key: 'TEXT',      // links the record to an item on your Plex server
+  tmdb_checked_at: 'TEXT'       // last TMDB enrich attempt, so unmatched titles aren't retried every run
 };
 
 for (const [col, type] of Object.entries(newCols)) {
   if (!existingCols.includes(col)) db.exec(`ALTER TABLE titles ADD COLUMN ${col} ${type}`);
 }
-db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_titles_plex ON titles(plex_rating_key) WHERE plex_rating_key IS NOT NULL');
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_titles_plex ON titles(plex_rating_key) WHERE plex_rating_key IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_titles_genre ON titles(genre);
+  CREATE INDEX IF NOT EXISTS idx_titles_type ON titles(type);
+  CREATE INDEX IF NOT EXISTS idx_titles_rating ON titles(rating);
+`);
+
+// One record per IMDb ID. Existing duplicates must be merged by hand before the index can be created.
+const imdbDupes = db.prepare(`SELECT imdb_id, GROUP_CONCAT(id) ids FROM titles
+  WHERE imdb_id IS NOT NULL GROUP BY imdb_id HAVING COUNT(*) > 1`).all();
+if (imdbDupes.length) {
+  console.warn('Warning: duplicate imdb_id values, unique index not created:');
+  imdbDupes.forEach(d => console.warn(`  ${d.imdb_id} -> title ids ${d.ids}`));
+} else {
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_titles_imdb ON titles(imdb_id) WHERE imdb_id IS NOT NULL');
+}
 
 // Seed default admin
 const adminUser = process.env.ADMIN_USERNAME || 'admin';
 const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
 if (!db.prepare('SELECT id FROM users WHERE username = ?').get(adminUser)) {
+  if (process.env.NODE_ENV === 'production' && adminPass === 'admin123') {
+    throw new Error('Set ADMIN_PASSWORD (not the default) before the first production start.');
+  }
   db.prepare(
     'INSERT INTO users (name, username, email, password, role) VALUES (?, ?, ?, ?, ?)'
   ).run('Administrator', adminUser, 'admin@cinebase.local', bcrypt.hashSync(adminPass, 10), 'admin');

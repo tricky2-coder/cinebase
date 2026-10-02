@@ -29,7 +29,7 @@
       <% if (item.type === 'Series') { %><div><dt>Seasons</dt><dd><%= item.seasons ?? '—' %></dd></div><% } %>
       <div><dt>Duration</dt><dd><%= item.duration_min ? item.duration_min + ' min' + (item.type === 'Series' ? ' / ep' : '') : '—' %></dd></div>
       <div class="span-all"><dt>Cast</dt><dd><%= item.cast_members || '—' %></dd></div>
-      <div><dt>Trailer</dt><dd><%- item.trailer_key ? `<a href="https://www.youtube.com/watch?v=${item.trailer_key}" target="_blank" rel="noopener">YouTube ↗</a>` : '—' %></dd></div>
+      <div><dt>Trailer</dt><dd><% if (item.trailer_key) { %><a href="https://www.youtube.com/watch?v=<%= encodeURIComponent(item.trailer_key) %>" target="_blank" rel="noopener">YouTube ↗</a><% } else { %>—<% } %></dd></div>
       <div><dt>Plex</dt><dd><%= item.plex_rating_key ? 'Linked (#' + item.plex_rating_key + ')' : 'Not linked' %></dd></div>
       <div><dt>TMDB ID</dt><dd><%= item.tmdb_id || '—' %></dd></div>
       <div><dt>Added</dt><dd><%= item.created_at %> UTC</dd></div>

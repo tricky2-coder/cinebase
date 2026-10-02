@@ -34,7 +34,7 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 ### Public site (streaming-style frontend)
 - **Home:** rotating hero with backdrops, plus rows for Recently Added, Top Rated, On Your Plex, Movies, Series and each genre.
 - **Browse & search:** poster grid with type, genre, language and sort filters.
-- **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", and a **▶ Play on Plex** button for titles on your server.
+- **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", a **▶ Play on Plex** button for titles on your server, and an embedded VidSrc player with a mirror switcher (remembered per browser) and a season/episode picker for series.
 - No login needed to browse. Editing stays behind the admin login.
 
 ### Plex Media Server integration
@@ -77,6 +77,15 @@ Public site: **http://localhost:3000** · Admin: **http://localhost:3000/admin**
 
 On first start the app creates `data/cinebase.db` and seeds 8 sample titles.
 
+### Import titles from OMDb
+Set `OMDB_API_KEY` in `.env`, then:
+```bash
+npm run import:omdb                                   # curated list of popular titles
+npm run import:omdb -- --ids tt0133093 tt0110912      # specific IMDb IDs
+npm run import:omdb -- --search Batman "Star Wars"    # search results
+```
+Existing titles (same IMDb ID, or same title/type/year) are updated in place: missing fields are filled and the rating refreshed; Plex links, trailers and manual edits are kept.
+
 ---
 
 ## ⚙️ Environment variables
@@ -92,6 +101,11 @@ On first start the app creates `data/cinebase.db` and seeds 8 sample titles.
 | `PLEX_URL` | — | Plex server address, e.g. `http://192.168.1.50:32400` |
 | `PLEX_TOKEN` | — | Your X-Plex-Token |
 | `TMDB_API_KEY` | — | TMDB v3 API key or v4 read token |
+| `OMDB_API_KEY` | — | OMDb key, used by `npm run import:omdb` |
+| `VIDSRC_DOMAINS` | `vidsrc.pm,vidsrc.cc,vidsrc.xyz,vidsrc.in` | Player mirrors, comma-separated; the first is the default |
+| `VIDSRC_SANDBOX` | `0` | `1` sandboxes the player iframe (blocks popups/redirects; some mirrors won't play) |
+
+In production (`NODE_ENV=production`) the server refuses to start without `SESSION_SECRET`, and refuses to create the first admin with the default `admin123` password.
 
 Copy `.env.example` to `.env` and edit it. `npm start` loads it automatically.
 
@@ -130,14 +144,19 @@ cinebase/
 ├── middleware/
 │   └── auth.js            # Login guard + flash helper
 ├── routes/
-│   ├── auth.js            # /login, /logout
+│   ├── auth.js            # /login (rate-limited), /logout
+│   ├── dashboard.js       # Admin dashboard
 │   ├── titles.js          # Movies & series CRUDL, search, CSV export
 │   ├── users.js           # Users CRUDL + search
 │   ├── plex.js            # Plex status + library sync (admin)
 │   └── site.js            # Public frontend + Plex play/artwork proxy
 ├── services/
 │   ├── plex.js            # Plex Media Server API client
-│   └── tmdb.js            # TMDB API client
+│   ├── tmdb.js            # TMDB API client
+│   ├── vidsrc.js          # VidSrc player config (mirrors, embed URLs)
+│   └── session-store.js   # SQLite session store (sessions survive restarts)
+├── scripts/
+│   └── import-omdb.js     # OMDb catalogue importer
 ├── views/                 # EJS templates
 │   ├── partials/          # header / footer
 │   ├── titles/            # index, form, show
@@ -148,6 +167,7 @@ cinebase/
 │   ├── dashboard.ejs
 │   └── error.ejs
 ├── public/css/            # style.css (admin), site.css (public)
+├── public/js/             # admin.js, title-form.js, site.js (no inline scripts, for the CSP)
 ├── render.yaml            # One-click Render deployment
 └── package.json
 ```
@@ -167,6 +187,9 @@ Existing databases are upgraded automatically on start (new columns are added in
 - EJS escapes all output (no stored XSS).
 - Session ID is regenerated on login; cookies are `httpOnly` + `sameSite=lax`.
 - Server-side validation on every form, not just browser checks.
+- Login is rate-limited (10 failed attempts per 15 minutes per IP) and doesn't leak which usernames exist.
+- Security headers via `helmet`, including a Content Security Policy that only allows the site's own scripts.
+- Sessions are stored in SQLite, so they survive restarts.
 
 
 

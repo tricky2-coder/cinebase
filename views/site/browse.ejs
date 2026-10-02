@@ -2,25 +2,25 @@
 <main class="s-page">
   <div class="browse-head">
     <h1><%= heading %></h1>
-    <p class="muted-s"><%= items.length %> title<%= items.length === 1 ? '' : 's' %></p>
+    <p class="muted-s"><%= total %> title<%= total === 1 ? '' : 's' %></p>
   </div>
   <form class="filterbar" method="GET" action="/browse">
     <% if (q) { %><input type="hidden" name="q" value="<%= q %>"><% } %>
     <% if (query.source) { %><input type="hidden" name="source" value="<%= query.source %>"><% } %>
-    <select name="type" aria-label="Type" onchange="this.form.submit()">
+    <select name="type" aria-label="Type">
       <option value="">All types</option>
       <option <%= query.type === 'Movie' ? 'selected' : '' %>>Movie</option>
       <option <%= query.type === 'Series' ? 'selected' : '' %>>Series</option>
     </select>
-    <select name="genre" aria-label="Genre" onchange="this.form.submit()">
+    <select name="genre" aria-label="Genre">
       <option value="">All genres</option>
       <% genres.forEach(g => { %><option <%= query.genre === g ? 'selected' : '' %>><%= g %></option><% }) %>
     </select>
-    <select name="language" aria-label="Language" onchange="this.form.submit()">
+    <select name="language" aria-label="Language">
       <option value="">All languages</option>
       <% languages.forEach(l => { %><option <%= query.language === l ? 'selected' : '' %>><%= l %></option><% }) %>
     </select>
-    <select name="sort" aria-label="Sort" onchange="this.form.submit()">
+    <select name="sort" aria-label="Sort">
       <option value="rating" <%= sort === 'rating' ? 'selected' : '' %>>Top rated</option>
       <option value="new" <%= sort === 'new' ? 'selected' : '' %>>Recently added</option>
       <option value="year" <%= sort === 'year' ? 'selected' : '' %>>Newest release</option>
@@ -33,5 +33,12 @@
     <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>
   </div>
   <% if (!items.length) { %><p class="empty-s">Nothing matches. <a href="/browse">Browse everything</a></p><% } %>
+  <% if (pages > 1) { %>
+  <nav class="s-pager" aria-label="Pagination">
+    <% if (page > 1) { %><a class="sbtn sbtn-glass" href="?<%= qs %>&page=<%= page - 1 %>">‹ Prev</a><% } %>
+    <span>Page <%= page %> of <%= pages %></span>
+    <% if (page < pages) { %><a class="sbtn sbtn-glass" href="?<%= qs %>&page=<%= page + 1 %>">Next ›</a><% } %>
+  </nav>
+  <% } %>
 </main>
 <%- include('_foot') %>

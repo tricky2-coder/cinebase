@@ -107,6 +107,109 @@
     document.addEventListener('click', e => { if (!searchForm.contains(e.target)) closeList(); });
   }
 
+  // Netflix-style hover preview: hovering a poster opens a larger card that plays the trailer muted.
+  // Mouse/trackpad only, and off for people who prefer reduced motion.
+  const mq = q => !!window.matchMedia?.(q).matches;
+  if (mq('(hover: hover) and (pointer: fine)') && !mq('(prefers-reduced-motion: reduce)')) {
+    const OPEN_DELAY = 600, CLOSE_DELAY = 180;
+    const trailers = new Map(); // "movie:27205" -> YouTube key | null
+    let openTimer, closeTimer, current = null, pv = null, req = 0;
+
+    const mk = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const ytCommand = (frame, func) => frame?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube-nocookie.com');
+
+    async function trailerFor(card) {
+      if (card.dataset.pvYt) return card.dataset.pvYt;
+      const { pvMedia: media, pvId: id } = card.dataset;
+      if (!id) return null;
+      const key = `${media}:${id}`;
+      if (!trailers.has(key)) {
+        try {
+          const r = await fetch(`/preview/${media}/${id}`);
+          trailers.set(key, r.ok ? (await r.json()).trailer : null);
+        } catch { return null; }
+      }
+      return trailers.get(key);
+    }
+
+    function closePreview() {
+      clearTimeout(openTimer);
+      current = null;
+      if (!pv) return;
+      const old = pv;
+      pv = null;
+      old.classList.remove('in');
+      setTimeout(() => old.remove(), 200);
+    }
+
+    async function openPreview(card) {
+      const myReq = ++req;
+      if (pv) { pv.remove(); pv = null; }
+      current = card;
+      const href = card.getAttribute('href');
+      const r = card.getBoundingClientRect();
+      const width = Math.min(Math.max(r.width * 1.9, 300), 420);
+      const left = Math.min(Math.max(r.left + r.width / 2 - width / 2, 8), innerWidth - width - 8);
+
+      pv = mk('div', 'pv');
+      pv.style.width = `${width}px`;
+      pv.style.left = `${left}px`;
+      const media = mk('div', 'pv-media');
+      if (card.dataset.pvImg) { const img = mk('img'); img.src = card.dataset.pvImg; img.alt = ''; media.append(img); }
+      const body = mk('div', 'pv-body');
+      const cta = mk('div', 'pv-cta');
+      const playBtn = mk('a', 'sbtn sbtn-play', '▶ Play'); playBtn.href = `${href}#watch`;
+      const info = mk('a', 'sbtn sbtn-glass', 'More info'); info.href = href;
+      cta.append(playBtn, info);
+      body.append(mk('b', null, card.dataset.pvTitle), mk('small', null, card.dataset.pvMeta), cta);
+      pv.append(media, body);
+      pv.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+      pv.addEventListener('mouseleave', () => { closeTimer = setTimeout(closePreview, CLOSE_DELAY); });
+      document.body.append(pv);
+      // Centre vertically on the card, kept inside the viewport
+      const h = pv.offsetHeight;
+      pv.style.top = `${Math.min(Math.max(r.top + r.height / 2 - h / 2, 8), innerHeight - h - 8)}px`;
+      requestAnimationFrame(() => pv?.classList.add('in'));
+
+      const key = await trailerFor(card);
+      if (myReq !== req || !pv || !key) return; // moved on, or no trailer: keep the still image
+      const frame = mk('iframe');
+      frame.title = `${card.dataset.pvTitle} trailer`;
+      frame.allow = 'autoplay; encrypted-media';
+      frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&loop=1&playlist=${encodeURIComponent(key)}&modestbranding=1&rel=0&playsinline=1&disablekb=1&iv_load_policy=3&enablejsapi=1`;
+      frame.addEventListener('load', () => setTimeout(() => frame.classList.add('on'), 700)); // hide YouTube's loading frame
+      let muted = true;
+      const mute = mk('button', 'pv-mute', '🔇');
+      mute.type = 'button';
+      mute.setAttribute('aria-label', 'Unmute trailer');
+      mute.addEventListener('click', e => {
+        e.preventDefault();
+        muted = !muted;
+        ytCommand(frame, muted ? 'mute' : 'unMute');
+        mute.textContent = muted ? '🔇' : '🔊';
+        mute.setAttribute('aria-label', muted ? 'Unmute trailer' : 'Mute trailer');
+      });
+      media.append(frame, mute);
+    }
+
+    document.addEventListener('mouseover', e => {
+      const card = e.target.closest('.card-p');
+      if (!card || card === current) return;
+      clearTimeout(openTimer);
+      clearTimeout(closeTimer);
+      openTimer = setTimeout(() => openPreview(card), OPEN_DELAY);
+    });
+    document.addEventListener('mouseout', e => {
+      const card = e.target.closest('.card-p');
+      if (!card || card.contains(e.relatedTarget)) return;
+      clearTimeout(openTimer);
+      if (card === current && !pv?.contains(e.relatedTarget)) closeTimer = setTimeout(closePreview, CLOSE_DELAY);
+    });
+    addEventListener('scroll', closePreview, { passive: true });
+    document.querySelectorAll('.track').forEach(t => t.addEventListener('scroll', closePreview, { passive: true }));
+    addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+  }
+
   // VidSrc player: mirror switcher (remembered per browser) + season/episode picker for series
   const player = document.getElementById('player');
   if (player) {

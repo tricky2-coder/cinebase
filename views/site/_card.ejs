@@ -1,4 +1,13 @@
-<a class="card-p" href="<%= c.href || `/t/${c.id}` %>" title="<%= c.title %><%= c.release_year ? ` (${c.release_year})` : '' %>">
+<%
+  // Hover preview data: TMDB cards link to /m/:id or /tv/:id; local cards use their tmdb_id / trailer_key
+  const pvMedia = c.href ? (c.href.startsWith('/tv/') ? 'tv' : 'movie') : (c.type === 'Series' ? 'tv' : 'movie');
+  const pvMeta = [c.release_year, c.type, c.rating != null ? `★ ${c.rating}` : null].filter(Boolean).join(' · ');
+%>
+<a class="card-p" href="<%= c.href || `/t/${c.id}` %>" title="<%= c.title %><%= c.release_year ? ` (${c.release_year})` : '' %>"
+  data-pv-title="<%= c.title %>" data-pv-meta="<%= pvMeta %>" data-pv-media="<%= pvMedia %>"
+  <% if (c.tmdb_id) { %>data-pv-id="<%= c.tmdb_id %>"<% } %>
+  <% if (c.trailer_key) { %>data-pv-yt="<%= c.trailer_key %>"<% } %>
+  <% if (c.backdrop_url || c.poster_url) { %>data-pv-img="<%= c.backdrop_url || c.poster_url %>"<% } %>>
   <div class="poster">
     <% if (c.poster_url) { %>
       <img src="<%= c.poster_url %>" alt="" loading="lazy">

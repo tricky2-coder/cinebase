@@ -6,7 +6,7 @@ const tmdb = require('../services/tmdb');
 const vidsrc = require('../services/vidsrc');
 
 const router = express.Router();
-const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,plex_rating_key';
+const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,backdrop_url,trailer_key,tmdb_id,plex_rating_key';
 const BROWSE_PAGE_SIZE = 24;
 const DISCOVER_SORTS = { popular: 'Most popular', rating: 'Top rated', newest: 'Newest' };
 
@@ -158,6 +158,19 @@ router.get('/browse', (req, res) => {
   const qs = new URLSearchParams(req.query);
   qs.delete('page');
   res.render('site/browse', { title: heading, heading, items, total, page, pages, qs: qs.toString(), genres, languages, query: req.query, sort, q });
+});
+
+// Trailer for the hover preview on poster cards (JSON)
+router.get('/preview/:media/:id', async (req, res) => {
+  const { media, id } = req.params;
+  if (!tmdb.enabled() || !['movie', 'tv'].includes(media) || !/^\d+$/.test(id)) return res.status(404).json({ trailer: null });
+  res.set('Cache-Control', 'private, max-age=21600');
+  try {
+    const { trailer_key } = await tmdb.details(media, id);
+    res.json({ trailer: /^[\w-]{11}$/.test(trailer_key) ? trailer_key : null });
+  } catch (e) {
+    res.status(e.status === 404 ? 404 : 502).json({ trailer: null });
+  }
 });
 
 // Episodes of a season (JSON) for the series player

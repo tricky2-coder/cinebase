@@ -131,6 +131,30 @@ button.s-admin { background: none; cursor: pointer; }
 .p-meta b { display: block; font-size: .88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-meta small { color: var(--dim); font-size: .78rem; }
 
+/* ---------- Hover preview (Netflix-style) ---------- */
+.pv {
+  position: fixed; z-index: 70; border-radius: 10px; overflow: hidden;
+  background: #18181e; box-shadow: 0 24px 60px rgba(0,0,0,.75), 0 0 0 1px var(--line);
+  opacity: 0; transform: scale(.88); transform-origin: center; transition: opacity .2s, transform .2s;
+}
+.pv.in { opacity: 1; transform: scale(1); }
+.pv-media { position: relative; aspect-ratio: 16 / 9; background: #0b0b0e; }
+.pv-media img, .pv-media iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.pv-media img { object-fit: cover; }
+.pv-media iframe { opacity: 0; transition: opacity .4s; pointer-events: none; transform: scale(1.02); }
+.pv-media iframe.on { opacity: 1; }
+.pv-media::after { content: ''; position: absolute; inset: auto 0 0; height: 40%; background: linear-gradient(transparent, #18181e); pointer-events: none; }
+.pv-mute {
+  position: absolute; right: 10px; bottom: 10px; z-index: 1; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.45); color: #fff; font-size: .95rem; cursor: pointer;
+}
+.pv-mute:hover { border-color: #fff; background: rgba(0,0,0,.65); }
+.pv-body { padding: .2rem 1rem 1rem; display: grid; gap: .2rem; }
+.pv-body b { font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv-body small { color: var(--dim); font-size: .82rem; }
+.pv-cta { display: flex; gap: .5rem; margin-top: .6rem; }
+.pv-cta .sbtn { padding: .5rem 1rem; font-size: .85rem; }
+
 /* ---------- Browse ---------- */
 .s-page { padding: 100px var(--pad) 3rem; min-height: 80vh; }
 .browse-head h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: clamp(2.4rem, 5vw, 3.6rem); margin: 0; letter-spacing: .02em; }

@@ -5,6 +5,11 @@
     <p class="muted"><%= total %> record<%= total === 1 ? '' : 's' %> found</p>
   </div>
   <div class="actions">
+    <% if (tmdbEnabled) { %>
+    <form method="POST" action="/titles/tmdb/enrich" data-confirm="Fetch missing posters, backdrops and trailers from TMDB for all titles?">
+      <button class="btn btn-ghost" type="submit">Fetch posters (TMDB)</button>
+    </form>
+    <% } %>
     <a href="/titles/export.csv?<%= qs %>" class="btn btn-ghost">Export CSV</a>
     <a href="/titles/new" class="btn btn-primary">+ Add Title</a>
   </div>
@@ -53,7 +58,7 @@
     <% rows.forEach(t => { %>
       <tr>
         <td data-label="ID"><%= t.id %></td>
-        <td data-label="Title"><a href="/titles/<%= t.id %>" class="strong"><%= t.title %></a></td>
+        <td data-label="Title" class="title-cell"><% if (t.poster_url) { %><img src="<%= t.poster_url %>" alt="" class="thumb" loading="lazy"><% } %><a href="/titles/<%= t.id %>" class="strong"><%= t.title %></a><% if (t.plex_rating_key) { %> <span class="badge badge-plex">Plex</span><% } %></td>
         <td data-label="Type"><span class="badge badge-<%= t.type.toLowerCase() %>"><%= t.type %></span></td>
         <td data-label="Genre"><%= t.genre %></td>
         <td data-label="Language"><%= t.language %></td>

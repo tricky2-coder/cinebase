@@ -1,0 +1,37 @@
+<%- include('_head') %>
+<main class="s-page">
+  <div class="browse-head">
+    <h1><%= heading %></h1>
+    <p class="muted-s"><%= items.length %> title<%= items.length === 1 ? '' : 's' %></p>
+  </div>
+  <form class="filterbar" method="GET" action="/browse">
+    <% if (q) { %><input type="hidden" name="q" value="<%= q %>"><% } %>
+    <% if (query.source) { %><input type="hidden" name="source" value="<%= query.source %>"><% } %>
+    <select name="type" aria-label="Type" onchange="this.form.submit()">
+      <option value="">All types</option>
+      <option <%= query.type === 'Movie' ? 'selected' : '' %>>Movie</option>
+      <option <%= query.type === 'Series' ? 'selected' : '' %>>Series</option>
+    </select>
+    <select name="genre" aria-label="Genre" onchange="this.form.submit()">
+      <option value="">All genres</option>
+      <% genres.forEach(g => { %><option <%= query.genre === g ? 'selected' : '' %>><%= g %></option><% }) %>
+    </select>
+    <select name="language" aria-label="Language" onchange="this.form.submit()">
+      <option value="">All languages</option>
+      <% languages.forEach(l => { %><option <%= query.language === l ? 'selected' : '' %>><%= l %></option><% }) %>
+    </select>
+    <select name="sort" aria-label="Sort" onchange="this.form.submit()">
+      <option value="rating" <%= sort === 'rating' ? 'selected' : '' %>>Top rated</option>
+      <option value="new" <%= sort === 'new' ? 'selected' : '' %>>Recently added</option>
+      <option value="year" <%= sort === 'year' ? 'selected' : '' %>>Newest release</option>
+      <option value="title" <%= sort === 'title' ? 'selected' : '' %>>A–Z</option>
+    </select>
+    <noscript><button class="sbtn sbtn-glass" type="submit">Apply</button></noscript>
+    <% if (Object.keys(query).length) { %><a href="/browse" class="clear">Clear</a><% } %>
+  </form>
+  <div class="grid">
+    <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>
+  </div>
+  <% if (!items.length) { %><p class="empty-s">Nothing matches. <a href="/browse">Browse everything</a></p><% } %>
+</main>
+<%- include('_foot') %>

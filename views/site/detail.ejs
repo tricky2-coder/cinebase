@@ -1,0 +1,46 @@
+<%- include('_head') %>
+<section class="d-hero">
+  <div class="d-bg <%= item.backdrop_url ? '' : 'fb' %>" style="<%= item.backdrop_url ? `--img:url('${item.backdrop_url}');` : '' %>--h:<%= (item.id * 47) % 360 %>"></div>
+  <div class="d-wrap">
+    <div class="d-poster">
+      <% if (item.poster_url) { %><img src="<%= item.poster_url %>" alt="<%= item.title %> poster"><% } else { %>
+      <div class="poster-fb" style="--h:<%= (item.id * 47) % 360 %>"><span><%= item.title %></span></div><% } %>
+    </div>
+    <div class="d-info">
+      <p class="eyebrow"><%= item.type %> · <%= item.genre %></p>
+      <h1><%= item.title %> <span class="d-year"><%= item.release_year %></span></h1>
+      <p class="chips">
+        <% if (item.rating != null) { %><span class="chip gold">★ <%= item.rating %> / 10</span><% } %>
+        <span class="chip"><%= item.language %></span>
+        <span class="chip"><%= item.status %></span>
+        <% if (item.type === 'Series' && item.seasons) { %><span class="chip"><%= item.seasons %> season<%= item.seasons > 1 ? 's' : '' %></span><% } %>
+        <% if (item.duration_min) { %><span class="chip"><%= item.type === 'Movie' ? `${Math.floor(item.duration_min / 60)}h ${item.duration_min % 60}m` : `${item.duration_min} min / ep` %></span><% } %>
+      </p>
+      <div class="cta">
+        <% if (item.plex_rating_key && plexEnabled) { %><a class="sbtn sbtn-play" href="/t/<%= item.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
+        <% if (item.trailer_key) { %><button class="sbtn <%= item.plex_rating_key && plexEnabled ? 'sbtn-glass' : 'sbtn-play' %>" data-trailer="<%= item.trailer_key %>">▶ Watch trailer</button><% } %>
+        <% if (user) { %><a class="sbtn sbtn-glass" href="/titles/<%= item.id %>/edit">Edit</a><% } %>
+      </div>
+      <% if (item.synopsis) { %><p class="d-syn"><%= item.synopsis %></p><% } %>
+      <dl class="d-facts">
+        <% if (item.director) { %><div><dt><%= item.type === 'Series' ? 'Created by' : 'Director' %></dt><dd><%= item.director %></dd></div><% } %>
+        <% if (item.cast_members) { %><div><dt>Cast</dt><dd><%= item.cast_members %></dd></div><% } %>
+        <% if (item.platform) { %><div><dt>Available on</dt><dd><%= item.platform %></dd></div><% } %>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<% if (similar.length) { %>
+<div class="rows">
+  <section class="row">
+    <div class="row-head"><h2>More <%= item.genre %></h2><a href="/browse?genre=<%= encodeURIComponent(item.genre) %>">See all ›</a></div>
+    <div class="row-body">
+      <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
+      <div class="track"><% similar.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
+      <button class="arrow r" data-dir="r" aria-label="Scroll right">›</button>
+    </div>
+  </section>
+</div>
+<% } %>
+<%- include('_foot') %>

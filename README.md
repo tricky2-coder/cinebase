@@ -31,6 +31,22 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 - Safety rules: you can't delete yourself, and the last admin can't be deleted or demoted.
 - Only users with role `admin` can log in to the panel.
 
+### Public site (streaming-style frontend)
+- **Home:** rotating hero with backdrops, plus rows for Recently Added, Top Rated, On Your Plex, Movies, Series and each genre.
+- **Browse & search:** poster grid with type, genre, language and sort filters.
+- **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", and a **▶ Play on Plex** button for titles on your server.
+- No login needed to browse. Editing stays behind the admin login.
+
+### Plex Media Server integration
+- Admin → **Plex** shows connection status and your movie and TV libraries.
+- **Sync library** imports every item with its poster, backdrop, cast, runtime and rating. Re-syncing refreshes items without duplicating them, and existing CineBase titles with the same name and year get linked instead of copied.
+- Linked titles open in Plex Web on any device signed into your Plex account.
+- Your `PLEX_TOKEN` never reaches the browser. Artwork is proxied through the CineBase server.
+
+### TMDB integration (optional)
+- **Auto-fill** on the add/edit form: search TMDB, pick a result, and title, poster, backdrop, cast, director, runtime, rating, trailer and Indian streaming provider are filled in.
+- **Fetch posters (TMDB)** on the titles list fills missing artwork and trailers for the whole catalogue.
+
 ### Dashboard
 Totals (titles, movies, series, users, average rating), top-rated titles, genre breakdown and recently updated records.
 
@@ -50,7 +66,7 @@ npm install
 npm start
 ```
 
-Open **http://localhost:3000**
+Public site: **http://localhost:3000** · Admin: **http://localhost:3000/admin**
 
 ### Default login
 | Username | Password |
@@ -73,8 +89,23 @@ On first start the app creates `data/cinebase.db` and seeds 8 sample titles.
 | `ADMIN_PASSWORD` | `admin123` | Initial admin password |
 | `DATA_DIR` | `./data` | Folder for the SQLite database file |
 | `NODE_ENV` | — | Set to `production` to enable secure (HTTPS-only) cookies |
+| `PLEX_URL` | — | Plex server address, e.g. `http://192.168.1.50:32400` |
+| `PLEX_TOKEN` | — | Your X-Plex-Token |
+| `TMDB_API_KEY` | — | TMDB v3 API key or v4 read token |
 
-See `.env.example`.
+Copy `.env.example` to `.env` and edit it. `npm start` loads it automatically.
+
+---
+
+## 🏠 Running on a home server with Plex
+
+1. Install Node.js 22 LTS on the machine that runs Plex (or any machine on the same network).
+2. `npm install`, then copy `.env.example` to `.env`.
+3. Set `PLEX_URL=http://127.0.0.1:32400` if CineBase runs on the Plex machine; otherwise use that machine's LAN IP.
+4. Get your token: in Plex Web open any item → ⋯ → **Get Info** → **View XML**. Copy the `X-Plex-Token=` value from the URL into `PLEX_TOKEN`.
+5. `npm start`, open `http://<server-ip>:3000` from any device on your Wi-Fi, log in, go to **Plex → Sync library**.
+6. **Away from home:** install [Tailscale](https://tailscale.com) on the server and your phone/laptop and open `http://<tailscale-ip>:3000`. Don't port-forward the admin panel to the open internet.
+7. **Keep it running** after reboots: `npm i -g pm2 && pm2 start npm --name cinebase -- start && pm2 save`. On Linux also run `pm2 startup`. On Windows use `pm2-windows-startup`.
 
 ---
 
@@ -101,15 +132,22 @@ cinebase/
 ├── routes/
 │   ├── auth.js            # /login, /logout
 │   ├── titles.js          # Movies & series CRUDL, search, CSV export
-│   └── users.js           # Users CRUDL + search
+│   ├── users.js           # Users CRUDL + search
+│   ├── plex.js            # Plex status + library sync (admin)
+│   └── site.js            # Public frontend + Plex play/artwork proxy
+├── services/
+│   ├── plex.js            # Plex Media Server API client
+│   └── tmdb.js            # TMDB API client
 ├── views/                 # EJS templates
 │   ├── partials/          # header / footer
 │   ├── titles/            # index, form, show
 │   ├── users/             # index, form
+│   ├── site/              # public home, browse, detail
+│   ├── plex.ejs
 │   ├── login.ejs
 │   ├── dashboard.ejs
 │   └── error.ejs
-├── public/css/style.css
+├── public/css/            # style.css (admin), site.css (public)
 ├── render.yaml            # One-click Render deployment
 └── package.json
 ```
@@ -118,7 +156,9 @@ cinebase/
 
 **users** — `id, name, username (unique), email (unique), password (bcrypt), role (admin|user), created_at`
 
-**titles** — `id, title, type (Movie|Series), genre, language, release_year, director, cast_members, seasons, duration_min, rating (0–10), platform, status (Released|Ongoing|Upcoming|Ended), synopsis, created_at, updated_at`
+**titles** — `id, title, type (Movie|Series), genre, language, release_year, director, cast_members, seasons, duration_min, rating (0–10), platform, status (Released|Ongoing|Upcoming|Ended), synopsis, poster_url, backdrop_url, trailer_key, tmdb_id, plex_rating_key, created_at, updated_at`
+
+Existing databases are upgraded automatically on start (new columns are added in place).
 
 ---
 

@@ -40,6 +40,20 @@ db.exec(`
   );
 `);
 
+// Media / integration columns — added via migration so existing databases upgrade in place
+const existingCols = db.prepare('PRAGMA table_info(titles)').all().map(c => c.name);
+const newCols = {
+  poster_url: 'TEXT',
+  backdrop_url: 'TEXT',
+  trailer_key: 'TEXT',          // YouTube video id
+  tmdb_id: 'INTEGER',
+  plex_rating_key: 'TEXT'       // links the record to an item on your Plex server
+};
+for (const [col, type] of Object.entries(newCols)) {
+  if (!existingCols.includes(col)) db.exec(`ALTER TABLE titles ADD COLUMN ${col} ${type}`);
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_titles_plex ON titles(plex_rating_key) WHERE plex_rating_key IS NOT NULL');
+
 // Seed default admin
 const adminUser = process.env.ADMIN_USERNAME || 'admin';
 const adminPass = process.env.ADMIN_PASSWORD || 'admin123';

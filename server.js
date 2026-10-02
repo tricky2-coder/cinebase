@@ -57,6 +57,8 @@ app.get('/dashboard', requireLogin, (req, res) => {
 
 app.use('/titles', requireLogin, require('./routes/titles'));
 app.use('/users', requireLogin, require('./routes/users'));
+app.use('/plex', requireLogin, require('./routes/plex'));
+app.use('/', require('./routes/site')); // public catalogue frontend
 
 app.use((req, res) => res.status(404).render('error', { title: 'Not found', message: 'Page not found.' }));
 app.use((err, req, res, next) => {

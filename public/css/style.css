@@ -244,3 +244,27 @@ a.stat:hover { border-color: var(--accent); text-decoration: none; }
   .film-strip { right: 1rem; width: 32px; }
   .login-card { margin: 1.5rem auto; }
 }
+
+/* ---------- Media / integrations ---------- */
+.title-cell { display: flex; align-items: center; gap: .6rem; }
+.thumb { width: 30px; height: 45px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.badge-plex { color: var(--accent); border-color: rgba(245,179,1,.4); background: rgba(245,179,1,.1); }
+img.detail-poster { width: 100%; object-fit: cover; }
+.poster-preview { width: 120px; aspect-ratio: 2/3; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.preview-wrap:has(img[hidden]) { display: none; }
+.hint { margin: -.5rem 0 1rem; }
+code, .code { font-family: ui-monospace, Consolas, monospace; font-size: .85em; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: .1rem .35rem; }
+.code { display: block; padding: .8rem 1rem; white-space: pre; overflow-x: auto; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .4rem; vertical-align: middle; }
+.dot-on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot-off { background: var(--danger); }
+.tmdb-search { display: flex; gap: .5rem; }
+.tmdb-search input { margin: 0; }
+.tmdb-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .6rem; margin-top: .8rem; }
+.tmdb-results .flash, .tmdb-results .alert, .tmdb-results p { grid-column: 1 / -1; margin: 0; }
+.tmdb-hit { display: flex; gap: .7rem; align-items: center; text-align: left; padding: .5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; font: inherit; }
+.tmdb-hit:hover { border-color: var(--accent); }
+.tmdb-hit.loading { opacity: .5; pointer-events: none; }
+.tmdb-hit img, .tmdb-hit .noimg { width: 40px; height: 60px; object-fit: cover; border-radius: 4px; background: var(--surface-2); flex-shrink: 0; }
+.tmdb-hit b { display: block; font-size: .9rem; }
+.tmdb-hit small { color: var(--muted); }

@@ -1,7 +1,7 @@
 <%- include('../partials/header') %>
 <a href="/titles" class="back">‹ Back to list</a>
 <article class="card detail">
-  <div class="detail-poster" aria-hidden="true"><span><%= item.title.charAt(0).toUpperCase() %></span></div>
+  <% if (item.poster_url) { %><img class="detail-poster" src="<%= item.poster_url %>" alt="<%= item.title %> poster"><% } else { %><div class="detail-poster" aria-hidden="true"><span><%= item.title.charAt(0).toUpperCase() %></span></div><% } %>
   <div class="detail-body">
     <div class="detail-head">
       <div>
@@ -13,6 +13,7 @@
         </p>
       </div>
       <div class="actions">
+        <a href="/t/<%= item.id %>" class="btn btn-ghost" target="_blank" rel="noopener">Public page ↗</a>
         <a href="/titles/<%= item.id %>/edit" class="btn btn-ghost">Edit</a>
         <form method="POST" action="/titles/<%= item.id %>?_method=DELETE" data-confirm="Delete this title permanently?">
           <button class="btn btn-danger" type="submit">Delete</button>
@@ -28,6 +29,9 @@
       <% if (item.type === 'Series') { %><div><dt>Seasons</dt><dd><%= item.seasons ?? '—' %></dd></div><% } %>
       <div><dt>Duration</dt><dd><%= item.duration_min ? item.duration_min + ' min' + (item.type === 'Series' ? ' / ep' : '') : '—' %></dd></div>
       <div class="span-all"><dt>Cast</dt><dd><%= item.cast_members || '—' %></dd></div>
+      <div><dt>Trailer</dt><dd><%- item.trailer_key ? `<a href="https://www.youtube.com/watch?v=${item.trailer_key}" target="_blank" rel="noopener">YouTube ↗</a>` : '—' %></dd></div>
+      <div><dt>Plex</dt><dd><%= item.plex_rating_key ? 'Linked (#' + item.plex_rating_key + ')' : 'Not linked' %></dd></div>
+      <div><dt>TMDB ID</dt><dd><%= item.tmdb_id || '—' %></dd></div>
       <div><dt>Added</dt><dd><%= item.created_at %> UTC</dd></div>
       <div><dt>Last updated</dt><dd><%= item.updated_at %> UTC</dd></div>
     </dl>

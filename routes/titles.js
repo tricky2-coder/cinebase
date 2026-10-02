@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { setFlash } = require('../middleware/auth');
+const tmdb = require('../services/tmdb');
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const SORTS = {
 const PAGE_SIZE = 10;
 
 const options = () => ({
-  TYPES, STATUSES, GENRES,
+  TYPES, STATUSES, GENRES, tmdbEnabled: tmdb.enabled(),
   languages: db.prepare('SELECT DISTINCT language FROM titles ORDER BY language').all().map(r => r.language)
 });
 
@@ -38,6 +39,15 @@ function buildQuery(q) {
   return { clause: where.length ? 'WHERE ' + where.join(' AND ') : '', params };
 }
 
+// Accepts a YouTube URL or bare 11-char id
+function youtubeId(v) {
+  v = (v || '').trim();
+  if (!v) return null;
+  if (/^[\w-]{11}$/.test(v)) return v;
+  const m = v.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
 function validate(body) {
   const errors = [];
   const t = {
@@ -53,7 +63,11 @@ function validate(body) {
     rating: body.rating === '' || body.rating == null ? null : parseFloat(body.rating),
     platform: (body.platform || '').trim() || null,
     status: body.status,
-    synopsis: (body.synopsis || '').trim() || null
+    synopsis: (body.synopsis || '').trim() || null,
+    poster_url: (body.poster_url || '').trim() || null,
+    backdrop_url: (body.backdrop_url || '').trim() || null,
+    trailer_key: youtubeId(body.trailer_key),
+    tmdb_id: body.tmdb_id ? parseInt(body.tmdb_id, 10) || null : null
   };
   const year = new Date().getFullYear();
   if (!t.title) errors.push('Title is required.');
@@ -66,6 +80,9 @@ function validate(body) {
   if (t.seasons !== null && (isNaN(t.seasons) || t.seasons < 1)) errors.push('Seasons must be a positive number.');
   if (t.duration_min !== null && (isNaN(t.duration_min) || t.duration_min < 1)) errors.push('Duration must be a positive number.');
   if (!STATUSES.includes(t.status)) errors.push('Invalid status.');
+  for (const f of ['poster_url', 'backdrop_url'])
+    if (t[f] && !/^(https?:\/\/|\/media\/plex-art\?)/.test(t[f])) errors.push(`${f.replace('_', ' ')} must be an http(s) URL.`);
+  if (body.trailer_key && !t.trailer_key) errors.push('Trailer must be a YouTube link or video ID.');
   if (t.type === 'Movie') t.seasons = null;
   return { t, errors };
 }
@@ -97,6 +114,47 @@ router.get('/export.csv', (req, res) => {
   res.send(csv);
 });
 
+// TMDB lookup (JSON, used by the add/edit form)
+router.get('/tmdb/search', async (req, res) => {
+  if (!tmdb.enabled()) return res.status(400).json({ error: 'TMDB_API_KEY is not set on the server.' });
+  try { res.json(await tmdb.search(String(req.query.q || ''), req.query.year)); }
+  catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+router.get('/tmdb/:media/:id', async (req, res) => {
+  if (!['movie', 'tv'].includes(req.params.media)) return res.status(400).json({ error: 'media must be movie or tv' });
+  if (!tmdb.enabled()) return res.status(400).json({ error: 'TMDB_API_KEY is not set on the server.' });
+  try { res.json(await tmdb.details(req.params.media, req.params.id)); }
+  catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+// Fill missing posters/trailers for every title from TMDB
+router.post('/tmdb/enrich', async (req, res) => {
+  if (!tmdb.enabled()) { setFlash(req, 'error', 'Set TMDB_API_KEY first.'); return res.redirect('/titles'); }
+  const rows = db.prepare('SELECT id,title,type,release_year,tmdb_id FROM titles WHERE poster_url IS NULL OR backdrop_url IS NULL OR trailer_key IS NULL').all();
+  const upd = db.prepare(`UPDATE titles SET tmdb_id=COALESCE(tmdb_id,@tmdb_id), poster_url=COALESCE(poster_url,NULLIF(@poster_url,'')),
+    backdrop_url=COALESCE(backdrop_url,NULLIF(@backdrop_url,'')), trailer_key=COALESCE(trailer_key,NULLIF(@trailer_key,'')),
+    cast_members=COALESCE(cast_members,NULLIF(@cast_members,'')), synopsis=COALESCE(synopsis,NULLIF(@synopsis,'')),
+    updated_at=datetime('now') WHERE id=@id`);
+  let done = 0, missed = 0;
+  for (const r of rows) {
+    try {
+      const media = r.type === 'Series' ? 'tv' : 'movie';
+      let id = r.tmdb_id;
+      if (!id) {
+        const hits = (await tmdb.search(r.title, r.release_year)).filter(h => h.media === media);
+        id = hits[0]?.tmdb_id;
+      }
+      if (!id) { missed++; continue; }
+      const d = await tmdb.details(media, id);
+      upd.run({ id: r.id, tmdb_id: d.tmdb_id, poster_url: d.poster_url, backdrop_url: d.backdrop_url, trailer_key: d.trailer_key, cast_members: d.cast_members, synopsis: d.synopsis });
+      done++;
+    } catch { missed++; }
+  }
+  setFlash(req, missed ? 'error' : 'success', `TMDB: updated ${done} title(s)${missed ? `, ${missed} not matched` : ''}.`);
+  res.redirect('/titles');
+});
+
 // ADD
 router.get('/new', (req, res) => {
   res.render('titles/form', { title: 'Add Title', item: { type: 'Movie', status: 'Released' }, errors: [], action: '/titles', method: 'POST', ...options() });
@@ -105,8 +163,8 @@ router.get('/new', (req, res) => {
 router.post('/', (req, res) => {
   const { t, errors } = validate(req.body);
   if (errors.length) return res.status(422).render('titles/form', { title: 'Add Title', item: req.body, errors, action: '/titles', method: 'POST', ...options() });
-  const info = db.prepare(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis)
-    VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis)`).run(t);
+  const info = db.prepare(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis,poster_url,backdrop_url,trailer_key,tmdb_id)
+    VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@poster_url,@backdrop_url,@trailer_key,@tmdb_id)`).run(t);
   setFlash(req, 'success', `"${t.title}" added.`);
   res.redirect(`/titles/${info.lastInsertRowid}`);
 });
@@ -134,6 +192,7 @@ router.put('/:id', (req, res, next) => {
   }
   db.prepare(`UPDATE titles SET title=@title,type=@type,genre=@genre,language=@language,release_year=@release_year,director=@director,
     cast_members=@cast_members,seasons=@seasons,duration_min=@duration_min,rating=@rating,platform=@platform,status=@status,synopsis=@synopsis,
+    poster_url=@poster_url,backdrop_url=@backdrop_url,trailer_key=@trailer_key,tmdb_id=@tmdb_id,
     updated_at=datetime('now') WHERE id=@id`).run({ ...t, id: exists.id });
   setFlash(req, 'success', `"${t.title}" updated.`);
   res.redirect(`/titles/${exists.id}`);

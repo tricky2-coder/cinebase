@@ -1,0 +1,55 @@
+<%- include('partials/header') %>
+<div class="page-head">
+  <div>
+    <h1>Plex Media Server</h1>
+    <p class="muted">Import your home-server libraries and add "Play on Plex" buttons to the site.</p>
+  </div>
+</div>
+
+<% if (!status.configured) { %>
+<section class="card">
+  <h2>Not connected</h2>
+  <p>Set these environment variables on the CineBase server, then restart it:</p>
+  <pre class="code">PLEX_URL=http://&lt;your-server-ip&gt;:32400
+PLEX_TOKEN=&lt;your X-Plex-Token&gt;</pre>
+  <p class="muted small">To find your token: open Plex Web, play any item → ⋯ → <b>Get Info</b> → <b>View XML</b>. The URL that opens ends with <code>X-Plex-Token=…</code>.</p>
+  <p class="muted small">If CineBase is hosted online (e.g. Render) and Plex is at home, <code>PLEX_URL</code> must be reachable from the internet. Use Plex's remote-access address or a tunnel such as Tailscale or Cloudflare Tunnel. A <code>192.168.x.x</code> address only works when CineBase runs on your home network.</p>
+</section>
+<% } else if (!status.online) { %>
+<section class="card">
+  <h2><span class="dot dot-off"></span> Can't reach Plex</h2>
+  <p class="alert alert-error"><%= status.error %></p>
+  <p class="muted small">Check that the server is running, <code>PLEX_URL</code> is reachable from where CineBase runs, and <code>PLEX_TOKEN</code> is correct.</p>
+</section>
+<% } else { %>
+<section class="card">
+  <h2><span class="dot dot-on"></span> Connected to <%= status.name %></h2>
+  <p class="muted small">Plex <%= status.version %> · <%= linked %> CineBase title<%= linked === 1 ? '' : 's' %> linked</p>
+</section>
+
+<section class="card">
+  <h2>Libraries</h2>
+  <% if (libError) { %><p class="alert alert-error"><%= libError %></p><% } %>
+  <% if (!libs.length && !libError) { %><p class="muted">No movie or TV libraries found on this server.</p><% } %>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Library</th><th>Type</th><th class="right">Action</th></tr></thead>
+      <tbody>
+      <% libs.forEach(l => { %>
+        <tr>
+          <td data-label="Library" class="strong"><%= l.title %></td>
+          <td data-label="Type"><span class="badge badge-<%= l.type === 'show' ? 'series' : 'movie' %>"><%= l.type === 'show' ? 'TV Shows' : 'Movies' %></span></td>
+          <td class="right row-actions">
+            <form method="POST" action="/plex/sync/<%= l.key %>" data-confirm="Import/refresh all items from '<%= l.title %>'?">
+              <button class="btn btn-primary btn-sm" type="submit">Sync library</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">Syncing adds new items and refreshes existing ones. Your manual edits to genre, language, status and platform are kept.</p>
+</section>
+<% } %>
+<%- include('partials/footer') %>

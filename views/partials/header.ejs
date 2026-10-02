@@ -18,6 +18,8 @@
     <a href="/dashboard" class="<%= path === '/dashboard' ? 'active' : '' %>">Dashboard</a>
     <a href="/titles" class="<%= path.startsWith('/titles') ? 'active' : '' %>">Movies &amp; Series</a>
     <a href="/users" class="<%= path.startsWith('/users') ? 'active' : '' %>">Users</a>
+    <a href="/plex" class="<%= path.startsWith('/plex') ? 'active' : '' %>">Plex</a>
+    <a href="/" target="_blank" rel="noopener">View site ↗</a>
     <form action="/logout" method="POST" class="logout">
       <span class="who"><%= user.name %></span>
       <button type="submit" class="btn btn-ghost btn-sm">Logout</button>

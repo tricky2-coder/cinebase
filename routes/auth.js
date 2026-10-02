@@ -4,7 +4,7 @@ const db = require('../db');
 
 const router = express.Router();
 
-router.get('/', (req, res) => res.redirect(req.session.user ? '/dashboard' : '/login'));
+router.get('/admin', (req, res) => res.redirect(req.session.user ? '/dashboard' : '/login'));
 
 router.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/dashboard');

@@ -1,0 +1,12 @@
+<a class="card-p" href="/t/<%= c.id %>" title="<%= c.title %> (<%= c.release_year %>)">
+  <div class="poster">
+    <% if (c.poster_url) { %>
+      <img src="<%= c.poster_url %>" alt="" loading="lazy">
+    <% } else { %>
+      <div class="poster-fb" style="--h:<%= (c.id * 47) % 360 %>"><span><%= c.title %></span></div>
+    <% } %>
+    <% if (c.rating != null) { %><span class="p-rate">★ <%= c.rating %></span><% } %>
+    <% if (c.plex_rating_key) { %><span class="p-plex" title="On your Plex">▶</span><% } %>
+  </div>
+  <div class="p-meta"><b><%= c.title %></b><small><%= c.release_year %> · <%= c.type %></small></div>
+</a>

@@ -1,0 +1,56 @@
+<%- include('_head') %>
+<% if (hero.length) { %>
+<section class="hero" id="hero">
+  <% hero.forEach((h, i) => { %>
+  <article class="slide <%= i === 0 ? 'on' : '' %>" style="<%= h.backdrop_url ? `--img:url('${h.backdrop_url}')` : '' %>" data-i="<%= i %>">
+    <div class="slide-bg <%= h.backdrop_url ? '' : 'fb' %>" style="--h:<%= (h.id * 47) % 360 %>"></div>
+    <div class="slide-body">
+      <p class="eyebrow"><%= h.type %> · <%= h.genre %> · <%= h.release_year %></p>
+      <h1><%= h.title %></h1>
+      <p class="chips">
+        <% if (h.rating != null) { %><span class="chip gold">★ <%= h.rating %></span><% } %>
+        <% if (h.language) { %><span class="chip"><%= h.language %></span><% } %>
+        <% if (h.type === 'Series' && h.seasons) { %><span class="chip"><%= h.seasons %> season<%= h.seasons > 1 ? 's' : '' %></span><% } %>
+        <% if (h.type === 'Movie' && h.duration_min) { %><span class="chip"><%= Math.floor(h.duration_min / 60) %>h <%= h.duration_min % 60 %>m</span><% } %>
+      </p>
+      <% if (h.synopsis) { %><p class="lede"><%= h.synopsis %></p><% } %>
+      <div class="cta">
+        <% if (h.plex_rating_key && plexEnabled) { %><a class="sbtn sbtn-play" href="/t/<%= h.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
+        <% if (h.trailer_key) { %><button class="sbtn <%= h.plex_rating_key && plexEnabled ? 'sbtn-glass' : 'sbtn-play' %>" data-trailer="<%= h.trailer_key %>">▶ Trailer</button><% } %>
+        <a class="sbtn sbtn-glass" href="/t/<%= h.id %>">More info</a>
+      </div>
+    </div>
+  </article>
+  <% }) %>
+  <% if (hero.length > 1) { %>
+  <div class="dots"><% hero.forEach((h, i) => { %><button class="<%= i === 0 ? 'on' : '' %>" data-i="<%= i %>" aria-label="Show <%= h.title %>"></button><% }) %></div>
+  <% } %>
+</section>
+<% } %>
+
+<div class="rows">
+<% rows.forEach(r => { %>
+  <section class="row">
+    <div class="row-head"><h2><%= r.name %></h2><a href="<%= r.link %>">See all ›</a></div>
+    <div class="row-body">
+      <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
+      <div class="track"><% r.items.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
+      <button class="arrow r" data-dir="r" aria-label="Scroll right">›</button>
+    </div>
+  </section>
+<% }) %>
+<% if (!rows.length) { %><p class="empty-s">The catalogue is empty. Add titles from the <a href="/admin">admin panel</a>.</p><% } %>
+</div>
+
+<script>
+  (() => {
+    const slides = [...document.querySelectorAll('.slide')], dots = [...document.querySelectorAll('.dots button')];
+    if (slides.length < 2) return;
+    let i = 0, timer;
+    const go = n => { slides[i].classList.remove('on'); dots[i].classList.remove('on'); i = (n + slides.length) % slides.length; slides[i].classList.add('on'); dots[i].classList.add('on'); };
+    const start = () => { clearInterval(timer); timer = setInterval(() => go(i + 1), 7000); };
+    dots.forEach(d => d.addEventListener('click', () => { go(+d.dataset.i); start(); }));
+    start();
+  })();
+</script>
+<%- include('_foot') %>

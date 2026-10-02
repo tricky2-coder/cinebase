@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · CineBase</title>
+  <meta name="description" content="CineBase – browse movies and series.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body class="site">
+<header class="s-top" id="s-top">
+  <a href="/" class="s-brand">CINEBASE</a>
+  <nav class="s-nav">
+    <a href="/" class="<%= path === '/' ? 'on' : '' %>">Home</a>
+    <a href="/browse?type=Movie" class="<%= query && query.type === 'Movie' ? 'on' : '' %>">Movies</a>
+    <a href="/browse?type=Series" class="<%= query && query.type === 'Series' ? 'on' : '' %>">Series</a>
+    <% if (plexEnabled) { %><a href="/browse?source=plex" class="<%= query && query.source === 'plex' ? 'on' : '' %>">My Plex</a><% } %>
+  </nav>
+  <form class="s-search" action="/browse" method="GET" role="search">
+    <input type="search" name="q" value="<%= q %>" placeholder="Search titles, people…" aria-label="Search">
+  </form>
+  <a href="/admin" class="s-admin"><%= user ? 'Dashboard' : 'Admin' %></a>
+</header>

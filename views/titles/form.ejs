@@ -12,7 +12,21 @@
 </div>
 <% } %>
 
-<form class="card form" method="POST" action="<%= action %>">
+<% if (tmdbEnabled) { %>
+<section class="card tmdb-box">
+  <h2>Auto-fill from TMDB</h2>
+  <div class="tmdb-search">
+    <input type="search" id="tmdb-q" placeholder="Search a movie or series…" aria-label="Search TMDB">
+    <button type="button" class="btn btn-ghost" id="tmdb-go">Search</button>
+  </div>
+  <div id="tmdb-results" class="tmdb-results"></div>
+</section>
+<% } else { %>
+<p class="muted small hint">Tip: set <code>TMDB_API_KEY</code> on the server to auto-fill posters, cast and trailers.</p>
+<% } %>
+
+<form class="card form" method="POST" action="<%= action %>" id="title-form">
+  <input type="hidden" name="tmdb_id" value="<%= item.tmdb_id || '' %>">
   <div class="form-grid">
     <label class="span-2">Title *
       <input type="text" name="title" value="<%= item.title || '' %>" required maxlength="200">
@@ -60,6 +74,21 @@
     <label class="span-2">Synopsis
       <textarea name="synopsis" rows="4" maxlength="2000"><%= item.synopsis || '' %></textarea>
     </label>
+    <div class="span-2 preview-wrap">
+      <img id="poster-preview" class="poster-preview" alt="" src="<%= item.poster_url || '' %>" <%= item.poster_url ? '' : 'hidden' %>>
+    </div>
+    <label class="span-2">Poster image URL
+      <input type="text" name="poster_url" id="poster_url" value="<%= item.poster_url || '' %>" placeholder="https://…">
+    </label>
+    <label class="span-2">Backdrop image URL
+      <input type="text" name="backdrop_url" value="<%= item.backdrop_url || '' %>" placeholder="https://…">
+    </label>
+    <label class="span-2">Trailer (YouTube link or ID)
+      <input type="text" name="trailer_key" value="<%= item.trailer_key || '' %>" placeholder="https://youtube.com/watch?v=…">
+    </label>
+    <% if (item.plex_rating_key) { %>
+    <p class="span-2 muted small">🔗 Linked to Plex item #<%= item.plex_rating_key %></p>
+    <% } %>
   </div>
   <div class="form-actions">
     <a href="/titles" class="btn btn-ghost">Cancel</a>
@@ -70,5 +99,41 @@
   const typeSel = document.getElementById('type');
   const sync = () => document.querySelector('.form').classList.toggle('is-series', typeSel.value === 'Series');
   typeSel.addEventListener('change', sync); sync();
+
+  const posterIn = document.getElementById('poster_url'), preview = document.getElementById('poster-preview');
+  posterIn.addEventListener('input', () => { preview.src = posterIn.value; preview.hidden = !posterIn.value; });
+
+  const q = document.getElementById('tmdb-q');
+  if (q) {
+    const out = document.getElementById('tmdb-results'), form = document.getElementById('title-form');
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    async function search() {
+      if (!q.value.trim()) return;
+      out.innerHTML = '<p class="muted">Searching…</p>';
+      const r = await fetch('/titles/tmdb/search?q=' + encodeURIComponent(q.value));
+      const data = await r.json();
+      if (!r.ok) { out.innerHTML = `<p class="alert alert-error">${esc(data.error)}</p>`; return; }
+      out.innerHTML = data.length ? data.map(d => `
+        <button type="button" class="tmdb-hit" data-media="${d.media}" data-id="${d.tmdb_id}">
+          ${d.poster ? `<img src="${esc(d.poster)}" alt="">` : '<span class="noimg"></span>'}
+          <span><b>${esc(d.title)}</b><small>${d.year || '—'} · ${d.media === 'tv' ? 'Series' : 'Movie'}</small></span>
+        </button>`).join('') : '<p class="muted">No matches.</p>';
+    }
+    document.getElementById('tmdb-go').onclick = search;
+    q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
+    out.addEventListener('click', async e => {
+      const hit = e.target.closest('.tmdb-hit'); if (!hit) return;
+      hit.classList.add('loading');
+      const r = await fetch(`/titles/tmdb/${hit.dataset.media}/${hit.dataset.id}`);
+      const d = await r.json();
+      if (!r.ok) { out.innerHTML = `<p class="alert alert-error">${esc(d.error)}</p>`; return; }
+      for (const [k, v] of Object.entries(d)) {
+        const el = form.elements[k];
+        if (el && v !== '' && v != null) el.value = v;
+      }
+      sync(); posterIn.dispatchEvent(new Event('input'));
+      out.innerHTML = `<p class="flash flash-success">Filled from TMDB: ${esc(d.title)}. Review and save.</p>`;
+    });
+  }
 </script>
 <%- include('../partials/footer') %>

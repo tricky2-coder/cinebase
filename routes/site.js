@@ -54,8 +54,20 @@ router.get('/browse', (req, res) => {
 router.get('/t/:id', (req, res, next) => {
   const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
   if (!item) return next();
+
+  let embedUrl = null;
+  const isSeries = item.type === 'Series' || item.type === 'tv';
+  const mediaType = isSeries ? 'tv' : 'movie';
+
+  // Using vidsrc.pm mirror
+  if (item.imdb_id) {
+    embedUrl = `https://vidsrc.pm/embed/${mediaType}/${item.imdb_id}${isSeries ? '?season=1&episode=1' : ''}`;
+  } else if (item.tmdb_id) {
+    embedUrl = `https://vidsrc.pm/embed/${mediaType}/${item.tmdb_id}${isSeries ? '?season=1&episode=1' : ''}`;
+  }
+
   const similar = db.prepare(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`).all(item.genre, item.id);
-  res.render('site/detail', { title: item.title, item, similar });
+  res.render('site/detail', { title: item.title, item, embedUrl, similar });
 });
 
 // Open on Plex

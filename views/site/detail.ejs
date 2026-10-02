@@ -1,46 +1,85 @@
 <%- include('_head') %>
-<section class="d-hero">
-  <div class="d-bg <%= item.backdrop_url ? '' : 'fb' %>" style="<%= item.backdrop_url ? `--img:url('${item.backdrop_url}');` : '' %>--h:<%= (item.id * 47) % 360 %>"></div>
-  <div class="d-wrap">
-    <div class="d-poster">
-      <% if (item.poster_url) { %><img src="<%= item.poster_url %>" alt="<%= item.title %> poster"><% } else { %>
-      <div class="poster-fb" style="--h:<%= (item.id * 47) % 360 %>"><span><%= item.title %></span></div><% } %>
-    </div>
-    <div class="d-info">
-      <p class="eyebrow"><%= item.type %> · <%= item.genre %></p>
-      <h1><%= item.title %> <span class="d-year"><%= item.release_year %></span></h1>
-      <p class="chips">
-        <% if (item.rating != null) { %><span class="chip gold">★ <%= item.rating %> / 10</span><% } %>
-        <span class="chip"><%= item.language %></span>
-        <span class="chip"><%= item.status %></span>
-        <% if (item.type === 'Series' && item.seasons) { %><span class="chip"><%= item.seasons %> season<%= item.seasons > 1 ? 's' : '' %></span><% } %>
-        <% if (item.duration_min) { %><span class="chip"><%= item.type === 'Movie' ? `${Math.floor(item.duration_min / 60)}h ${item.duration_min % 60}m` : `${item.duration_min} min / ep` %></span><% } %>
-      </p>
-      <div class="cta">
-        <% if (item.plex_rating_key && plexEnabled) { %><a class="sbtn sbtn-play" href="/t/<%= item.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
-        <% if (item.trailer_key) { %><button class="sbtn <%= item.plex_rating_key && plexEnabled ? 'sbtn-glass' : 'sbtn-play' %>" data-trailer="<%= item.trailer_key %>">▶ Watch trailer</button><% } %>
-        <% if (user) { %><a class="sbtn sbtn-glass" href="/titles/<%= item.id %>/edit">Edit</a><% } %>
-      </div>
-      <% if (item.synopsis) { %><p class="d-syn"><%= item.synopsis %></p><% } %>
-      <dl class="d-facts">
-        <% if (item.director) { %><div><dt><%= item.type === 'Series' ? 'Created by' : 'Director' %></dt><dd><%= item.director %></dd></div><% } %>
-        <% if (item.cast_members) { %><div><dt>Cast</dt><dd><%= item.cast_members %></dd></div><% } %>
-        <% if (item.platform) { %><div><dt>Available on</dt><dd><%= item.platform %></dd></div><% } %>
-      </dl>
-    </div>
-  </div>
-</section>
 
-<% if (similar.length) { %>
-<div class="rows">
-  <section class="row">
-    <div class="row-head"><h2>More <%= item.genre %></h2><a href="/browse?genre=<%= encodeURIComponent(item.genre) %>">See all ›</a></div>
-    <div class="row-body">
-      <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
-      <div class="track"><% similar.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
-      <button class="arrow r" data-dir="r" aria-label="Scroll right">›</button>
+<div class="container my-4" style="max-width: 1000px; margin: 0 auto; padding: 20px;">
+  <% if (item) { %>
+    <div style="display: flex; gap: 20px; margin-bottom: 30px; align-items: flex-start; color: #fff;">
+      <% if (item.poster_url) { %>
+        <img 
+          src="<%= item.poster_url %>" 
+          alt="<%= item.title %>"
+          style="width: 220px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"
+        />
+      <% } %>
+      <div>
+        <h1 style="margin-top: 0;"><%= item.title %></h1>
+        <p style="color: #aaa; font-size: 1.1rem;">
+          <%= item.release_year %> 
+          <% if (item.rating) { %>
+            • ⭐ <%= item.rating %> / 10
+          <% } %>
+        </p>
+        <p style="line-height: 1.6; color: #ddd;"><%= item.synopsis || item.overview %></p>
+      </div>
     </div>
-  </section>
+
+    <!-- VidSrc Embed Section -->
+    <div style="background: #1e1e1e; border-radius: 8px; overflow: hidden; margin-bottom: 30px;">
+      <div style="background: #2a2a2a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;">
+        <h3 style="margin: 0; color: #fff; font-size: 1.1rem;">Watch Stream</h3>
+        
+        <!-- Dynamic Domain Selector -->
+        <% if (embedUrl) { %>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="serverSelect" style="color: #aaa; font-size: 0.85rem;">Server:</label>
+            <select id="serverSelect" onchange="switchServer(this.value)" style="background: #333; color: #fff; border: 1px solid #555; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+              <option value="vidsrc.cc">vidsrc.cc</option>
+              <option value="vidsrc.pm">vidsrc.pm</option>
+              <option value="vidsrc.xyz">vidsrc.xyz</option>
+              <option value="vidsrc.in">vidsrc.in</option>
+            </select>
+          </div>
+        <% } %>
+      </div>
+      
+      <!-- Responsive 16:9 Player Container -->
+      <div style="position: relative; width: 100%; padding-top: 56.25%; background: #000;">
+        <% if (embedUrl) { %>
+          <iframe 
+            id="playerFrame"
+            src="<%= embedUrl %>" 
+            title="VidSrc Player"
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            referrerpolicy="no-referrer"
+            allowfullscreen>
+          </iframe>
+        <% } else { %>
+          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #888;">
+            No stream URL available for this title.
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% } else { %>
+    <div style="background: #ffc107; color: #000; padding: 15px; border-radius: 6px; text-align: center;">
+      Title details could not be loaded.
+    </div>
+  <% } %>
 </div>
-<% } %>
+
+<script>
+  function switchServer(domain) {
+    const iframe = document.getElementById('playerFrame');
+    if (!iframe) return;
+    
+    try {
+      const url = new URL(iframe.src);
+      url.hostname = domain;
+      iframe.src = url.toString();
+    } catch (e) {
+      console.error('Failed to update player domain', e);
+    }
+  }
+</script>
+
 <%- include('_foot') %>

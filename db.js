@@ -46,9 +46,11 @@ const newCols = {
   poster_url: 'TEXT',
   backdrop_url: 'TEXT',
   trailer_key: 'TEXT',          // YouTube video id
-  tmdb_id: 'INTEGER',
+  imdb_id: 'TEXT',              // IMDb ID (e.g. tt1375666) for VidSrc playback
+  tmdb_id: 'INTEGER',           // TMDB ID for VidSrc playback
   plex_rating_key: 'TEXT'       // links the record to an item on your Plex server
 };
+
 for (const [col, type] of Object.entries(newCols)) {
   if (!existingCols.includes(col)) db.exec(`ALTER TABLE titles ADD COLUMN ${col} ${type}`);
 }
@@ -67,21 +69,28 @@ if (!db.prepare('SELECT id FROM users WHERE username = ?').get(adminUser)) {
 // Seed sample titles
 if (db.prepare('SELECT COUNT(*) AS c FROM titles').get().c === 0) {
   const ins = db.prepare(`INSERT INTO titles
-    (title, type, genre, language, release_year, director, cast_members, seasons, duration_min, rating, platform, status, synopsis)
-    VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis)`);
+    (title, type, genre, language, release_year, director, cast_members, seasons, duration_min, rating, platform, status, synopsis, imdb_id, tmdb_id)
+    VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@imdb_id,@tmdb_id)`);
+  
   const samples = [
-    { title: 'Inception', type: 'Movie', genre: 'Sci-Fi', language: 'English', release_year: 2010, director: 'Christopher Nolan', cast_members: 'Leonardo DiCaprio, Joseph Gordon-Levitt', seasons: null, duration_min: 148, rating: 8.8, platform: 'Netflix', status: 'Released', synopsis: 'A thief who steals secrets through dream-sharing is given a chance at redemption.' },
-    { title: 'Breaking Bad', type: 'Series', genre: 'Crime', language: 'English', release_year: 2008, director: 'Vince Gilligan', cast_members: 'Bryan Cranston, Aaron Paul', seasons: 5, duration_min: 47, rating: 9.5, platform: 'Netflix', status: 'Ended', synopsis: 'A chemistry teacher turns to manufacturing drugs to secure his family\'s future.' },
-    { title: '3 Idiots', type: 'Movie', genre: 'Comedy', language: 'Hindi', release_year: 2009, director: 'Rajkumar Hirani', cast_members: 'Aamir Khan, R. Madhavan, Sharman Joshi', seasons: null, duration_min: 170, rating: 8.4, platform: 'Prime Video', status: 'Released', synopsis: 'Two friends search for their long-lost college companion.' },
-    { title: 'Sacred Games', type: 'Series', genre: 'Thriller', language: 'Hindi', release_year: 2018, director: 'Anurag Kashyap', cast_members: 'Saif Ali Khan, Nawazuddin Siddiqui', seasons: 2, duration_min: 50, rating: 8.5, platform: 'Netflix', status: 'Ended', synopsis: 'A Mumbai police officer receives a cryptic call from a notorious gangster.' },
-    { title: 'Interstellar', type: 'Movie', genre: 'Sci-Fi', language: 'English', release_year: 2014, director: 'Christopher Nolan', cast_members: 'Matthew McConaughey, Anne Hathaway', seasons: null, duration_min: 169, rating: 8.7, platform: 'Prime Video', status: 'Released', synopsis: 'Explorers travel through a wormhole in search of a new home for humanity.' },
-    { title: 'Panchayat', type: 'Series', genre: 'Comedy', language: 'Hindi', release_year: 2020, director: 'Deepak Kumar Mishra', cast_members: 'Jitendra Kumar, Neena Gupta', seasons: 4, duration_min: 32, rating: 9.0, platform: 'Prime Video', status: 'Ongoing', synopsis: 'An engineering graduate becomes secretary of a remote village panchayat.' },
-    { title: 'Stranger Things', type: 'Series', genre: 'Horror', language: 'English', release_year: 2016, director: 'The Duffer Brothers', cast_members: 'Millie Bobby Brown, Finn Wolfhard', seasons: 5, duration_min: 51, rating: 8.7, platform: 'Netflix', status: 'Ended', synopsis: 'Kids in a small town uncover supernatural experiments and a parallel world.' },
-    { title: 'RRR', type: 'Movie', genre: 'Action', language: 'Telugu', release_year: 2022, director: 'S. S. Rajamouli', cast_members: 'N. T. Rama Rao Jr., Ram Charan', seasons: null, duration_min: 187, rating: 7.8, platform: 'Netflix', status: 'Released', synopsis: 'A fictional story of two revolutionaries in 1920s India.' }
+    { title: 'Inception', type: 'Movie', genre: 'Sci-Fi', language: 'English', release_year: 2010, director: 'Christopher Nolan', cast_members: 'Leonardo DiCaprio, Joseph Gordon-Levitt', seasons: null, duration_min: 148, rating: 8.8, platform: 'Netflix', status: 'Released', synopsis: 'A thief who steals secrets through dream-sharing is given a chance at redemption.', imdb_id: 'tt1375666', tmdb_id: 27205 },
+    { title: 'Breaking Bad', type: 'Series', genre: 'Crime', language: 'English', release_year: 2008, director: 'Vince Gilligan', cast_members: 'Bryan Cranston, Aaron Paul', seasons: 5, duration_min: 47, rating: 9.5, platform: 'Netflix', status: 'Ended', synopsis: 'A chemistry teacher turns to manufacturing drugs to secure his family\'s future.', imdb_id: 'tt0903747', tmdb_id: 1396 },
+    { title: '3 Idiots', type: 'Movie', genre: 'Comedy', language: 'Hindi', release_year: 2009, director: 'Rajkumar Hirani', cast_members: 'Aamir Khan, R. Madhavan, Sharman Joshi', seasons: null, duration_min: 170, rating: 8.4, platform: 'Prime Video', status: 'Released', synopsis: 'Two friends search for their long-lost college companion.', imdb_id: 'tt1187043', tmdb_id: 20453 },
+    { title: 'Sacred Games', type: 'Series', genre: 'Thriller', language: 'Hindi', release_year: 2018, director: 'Anurag Kashyap', cast_members: 'Saif Ali Khan, Nawazuddin Siddiqui', seasons: 2, duration_min: 50, rating: 8.5, platform: 'Netflix', status: 'Ended', synopsis: 'A Mumbai police officer receives a cryptic call from a notorious gangster.', imdb_id: 'tt6077448', tmdb_id: 79813 },
+    { title: 'Interstellar', type: 'Movie', genre: 'Sci-Fi', language: 'English', release_year: 2014, director: 'Christopher Nolan', cast_members: 'Matthew McConaughey, Anne Hathaway', seasons: null, duration_min: 169, rating: 8.7, platform: 'Prime Video', status: 'Released', synopsis: 'Explorers travel through a wormhole in search of a new home for humanity.', imdb_id: 'tt0816692', tmdb_id: 157336 },
+    { title: 'Panchayat', type: 'Series', genre: 'Comedy', language: 'Hindi', release_year: 2020, director: 'Deepak Kumar Mishra', cast_members: 'Jitendra Kumar, Neena Gupta', seasons: 4, duration_min: 32, rating: 9.0, platform: 'Prime Video', status: 'Ongoing', synopsis: 'An engineering graduate becomes secretary of a remote village panchayat.', imdb_id: 'tt12004706', tmdb_id: 101188 },
+    { title: 'Stranger Things', type: 'Series', genre: 'Horror', language: 'English', release_year: 2016, director: 'The Duffer Brothers', cast_members: 'Millie Bobby Brown, Finn Wolfhard', seasons: 5, duration_min: 51, rating: 8.7, platform: 'Netflix', status: 'Ended', synopsis: 'Kids in a small town uncover supernatural experiments and a parallel world.', imdb_id: 'tt4574334', tmdb_id: 66732 },
+    { title: 'RRR', type: 'Movie', genre: 'Action', language: 'Telugu', release_year: 2022, director: 'S. S. Rajamouli', cast_members: 'N. T. Rama Rao Jr., Ram Charan', seasons: null, duration_min: 187, rating: 7.8, platform: 'Netflix', status: 'Released', synopsis: 'A fictional story of two revolutionaries in 1920s India.', imdb_id: 'tt8178634', tmdb_id: 579974 }
   ];
+  
   db.exec('BEGIN');
-  try { samples.forEach(r => ins.run(r)); db.exec('COMMIT'); }
-  catch (e) { db.exec('ROLLBACK'); throw e; }
+  try { 
+    samples.forEach(r => ins.run(r)); 
+    db.exec('COMMIT'); 
+  } catch (e) { 
+    db.exec('ROLLBACK'); 
+    throw e; 
+  }
   console.log(`Seeded ${samples.length} sample titles`);
 }
 

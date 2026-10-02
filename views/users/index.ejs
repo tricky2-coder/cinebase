@@ -1,0 +1,48 @@
+<%- include('../partials/header') %>
+<div class="page-head">
+  <div>
+    <h1>Users</h1>
+    <p class="muted"><%= rows.length %> user<%= rows.length === 1 ? '' : 's' %></p>
+  </div>
+  <a href="/users/new" class="btn btn-primary">+ Add User</a>
+</div>
+
+<form class="card filters filters-sm" method="GET" action="/users">
+  <input type="search" name="q" value="<%= q %>" placeholder="Search name, username, email…" class="filter-q" aria-label="Search users">
+  <select name="role" aria-label="Role">
+    <option value="">All roles</option>
+    <% ROLES.forEach(r => { %><option value="<%= r %>" <%= role === r ? 'selected' : '' %>><%= r %></option><% }) %>
+  </select>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">Search</button>
+    <a class="btn btn-ghost" href="/users">Reset</a>
+  </div>
+</form>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>#</th><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Created</th><th class="right">Actions</th></tr></thead>
+    <tbody>
+    <% rows.forEach(u => { %>
+      <tr>
+        <td data-label="ID"><%= u.id %></td>
+        <td data-label="Name" class="strong"><%= u.name %><% if (u.id === user.id) { %> <span class="you">you</span><% } %></td>
+        <td data-label="Username"><%= u.username %></td>
+        <td data-label="Email"><%= u.email %></td>
+        <td data-label="Role"><span class="badge badge-<%= u.role %>"><%= u.role %></span></td>
+        <td data-label="Created"><%= u.created_at.slice(0, 10) %></td>
+        <td class="right row-actions">
+          <a href="/users/<%= u.id %>/edit" class="btn btn-ghost btn-sm">Edit</a>
+          <% if (u.id !== user.id) { %>
+          <form method="POST" action="/users/<%= u.id %>?_method=DELETE" data-confirm="Delete user &quot;<%= u.username %>&quot;?">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (!rows.length) { %><tr><td colspan="7" class="empty">No users found.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/footer') %>

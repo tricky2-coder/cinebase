@@ -1,0 +1,30 @@
+{
+  "name": "cinebase",
+  "version": "1.0.0",
+  "description": "CineBase – Movie/Series Database System with admin login and CRUDL operations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "movies",
+    "series",
+    "crud",
+    "express",
+    "sqlite"
+  ],
+  "author": "Aneesh Ajay Deokar",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "method-override": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

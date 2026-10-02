@@ -1,0 +1,44 @@
+<%- include('../partials/header') %>
+<div class="page-head">
+  <div>
+    <a href="/users" class="back">‹ Back to users</a>
+    <h1><%= title %></h1>
+  </div>
+</div>
+
+<% if (errors.length) { %>
+<div class="alert alert-error" role="alert">
+  <ul><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul>
+</div>
+<% } %>
+
+<form class="card form form-narrow" method="POST" action="<%= action %>" autocomplete="off">
+  <div class="form-grid">
+    <label class="span-2">Full Name *
+      <input type="text" name="name" value="<%= item.name || '' %>" required>
+    </label>
+    <label>Username *
+      <input type="text" name="username" value="<%= item.username || '' %>" required pattern="[a-zA-Z0-9_.]{3,30}">
+    </label>
+    <label>Role *
+      <select name="role">
+        <% ROLES.forEach(r => { %><option value="<%= r %>" <%= item.role === r ? 'selected' : '' %>><%= r %></option><% }) %>
+      </select>
+    </label>
+    <label class="span-2">Email *
+      <input type="email" name="email" value="<%= item.email || '' %>" required>
+    </label>
+    <label>Password <%= isEdit ? '(leave blank to keep)' : '*' %>
+      <input type="password" name="password" minlength="6" <%= isEdit ? '' : 'required' %> autocomplete="new-password">
+    </label>
+    <label>Confirm Password
+      <input type="password" name="confirm_password" minlength="6" <%= isEdit ? '' : 'required' %> autocomplete="new-password">
+    </label>
+  </div>
+  <p class="muted small">Only users with the <b>admin</b> role can log in to this panel.</p>
+  <div class="form-actions">
+    <a href="/users" class="btn btn-ghost">Cancel</a>
+    <button type="submit" class="btn btn-primary"><%= isEdit ? 'Save Changes' : 'Create User' %></button>
+  </div>
+</form>
+<%- include('../partials/footer') %>

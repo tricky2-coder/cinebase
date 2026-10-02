@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · CineBase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% if (user) { %>
+<header class="topbar">
+  <a href="/dashboard" class="brand"><span class="reel">●</span> CINEBASE</a>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu">
+  <label for="nav-toggle" class="nav-burger"><span></span><span></span><span></span></label>
+  <nav class="nav">
+    <a href="/dashboard" class="<%= path === '/dashboard' ? 'active' : '' %>">Dashboard</a>
+    <a href="/titles" class="<%= path.startsWith('/titles') ? 'active' : '' %>">Movies &amp; Series</a>
+    <a href="/users" class="<%= path.startsWith('/users') ? 'active' : '' %>">Users</a>
+    <form action="/logout" method="POST" class="logout">
+      <span class="who"><%= user.name %></span>
+      <button type="submit" class="btn btn-ghost btn-sm">Logout</button>
+    </form>
+  </nav>
+</header>
+<% } %>
+<main class="<%= user ? 'container' : '' %>">
+<% if (flash) { %>
+  <div class="flash flash-<%= flash.type %>" role="status"><%= flash.msg %></div>
+<% } %>

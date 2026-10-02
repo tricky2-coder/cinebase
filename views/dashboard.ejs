@@ -1,0 +1,64 @@
+<%- include('partials/header') %>
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="muted">Overview of your catalogue.</p>
+  </div>
+  <a href="/titles/new" class="btn btn-primary">+ Add Title</a>
+</div>
+
+<div class="stats">
+  <a class="stat" href="/titles"><span class="stat-num"><%= stats.total %></span><span class="stat-label">Total Titles</span></a>
+  <a class="stat" href="/titles?type=Movie"><span class="stat-num"><%= stats.movies %></span><span class="stat-label">Movies</span></a>
+  <a class="stat" href="/titles?type=Series"><span class="stat-num"><%= stats.series %></span><span class="stat-label">Series</span></a>
+  <div class="stat"><span class="stat-num"><%= stats.avgRating %></span><span class="stat-label">Avg Rating</span></div>
+  <a class="stat" href="/users"><span class="stat-num"><%= stats.users %></span><span class="stat-label">Users</span></a>
+</div>
+
+<form class="quicksearch" action="/titles" method="GET">
+  <input type="search" name="q" placeholder="Search titles, directors, cast…" aria-label="Search">
+  <button class="btn btn-primary" type="submit">Search</button>
+</form>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>Top Rated</h2>
+    <ol class="rank">
+      <% topRated.forEach(t => { %>
+        <li><a href="/titles/<%= t.id %>"><%= t.title %></a> <span class="badge badge-<%= t.type.toLowerCase() %>"><%= t.type %></span><span class="rating">★ <%= t.rating %></span></li>
+      <% }) %>
+      <% if (!topRated.length) { %><li class="muted">No titles yet.</li><% } %>
+    </ol>
+  </section>
+  <section class="card">
+    <h2>By Genre</h2>
+    <% const max = Math.max(1, ...byGenre.map(g => g.c)); %>
+    <ul class="bars">
+      <% byGenre.forEach(g => { %>
+        <li><a href="/titles?genre=<%= encodeURIComponent(g.genre) %>"><%= g.genre %></a>
+          <span class="bar"><span style="width:<%= (g.c / max) * 100 %>%"></span></span><b><%= g.c %></b></li>
+      <% }) %>
+    </ul>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Recently Updated</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Title</th><th>Type</th><th>Genre</th><th>Year</th><th>Rating</th></tr></thead>
+      <tbody>
+      <% recent.forEach(t => { %>
+        <tr>
+          <td data-label="Title"><a href="/titles/<%= t.id %>"><%= t.title %></a></td>
+          <td data-label="Type"><span class="badge badge-<%= t.type.toLowerCase() %>"><%= t.type %></span></td>
+          <td data-label="Genre"><%= t.genre %></td>
+          <td data-label="Year"><%= t.release_year %></td>
+          <td data-label="Rating"><%= t.rating ?? '—' %></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</section>
+<%- include('partials/footer') %>

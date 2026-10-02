@@ -1,0 +1,74 @@
+<%- include('../partials/header') %>
+<div class="page-head">
+  <div>
+    <a href="/titles" class="back">‹ Back to list</a>
+    <h1><%= title %></h1>
+  </div>
+</div>
+
+<% if (errors.length) { %>
+<div class="alert alert-error" role="alert">
+  <ul><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul>
+</div>
+<% } %>
+
+<form class="card form" method="POST" action="<%= action %>">
+  <div class="form-grid">
+    <label class="span-2">Title *
+      <input type="text" name="title" value="<%= item.title || '' %>" required maxlength="200">
+    </label>
+    <label>Type *
+      <select name="type" id="type" required>
+        <% TYPES.forEach(t => { %><option <%= item.type === t ? 'selected' : '' %>><%= t %></option><% }) %>
+      </select>
+    </label>
+    <label>Status *
+      <select name="status" required>
+        <% STATUSES.forEach(s => { %><option <%= item.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
+      </select>
+    </label>
+    <label>Genre *
+      <input type="text" name="genre" list="genres" value="<%= item.genre || '' %>" required>
+      <datalist id="genres"><% GENRES.forEach(g => { %><option value="<%= g %>"><% }) %></datalist>
+    </label>
+    <label>Language *
+      <input type="text" name="language" list="langs" value="<%= item.language || '' %>" required>
+      <datalist id="langs"><% [...new Set(['English','Hindi','Marathi','Tamil','Telugu','Korean','Japanese', ...languages])].forEach(l => { %><option value="<%= l %>"><% }) %></datalist>
+    </label>
+    <label>Release Year *
+      <input type="number" name="release_year" value="<%= item.release_year || '' %>" required min="1888" max="<%= new Date().getFullYear() + 5 %>">
+    </label>
+    <label>Rating (0–10)
+      <input type="number" name="rating" value="<%= item.rating ?? '' %>" min="0" max="10" step="0.1">
+    </label>
+    <label>Director / Creator
+      <input type="text" name="director" value="<%= item.director || '' %>">
+    </label>
+    <label>Platform
+      <input type="text" name="platform" list="platforms" value="<%= item.platform || '' %>">
+      <datalist id="platforms"><% ['Netflix','Prime Video','JioHotstar','Disney+','HBO Max','Apple TV+','SonyLIV','ZEE5','Theatres'].forEach(p => { %><option value="<%= p %>"><% }) %></datalist>
+    </label>
+    <label class="span-2">Cast (comma separated)
+      <input type="text" name="cast_members" value="<%= item.cast_members || '' %>">
+    </label>
+    <label class="series-only">Seasons
+      <input type="number" name="seasons" value="<%= item.seasons ?? '' %>" min="1">
+    </label>
+    <label>Duration (min<span class="series-only-inline"> / episode</span>)
+      <input type="number" name="duration_min" value="<%= item.duration_min ?? '' %>" min="1">
+    </label>
+    <label class="span-2">Synopsis
+      <textarea name="synopsis" rows="4" maxlength="2000"><%= item.synopsis || '' %></textarea>
+    </label>
+  </div>
+  <div class="form-actions">
+    <a href="/titles" class="btn btn-ghost">Cancel</a>
+    <button type="submit" class="btn btn-primary"><%= method === 'PUT' ? 'Save Changes' : 'Add Title' %></button>
+  </div>
+</form>
+<script>
+  const typeSel = document.getElementById('type');
+  const sync = () => document.querySelector('.form').classList.toggle('is-series', typeSel.value === 'Series');
+  typeSel.addEventListener('change', sync); sync();
+</script>
+<%- include('../partials/footer') %>

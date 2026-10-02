@@ -1,0 +1,36 @@
+<%- include('../partials/header') %>
+<a href="/titles" class="back">‹ Back to list</a>
+<article class="card detail">
+  <div class="detail-poster" aria-hidden="true"><span><%= item.title.charAt(0).toUpperCase() %></span></div>
+  <div class="detail-body">
+    <div class="detail-head">
+      <div>
+        <h1><%= item.title %> <span class="year">(<%= item.release_year %>)</span></h1>
+        <p>
+          <span class="badge badge-<%= item.type.toLowerCase() %>"><%= item.type %></span>
+          <span class="status status-<%= item.status.toLowerCase() %>"><%= item.status %></span>
+          <% if (item.rating != null) { %><span class="rating big">★ <%= item.rating %><small>/10</small></span><% } %>
+        </p>
+      </div>
+      <div class="actions">
+        <a href="/titles/<%= item.id %>/edit" class="btn btn-ghost">Edit</a>
+        <form method="POST" action="/titles/<%= item.id %>?_method=DELETE" data-confirm="Delete this title permanently?">
+          <button class="btn btn-danger" type="submit">Delete</button>
+        </form>
+      </div>
+    </div>
+    <% if (item.synopsis) { %><p class="synopsis"><%= item.synopsis %></p><% } %>
+    <dl class="facts">
+      <div><dt>Genre</dt><dd><%= item.genre %></dd></div>
+      <div><dt>Language</dt><dd><%= item.language %></dd></div>
+      <div><dt>Director / Creator</dt><dd><%= item.director || '—' %></dd></div>
+      <div><dt>Platform</dt><dd><%= item.platform || '—' %></dd></div>
+      <% if (item.type === 'Series') { %><div><dt>Seasons</dt><dd><%= item.seasons ?? '—' %></dd></div><% } %>
+      <div><dt>Duration</dt><dd><%= item.duration_min ? item.duration_min + ' min' + (item.type === 'Series' ? ' / ep' : '') : '—' %></dd></div>
+      <div class="span-all"><dt>Cast</dt><dd><%= item.cast_members || '—' %></dd></div>
+      <div><dt>Added</dt><dd><%= item.created_at %> UTC</dd></div>
+      <div><dt>Last updated</dt><dd><%= item.updated_at %> UTC</dd></div>
+    </dl>
+  </div>
+</article>
+<%- include('../partials/footer') %>

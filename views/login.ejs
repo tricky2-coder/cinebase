@@ -1,0 +1,23 @@
+<%- include('partials/header') %>
+<section class="login-wrap">
+  <div class="login-art" aria-hidden="true">
+    <div class="film-strip"></div>
+    <h1 class="login-title">CINEBASE</h1>
+    <p>Your movie &amp; series catalogue — anywhere, on any device.</p>
+  </div>
+  <form class="card login-card" method="POST" action="/login" autocomplete="on">
+    <h2>Admin Login</h2>
+    <p class="muted">Sign in to manage the database.</p>
+    <% if (error) { %>
+      <div class="alert alert-error" role="alert"><%= error %></div>
+    <% } %>
+    <label>Username
+      <input type="text" name="username" value="<%= username %>" required autofocus autocomplete="username">
+    </label>
+    <label>Password
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">Login</button>
+  </form>
+</section>
+<%- include('partials/footer') %>

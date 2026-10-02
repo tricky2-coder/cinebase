@@ -115,10 +115,47 @@
     const mirror = document.getElementById('p-mirror');
     const MIRROR_KEY = 'cinebase.mirror', EP_KEY = `cinebase.ep.${cfg.key}`;
     const state = { s: 1, e: 1 };
+    let onEnded = () => {}; // series: continue with the next episode
 
-    const url = () => `https://${mirror.value}` + (cfg.formats[mirror.value] || '')
-      .replace('{id}', encodeURIComponent(cfg.id)).replace('{s}', state.s).replace('{e}', state.e);
-    const load = () => { const u = url(); if (iframe.src !== u) iframe.src = u; };
+    // Watch position per movie / episode (players that report playback events, e.g. Vidy)
+    const posKey = () => `cinebase.pos.${cfg.key}` + (cfg.isSeries ? `.${state.s}.${state.e}` : '');
+    const resumeAt = () => {
+      try {
+        const p = JSON.parse(localStorage.getItem(posKey()) || 'null');
+        return p && p.t > 30 && (!p.d || p.t < p.d - 60) ? Math.floor(p.t) : null;
+      } catch { return null; }
+    };
+
+    const url = ({ autoplay = false } = {}) => {
+      const p = cfg.players[mirror.value];
+      if (!p) return iframe.src;
+      const u = new URL(`https://${mirror.value}` + p.path
+        .replace('{id}', encodeURIComponent(p.id)).replace('{s}', state.s).replace('{e}', state.e));
+      if (p.events) {
+        const t = resumeAt();
+        if (t) u.searchParams.set('progress', t);
+        if (autoplay) u.searchParams.set('autoplay', 'true'); // only after a click on this page
+      }
+      return u.href;
+    };
+    const load = opts => { const u = url(opts); if (iframe.src !== u) iframe.src = u; };
+
+    // Playback events posted by the player (JSON strings). Only trust our own iframe.
+    let lastSaved = 0;
+    addEventListener('message', e => {
+      if (e.source !== iframe.contentWindow || typeof e.data !== 'string') return;
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === 'MEDIA_DATA' || !msg.event) return;
+      if (msg.event === 'timeupdate' && Number.isFinite(msg.currentTime) && Math.abs(msg.currentTime - lastSaved) >= 5) {
+        lastSaved = msg.currentTime;
+        try { localStorage.setItem(posKey(), JSON.stringify({ t: msg.currentTime, d: msg.duration || null })); } catch {}
+      } else if (msg.event === 'ended') {
+        try { localStorage.removeItem(posKey()); } catch {}
+        lastSaved = 0;
+        onEnded();
+      }
+    });
 
     try {
       const saved = localStorage.getItem(MIRROR_KEY);
@@ -126,7 +163,7 @@
     } catch {}
     mirror.addEventListener('change', () => {
       try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
-      load();
+      load({ autoplay: true });
     });
 
     if (cfg.isSeries) {
@@ -216,10 +253,12 @@
 
       function play(s, e) {
         state.s = s; state.e = e;
+        lastSaved = 0;
         try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
-        load();
+        load({ autoplay: true });
         if (shown !== s) showSeason(s); else mark();
       }
+      onEnded = () => { const t = step(1); if (t) play(t.s, t.e); };
 
       tabs.forEach(t => t.addEventListener('click', () => showSeason(+t.dataset.season)));
       prev.addEventListener('click', () => { const t = step(-1); if (t) play(t.s, t.e); });

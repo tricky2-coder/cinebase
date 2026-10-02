@@ -54,8 +54,8 @@
       <% if (player && player.isSeries) { %><span class="now-playing" id="ep-now">Season 1 · Episode 1</span><% } %>
     </div>
     <% if (player) { %>
-    <label class="mirror">Server
-      <select id="p-mirror"><% player.domains.forEach(d => { %><option value="<%= d %>"><%= d %></option><% }) %></select>
+    <label class="mirror">Player
+      <select id="p-mirror"><% player.options.forEach(o => { %><option value="<%= o.domain %>"><%= o.label %></option><% }) %></select>
     </label>
     <% } %>
   </div>
@@ -64,7 +64,7 @@
       <iframe
         src="<%= player.src %>"
         title="<%= item.title %> player"
-        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+        allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
         referrerpolicy="no-referrer"
         <% if (player.sandbox) { %>sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"<% } %>
         allowfullscreen></iframe>

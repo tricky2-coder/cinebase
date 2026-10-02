@@ -42,7 +42,7 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
   - Logged-in admins get **+ Add to CineBase** on any title page to save it into the catalogue in one click.
   - TMDB responses are cached in memory for a few hours.
 - **My CineBase** (`/browse`): your own catalogue with type, genre, language and sort filters. Without a TMDB key, the whole site shows only this catalogue.
-- **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", a **▶ Play on Plex** button for titles on your server, and an embedded VidSrc player with a mirror switcher (remembered per browser). Series get season tabs and episode cards from TMDB (thumbnail, title, runtime; unaired episodes greyed out), Prev/Next across seasons, and resume where each viewer left off.
+- **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", a **▶ Play on Plex** button for titles on your server, and an embedded player with a **Player** menu: VidSrc mirrors or [Vidy](https://www.vidy.st) (choice remembered per browser). With Vidy, playback resumes where you stopped and series continue to the next episode automatically. Series get season tabs and episode cards from TMDB (thumbnail, title, runtime; unaired episodes greyed out), Prev/Next across seasons, and resume where each viewer left off.
 - Signing in is required to browse; editing stays admin-only.
 ### Plex Media Server integration
 - Admin → **Plex** shows connection status and your movie and TV libraries.
@@ -110,6 +110,7 @@ Existing titles (same IMDb ID, or same title/type/year) are updated in place: mi
 | `TMDB_API_KEY` | — | TMDB v3 API key or v4 read token |
 | `OMDB_API_KEY` | — | OMDb key, used by `npm run import:omdb` |
 | `VIDSRC_DOMAINS` | `vidsrc.pm,vidsrc.cc` | Player mirrors, comma-separated; the first is the default |
+| `VIDY` | `1` | `0` hides the Vidy player option |
 | `VIDSRC_SANDBOX` | `0` | `1` sandboxes the player iframe (blocks popups/redirects; some mirrors won't play) |
 
 In production (`NODE_ENV=production`) the server refuses to start without `SESSION_SECRET`, and refuses to create the first admin with the default `admin123` password.

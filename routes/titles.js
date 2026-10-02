@@ -176,6 +176,34 @@ router.post('/tmdb/enrich', async (req, res) => {
   res.redirect('/titles');
 });
 
+// Add a TMDB title to CineBase in one click (the "+ Add to CineBase" button on public title pages)
+router.post('/import-tmdb', async (req, res) => {
+  const media = req.body.media === 'tv' ? 'tv' : 'movie';
+  const id = parseInt(req.body.id, 10);
+  if (!tmdb.enabled() || !id) return res.redirect('/titles');
+  const back = `/${media === 'tv' ? 'tv' : 'm'}/${id}`;
+  try {
+    const d = await tmdb.details(media, id);
+    const imdbId = /^tt\d+$/.test(d.imdb_id) ? d.imdb_id : null;
+    const existing = db.prepare('SELECT id FROM titles WHERE tmdb_id = ? AND type = ?').get(d.tmdb_id, d.type)
+      || (imdbId ? db.prepare('SELECT id FROM titles WHERE imdb_id = ?').get(imdbId) : null);
+    if (existing) return res.redirect(back);
+
+    const { t, errors } = validate({ ...d, genre: d.genre || 'Drama', language: d.language || 'Unknown' });
+    if (errors.length) {
+      setFlash(req, 'error', `Couldn't add "${d.title}" from TMDB: ${errors.join(' ')}`);
+      return res.redirect('/titles');
+    }
+    db.prepare(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis,poster_url,backdrop_url,trailer_key,tmdb_id,imdb_id,tmdb_checked_at)
+      VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@poster_url,@backdrop_url,@trailer_key,@tmdb_id,@imdb_id,datetime('now'))`)
+      .run({ ...t, imdb_id: imdbId });
+    res.redirect(back);
+  } catch (e) {
+    setFlash(req, 'error', `Couldn't add from TMDB: ${e.message}`);
+    res.redirect('/titles');
+  }
+});
+
 // ADD
 router.get('/new', (req, res) => {
   res.render('titles/form', { title: 'Add Title', item: { type: 'Movie', status: 'Released' }, errors: [], action: '/titles', method: 'POST', ...options() });

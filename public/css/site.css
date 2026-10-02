@@ -48,6 +48,9 @@ button { font: inherit; }
 .chip.gold { background: rgba(245,179,1,.16); color: var(--gold); font-weight: 700; }
 .eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; font-weight: 600; color: var(--gold); margin: 0 0 .5rem; }
 .cta { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1.2rem; }
+.cta form { display: contents; }
+.sub-h { font-size: 1.2rem; margin: 0 0 .9rem; }
+.grid-gap { margin-bottom: 2.2rem; }
 
 /* ---------- Hero ---------- */
 .hero { position: relative; height: min(88vh, 760px); min-height: 520px; }

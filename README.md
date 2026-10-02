@@ -32,11 +32,16 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 - Only users with role `admin` can log in to the panel.
 
 ### Public site (streaming-style frontend)
-- **Home:** rotating hero with backdrops, plus rows for Recently Added, Top Rated, On Your Plex, Movies, Series and each genre.
-- **Browse & search:** poster grid with type, genre, language and sort filters.
+- **Every movie & series (with `TMDB_API_KEY`):** the public site reads the live TMDB catalogue.
+  - **Home:** Trending, Popular and Top Rated rows for movies and series, plus your own CineBase and Plex rows.
+  - **Movies / Series:** discover the whole catalogue with genre, language, year and sort filters (paged).
+  - **Search:** finds any title on TMDB; matches from your own CineBase are listed first.
+  - **Title pages** (`/m/:id`, `/tv/:id`): backdrop, cast, trailer, player and recommendations for any TMDB title.
+  - Logged-in admins get **+ Add to CineBase** on any title page to save it into the catalogue in one click.
+  - TMDB responses are cached in memory for a few hours.
+- **My CineBase** (`/browse`): your own catalogue with type, genre, language and sort filters. Without a TMDB key, the whole site shows only this catalogue.
 - **Title page:** backdrop, poster, cast, trailer (YouTube, privacy mode), "More like this", a **▶ Play on Plex** button for titles on your server, and an embedded VidSrc player with a mirror switcher (remembered per browser) and a season/episode picker for series.
 - No login needed to browse. Editing stays behind the admin login.
-
 ### Plex Media Server integration
 - Admin → **Plex** shows connection status and your movie and TV libraries.
 - **Sync library** imports every item with its poster, backdrop, cast, runtime and rating. Re-syncing refreshes items without duplicating them, and existing CineBase titles with the same name and year get linked instead of copied.

@@ -24,6 +24,19 @@
         <% if (player) { %><a class="sbtn sbtn-play" href="#watch">▶ Watch</a><% } %>
         <% if (item.plex_rating_key && plexEnabled) { %><a class="sbtn <%= player ? 'sbtn-glass' : 'sbtn-play' %>" href="/t/<%= item.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
         <% if (item.trailer_key) { %><button class="sbtn sbtn-glass" data-trailer="<%= item.trailer_key %>">Trailer</button><% } %>
+        <% if (user) { %>
+          <% if (!source) { %>
+            <a class="sbtn sbtn-glass" href="/titles/<%= item.id %>/edit">Edit</a>
+          <% } else if (source.localId) { %>
+            <a class="sbtn sbtn-glass" href="/titles/<%= source.localId %>">✓ In your CineBase</a>
+          <% } else { %>
+            <form method="POST" action="/titles/import-tmdb">
+              <input type="hidden" name="media" value="<%= source.media %>">
+              <input type="hidden" name="id" value="<%= source.tmdbId %>">
+              <button class="sbtn sbtn-glass" type="submit">+ Add to CineBase</button>
+            </form>
+          <% } %>
+        <% } %>
       </div>
       <% if (item.synopsis) { %><p class="d-syn"><%= item.synopsis %></p><% } %>
       <dl class="d-facts">
@@ -67,7 +80,7 @@
 <% if (similar.length) { %>
 <div class="rows">
   <section class="row">
-    <div class="row-head"><h2>More like this</h2><a href="/browse?genre=<%= encodeURIComponent(item.genre) %>">See all ›</a></div>
+    <div class="row-head"><h2>More like this</h2><% if (!source) { %><a href="/browse?genre=<%= encodeURIComponent(item.genre) %>">See all ›</a><% } %></div>
     <div class="row-body">
       <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
       <div class="track"><% similar.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>

@@ -1,7 +1,9 @@
-// Optional TMDB integration (https://www.themoviedb.org) — posters, backdrops, cast, trailers.
+// Optional TMDB integration (https://www.themoviedb.org) — posters, backdrops, cast, trailers,
+// plus the live public catalogue (trending, popular, discover, search, title pages).
 // Set TMDB_API_KEY to either a v3 API key or a v4 "API Read Access Token".
 const BASE = process.env.TMDB_API_BASE || 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p';
+const HOUR = 60 * 60 * 1000;
 
 const key = () => (process.env.TMDB_API_KEY || '').trim();
 const enabled = () => !!key();
@@ -15,8 +17,21 @@ async function call(endpoint, params = {}) {
   else url.searchParams.set('api_key', key());
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') url.searchParams.set(k, v);
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`TMDB ${res.status}: ${res.statusText}`);
+  if (!res.ok) throw Object.assign(new Error(`TMDB ${res.status}: ${res.statusText}`), { status: res.status });
   return res.json();
+}
+
+// Small in-memory cache (per server instance) so pages stay fast and well under TMDB's rate limits
+const cache = new Map();
+const CACHE_MAX = 500;
+async function cached(cacheKey, ttlMs, fn) {
+  const hit = cache.get(cacheKey);
+  if (hit && hit.exp > Date.now()) return hit.value;
+  const value = await fn();
+  cache.delete(cacheKey);
+  cache.set(cacheKey, { exp: Date.now() + ttlMs, value });
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+  return value;
 }
 
 async function search(query, year) {
@@ -36,10 +51,13 @@ async function search(query, year) {
 const LANGS = { en: 'English', hi: 'Hindi', mr: 'Marathi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada', bn: 'Bengali', ko: 'Korean', ja: 'Japanese', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', zh: 'Chinese' };
 const GENRE_MAP = { 'Science Fiction': 'Sci-Fi', 'Sci-Fi & Fantasy': 'Sci-Fi', 'Action & Adventure': 'Action', 'War & Politics': 'Drama' };
 
+// Full TMDB record, shared by the admin auto-fill, the enrich job and the public title pages
+const raw = (media, id) => cached(`full:${media}:${id}`, 6 * HOUR, () =>
+  call(`/${media === 'tv' ? 'tv' : 'movie'}/${id}`, { append_to_response: 'credits,videos,watch/providers,external_ids,recommendations' }));
+
 // Full details mapped to CineBase's title fields
-async function details(media, id) {
+function mapDetails(media, d) {
   const isTv = media === 'tv';
-  const d = await call(`/${isTv ? 'tv' : 'movie'}/${id}`, { append_to_response: 'credits,videos,watch/providers' });
   const trailer = (d.videos?.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer')
     || (d.videos?.results || []).find(v => v.site === 'YouTube');
   const director = isTv
@@ -54,6 +72,7 @@ async function details(media, id) {
 
   return {
     tmdb_id: d.id,
+    imdb_id: d.external_ids?.imdb_id || d.imdb_id || '',
     title: d.title || d.name,
     type: isTv ? 'Series' : 'Movie',
     genre: GENRE_MAP[genre] || genre || '',
@@ -73,4 +92,87 @@ async function details(media, id) {
   };
 }
 
-module.exports = { enabled, search, details };
+async function details(media, id) {
+  return mapDetails(media, await raw(media, id));
+}
+
+// ---------- Live catalogue ----------
+
+// Genre id -> name for movies and series (ids are shared where names match)
+const genreList = media => cached(`genres:${media}`, 24 * HOUR, async () =>
+  (await call(`/genre/${media}/list`)).genres);
+async function genreNames() {
+  const [m, t] = await Promise.all([genreList('movie'), genreList('tv')]);
+  return Object.fromEntries([...m, ...t].map(g => [g.id, g.name]));
+}
+
+// A TMDB list result in the same shape as a CineBase card (views/site/_card.ejs)
+function toCard(r, media, names) {
+  const m = r.media_type || media;
+  const isTv = m === 'tv';
+  const g = names[r.genre_ids?.[0]];
+  return {
+    id: r.id,
+    tmdb_id: r.id,
+    href: `/${isTv ? 'tv' : 'm'}/${r.id}`,
+    title: r.title || r.name,
+    type: isTv ? 'Series' : 'Movie',
+    genre: GENRE_MAP[g] || g || '',
+    release_year: (r.release_date || r.first_air_date || '').slice(0, 4),
+    rating: r.vote_count ? Math.round(r.vote_average * 10) / 10 : null,
+    language: LANGS[r.original_language] || r.original_language || '',
+    synopsis: r.overview || null,
+    poster_url: r.poster_path ? `${IMG}/w342${r.poster_path}` : null,
+    backdrop_url: r.backdrop_path ? `${IMG}/w1280${r.backdrop_path}` : null
+  };
+}
+
+const isTitle = (r, media) => ['movie', 'tv'].includes(r.media_type || media);
+
+function listPage(endpoint, params, media) {
+  return cached(`list:${endpoint}?${new URLSearchParams(params)}`, 3 * HOUR, async () => {
+    const [d, names] = await Promise.all([call(endpoint, { include_adult: 'false', ...params }), genreNames()]);
+    return {
+      page: d.page || 1,
+      pages: Math.max(1, Math.min(d.total_pages || 1, 500)), // TMDB serves at most 500 pages
+      total: d.total_results || 0,
+      items: (d.results || []).filter(r => isTitle(r, media)).map(r => toCard(r, media, names))
+    };
+  });
+}
+
+const trending = () => listPage('/trending/all/week', {}, null);
+const popular = media => listPage(`/${media}/popular`, {}, media);
+const topRated = media => listPage(`/${media}/top_rated`, {}, media);
+const searchAll = (query, page = 1) => listPage('/search/multi', { query, page }, null);
+
+function discover(media, { genre, year, language, sort, page = 1 }) {
+  const isTv = media === 'tv';
+  const p = { page };
+  if (sort === 'rating') {
+    p.sort_by = 'vote_average.desc';
+    // Enough votes to be meaningful; regional/yearly slices have far fewer voters
+    p['vote_count.gte'] = language || year ? 20 : isTv ? 100 : 300;
+  } else if (sort === 'newest') {
+    p.sort_by = isTv ? 'first_air_date.desc' : 'primary_release_date.desc';
+    p[isTv ? 'first_air_date.lte' : 'primary_release_date.lte'] = new Date().toISOString().slice(0, 10);
+    p['vote_count.gte'] = 10;
+  } else {
+    p.sort_by = 'popularity.desc';
+  }
+  if (genre) p.with_genres = genre;
+  if (year) p[isTv ? 'first_air_date_year' : 'primary_release_year'] = year;
+  if (language) p.with_original_language = language;
+  return listPage(`/discover/${media}`, p, media);
+}
+
+// Everything a public title page needs
+async function titlePage(media, id) {
+  const [d, names] = await Promise.all([raw(media, id), genreNames()]);
+  return {
+    item: mapDetails(media, d),
+    similar: (d.recommendations?.results || []).filter(r => isTitle(r, media)).slice(0, 20).map(r => toCard(r, media, names))
+  };
+}
+
+module.exports = { enabled, search, details, LANGS, genreList, trending, popular, topRated, discover, searchAll, titlePage };

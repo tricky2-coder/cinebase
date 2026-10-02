@@ -14,12 +14,18 @@
   <a href="/" class="s-brand">CINEBASE</a>
   <nav class="s-nav">
     <a href="/" class="<%= path === '/' ? 'on' : '' %>">Home</a>
+    <% if (tmdbEnabled) { %>
+    <a href="/discover?type=movie" class="<%= (path === '/discover' && query.type !== 'tv') || path.startsWith('/m/') ? 'on' : '' %>">Movies</a>
+    <a href="/discover?type=tv" class="<%= (path === '/discover' && query.type === 'tv') || path.startsWith('/tv/') ? 'on' : '' %>">Series</a>
+    <a href="/browse" class="<%= (path === '/browse' && query.source !== 'plex') || path.startsWith('/t/') ? 'on' : '' %>">My CineBase</a>
+    <% } else { %>
     <a href="/browse?type=Movie" class="<%= query && query.type === 'Movie' ? 'on' : '' %>">Movies</a>
     <a href="/browse?type=Series" class="<%= query && query.type === 'Series' ? 'on' : '' %>">Series</a>
+    <% } %>
     <% if (plexEnabled) { %><a href="/browse?source=plex" class="<%= query && query.source === 'plex' ? 'on' : '' %>">My Plex</a><% } %>
   </nav>
-  <form class="s-search" action="/browse" method="GET" role="search">
-    <input type="search" name="q" value="<%= q %>" placeholder="Search titles, people…" aria-label="Search">
+  <form class="s-search" action="<%= tmdbEnabled ? '/search' : '/browse' %>" method="GET" role="search">
+    <input type="search" name="q" value="<%= q %>" placeholder="Search movies & series…" aria-label="Search">
   </form>
   <a href="/admin" class="s-admin"><%= user ? 'Dashboard' : 'Admin' %></a>
 </header>

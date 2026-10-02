@@ -5,7 +5,7 @@
   <article class="slide <%= i === 0 ? 'on' : '' %>" style="<%= h.backdrop_url ? `--img:url('${h.backdrop_url}')` : '' %>" data-i="<%= i %>">
     <div class="slide-bg <%= h.backdrop_url ? '' : 'fb' %>" style="--h:<%= (h.id * 47) % 360 %>"></div>
     <div class="slide-body">
-      <p class="eyebrow"><%= h.type %> · <%= h.genre %> · <%= h.release_year %></p>
+      <p class="eyebrow"><%= [h.type, h.genre, h.release_year].filter(Boolean).join(' · ') %></p>
       <h1><%= h.title %></h1>
       <p class="chips">
         <% if (h.rating != null) { %><span class="chip gold">★ <%= h.rating %></span><% } %>
@@ -17,7 +17,7 @@
       <div class="cta">
         <% if (h.plex_rating_key && plexEnabled) { %><a class="sbtn sbtn-play" href="/t/<%= h.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
         <% if (h.trailer_key) { %><button class="sbtn <%= h.plex_rating_key && plexEnabled ? 'sbtn-glass' : 'sbtn-play' %>" data-trailer="<%= h.trailer_key %>">▶ Trailer</button><% } %>
-        <a class="sbtn sbtn-glass" href="/t/<%= h.id %>">More info</a>
+        <a class="sbtn sbtn-glass" href="<%= h.href %>">More info</a>
       </div>
     </div>
   </article>
@@ -31,7 +31,7 @@
 <div class="rows">
 <% rows.forEach(r => { %>
   <section class="row">
-    <div class="row-head"><h2><%= r.name %></h2><a href="<%= r.link %>">See all ›</a></div>
+    <div class="row-head"><h2><%= r.name %></h2><% if (r.link) { %><a href="<%= r.link %>">See all ›</a><% } %></div>
     <div class="row-body">
       <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
       <div class="track"><% r.items.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>

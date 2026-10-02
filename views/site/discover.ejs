@@ -1,0 +1,53 @@
+<%- include('_head') %>
+<main class="s-page">
+  <div class="browse-head">
+    <h1><%= heading %></h1>
+    <p class="muted-s"><%= pages >= 500 ? '10,000+' : total.toLocaleString('en-IN') %> title<%= total === 1 ? '' : 's' %><%= isSearch ? ' on TMDB' : '' %></p>
+  </div>
+
+  <% if (!isSearch) { %>
+  <form class="filterbar" method="GET" action="/discover">
+    <select name="type" aria-label="Type">
+      <option value="movie" <%= media === 'movie' ? 'selected' : '' %>>Movies</option>
+      <option value="tv" <%= media === 'tv' ? 'selected' : '' %>>Series</option>
+    </select>
+    <select name="genre" aria-label="Genre">
+      <option value="">All genres</option>
+      <% genres.forEach(g => { %><option value="<%= g.id %>" <%= genre === String(g.id) ? 'selected' : '' %>><%= g.name %></option><% }) %>
+    </select>
+    <select name="language" aria-label="Language">
+      <option value="">Any language</option>
+      <% Object.entries(languages).forEach(([code, name]) => { %><option value="<%= code %>" <%= language === code ? 'selected' : '' %>><%= name %></option><% }) %>
+    </select>
+    <select name="year" aria-label="Year">
+      <option value="">Any year</option>
+      <% for (let y = new Date().getFullYear() + 1; y >= 1950; y--) { %><option <%= year === String(y) ? 'selected' : '' %>><%= y %></option><% } %>
+    </select>
+    <select name="sort" aria-label="Sort">
+      <% Object.entries(sorts).forEach(([k, label]) => { %><option value="<%= k %>" <%= sort === k ? 'selected' : '' %>><%= label %></option><% }) %>
+    </select>
+    <noscript><button class="sbtn sbtn-glass" type="submit">Apply</button></noscript>
+    <% if (genre || language || year || sort !== 'popular') { %><a href="/discover?type=<%= media %>" class="clear">Clear</a><% } %>
+  </form>
+  <% } %>
+
+  <% if (local.length) { %>
+  <h2 class="sub-h">In your CineBase</h2>
+  <div class="grid grid-gap"><% local.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
+  <h2 class="sub-h">On TMDB</h2>
+  <% } %>
+
+  <div class="grid">
+    <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>
+  </div>
+  <% if (!items.length) { %><p class="empty-s">Nothing found. <a href="/discover">Discover popular titles</a></p><% } %>
+
+  <% if (pages > 1) { %>
+  <nav class="s-pager" aria-label="Pagination">
+    <% if (page > 1) { %><a class="sbtn sbtn-glass" href="?<%= qs %>&page=<%= page - 1 %>">‹ Prev</a><% } %>
+    <span>Page <%= page %> of <%= pages %></span>
+    <% if (page < pages) { %><a class="sbtn sbtn-glass" href="?<%= qs %>&page=<%= page + 1 %>">Next ›</a><% } %>
+  </nav>
+  <% } %>
+</main>
+<%- include('_foot') %>

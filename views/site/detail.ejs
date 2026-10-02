@@ -49,20 +49,17 @@
 
 <section class="d-sect" id="watch">
   <div class="player-bar">
-    <h2>Watch</h2>
-    <% if (player) { %>
-    <div class="player-ctl">
-      <% if (player.isSeries) { %>
-      <label>Season <input type="number" id="p-season" value="1" min="1" <%= player.seasons ? `max=${player.seasons}` : '' %>></label>
-      <label>Episode <input type="number" id="p-episode" value="1" min="1"></label>
-      <% } %>
-      <label>Server
-        <select id="p-mirror"><% player.domains.forEach(d => { %><option value="<%= d %>"><%= d %></option><% }) %></select>
-      </label>
+    <div class="player-title">
+      <h2>Watch</h2>
+      <% if (player && player.isSeries) { %><span class="now-playing" id="ep-now">Season 1 · Episode 1</span><% } %>
     </div>
+    <% if (player) { %>
+    <label class="mirror">Server
+      <select id="p-mirror"><% player.domains.forEach(d => { %><option value="<%= d %>"><%= d %></option><% }) %></select>
+    </label>
     <% } %>
   </div>
-  <div class="player" <% if (player) { %>id="player" data-path="<%= player.path %>"<% } %>>
+  <div class="player" <% if (player) { %>id="player" data-cfg="<%= JSON.stringify(player.cfg) %>"<% } %>>
     <% if (player) { %>
       <iframe
         src="<%= player.src %>"
@@ -75,6 +72,23 @@
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>
   </div>
+
+  <% if (player && player.isSeries) { %>
+  <div class="episodes" id="episodes">
+    <div class="ep-head">
+      <div class="season-tabs" role="tablist" aria-label="Seasons">
+        <% player.seasons.forEach(s => { %>
+        <button type="button" role="tab" class="season-tab" data-season="<%= s.n %>" aria-selected="<%= s.n === player.seasons[0].n %>"><%= s.name %></button>
+        <% }) %>
+      </div>
+      <div class="ep-nav">
+        <button type="button" class="ep-step" id="ep-prev" aria-label="Previous episode">‹ Prev</button>
+        <button type="button" class="ep-step" id="ep-next" aria-label="Next episode">Next ›</button>
+      </div>
+    </div>
+    <div class="ep-list" id="ep-list" aria-live="polite"></div>
+  </div>
+  <% } %>
 </section>
 
 <% if (similar.length) { %>

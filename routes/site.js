@@ -160,12 +160,31 @@ router.get('/browse', (req, res) => {
   res.render('site/browse', { title: heading, heading, items, total, page, pages, qs: qs.toString(), genres, languages, query: req.query, sort, q });
 });
 
+// Episodes of a season (JSON) for the series player
+router.get('/episodes/:tvId/:season', async (req, res) => {
+  const { tvId, season } = req.params;
+  if (!tmdb.enabled() || !/^\d+$/.test(tvId) || !/^\d+$/.test(season)) return res.status(404).json([]);
+  res.set('Cache-Control', 'private, max-age=3600');
+  try {
+    res.json(await tmdb.season(tvId, season));
+  } catch (e) {
+    res.status(e.status === 404 ? 404 : 502).json([]);
+  }
+});
+
 // DETAIL — a title in your CineBase
-router.get('/t/:id', (req, res, next) => {
+router.get('/t/:id', async (req, res, next) => {
   const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
   if (!item) return next();
   const similar = db.prepare(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`).all(item.genre, item.id);
-  res.render('site/detail', { title: item.title, item, player: vidsrc.player(item), similar, source: null });
+  // Series linked to TMDB get the full season/episode picker
+  let seasons = null;
+  if (item.type === 'Series' && item.tmdb_id && tmdb.enabled()) {
+    try { seasons = (await tmdb.titlePage('tv', item.tmdb_id)).seasons; }
+    catch (e) { console.error('TMDB seasons failed:', e.message); }
+  }
+  const player = vidsrc.player(item, { seasons, tvId: seasons ? item.tmdb_id : null });
+  res.render('site/detail', { title: item.title, item, player, similar, source: null });
 });
 
 // DETAIL — any TMDB title (/m/:id for movies, /tv/:id for series)
@@ -191,8 +210,9 @@ async function tmdbTitle(req, res, next, media) {
     duration_min: blank(t.duration_min),
     plex_rating_key: local?.plex_rating_key || null
   };
+  const player = vidsrc.player(item, { seasons: data.seasons, tvId: media === 'tv' ? t.tmdb_id : null });
   res.render('site/detail', {
-    title: item.title, item, player: vidsrc.player(item), similar: data.similar,
+    title: item.title, item, player, similar: data.similar,
     source: { media, tmdbId: t.tmdb_id, localId: local?.id || null }
   });
 }

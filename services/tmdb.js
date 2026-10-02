@@ -171,8 +171,28 @@ async function titlePage(media, id) {
   const [d, names] = await Promise.all([raw(media, id), genreNames()]);
   return {
     item: mapDetails(media, d),
-    similar: (d.recommendations?.results || []).filter(r => isTitle(r, media)).slice(0, 20).map(r => toCard(r, media, names))
+    similar: (d.recommendations?.results || []).filter(r => isTitle(r, media)).slice(0, 20).map(r => toCard(r, media, names)),
+    // Regular seasons only (season 0 is "Specials")
+    seasons: media === 'tv'
+      ? (d.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0)
+        .map(s => ({ n: s.season_number, name: s.name || `Season ${s.season_number}`, episodes: s.episode_count }))
+      : null
   };
 }
 
-module.exports = { enabled, search, details, LANGS, genreList, trending, popular, topRated, discover, searchAll, titlePage };
+// Episodes of one season, for the player's episode picker
+const season = (tvId, n) => cached(`season:${tvId}:${n}`, 6 * HOUR, async () => {
+  const d = await call(`/tv/${tvId}/season/${n}`);
+  const today = new Date().toISOString().slice(0, 10);
+  return (d.episodes || []).map(e => ({
+    n: e.episode_number,
+    name: e.name || `Episode ${e.episode_number}`,
+    still: e.still_path ? `${IMG}/w300${e.still_path}` : null,
+    runtime: e.runtime || null,
+    air_date: e.air_date || null,
+    aired: !!e.air_date && e.air_date <= today,
+    overview: e.overview || ''
+  }));
+});
+
+module.exports = { enabled, search, details, LANGS, genreList, trending, popular, topRated, discover, searchAll, titlePage, season };

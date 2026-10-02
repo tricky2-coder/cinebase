@@ -107,27 +107,132 @@
     document.addEventListener('click', e => { if (!searchForm.contains(e.target)) closeList(); });
   }
 
-  // VidSrc player: mirror switcher (remembered per browser) + season/episode picker
+  // VidSrc player: mirror switcher (remembered per browser) + season/episode picker for series
   const player = document.getElementById('player');
   if (player) {
+    const cfg = JSON.parse(player.dataset.cfg);
     const iframe = player.querySelector('iframe');
     const mirror = document.getElementById('p-mirror');
-    const season = document.getElementById('p-season'), episode = document.getElementById('p-episode');
-    const KEY = 'cinebase.mirror';
-    const num = el => Math.max(1, parseInt(el.value, 10) || 1);
-    const url = () => `https://${mirror.value}${player.dataset.path}` +
-      (season ? `?season=${num(season)}&episode=${num(episode)}` : '');
+    const MIRROR_KEY = 'cinebase.mirror', EP_KEY = `cinebase.ep.${cfg.key}`;
+    const state = { s: 1, e: 1 };
+
+    const url = () => `https://${mirror.value}` + (cfg.formats[mirror.value] || '')
+      .replace('{id}', encodeURIComponent(cfg.id)).replace('{s}', state.s).replace('{e}', state.e);
     const load = () => { const u = url(); if (iframe.src !== u) iframe.src = u; };
 
     try {
-      const saved = localStorage.getItem(KEY);
+      const saved = localStorage.getItem(MIRROR_KEY);
       if (saved && [...mirror.options].some(o => o.value === saved)) mirror.value = saved;
     } catch {}
     mirror.addEventListener('change', () => {
-      try { localStorage.setItem(KEY, mirror.value); } catch {}
+      try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
       load();
     });
-    [season, episode].forEach(el => el && el.addEventListener('change', load));
+
+    if (cfg.isSeries) {
+      const seasons = cfg.seasons;
+      const tabs = [...document.querySelectorAll('.season-tab')];
+      const list = document.getElementById('ep-list');
+      const now = document.getElementById('ep-now');
+      const prev = document.getElementById('ep-prev'), next = document.getElementById('ep-next');
+      const cache = {}; // season number -> episodes from TMDB (or null if unavailable)
+      let shown = null; // season whose episodes are listed
+
+      const sIdx = s => seasons.findIndex(x => x.n === s);
+      const count = s => cache[s]?.length || seasons[sIdx(s)]?.episodes || null;
+      const aired = (s, e) => { const ep = cache[s]?.find(x => x.n === e); return !ep || ep.aired; };
+      const fmtDate = d => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+      async function episodes(s) {
+        if (s in cache) return cache[s];
+        if (!cfg.tvId) return (cache[s] = null);
+        try {
+          const r = await fetch(`/episodes/${cfg.tvId}/${s}`);
+          cache[s] = r.ok ? await r.json() : null;
+        } catch { cache[s] = null; }
+        return cache[s];
+      }
+
+      function card(s, ep) {
+        const b = el('button', 'ep-card');
+        b.type = 'button';
+        b.dataset.e = ep.n;
+        if (ep.overview) b.title = ep.overview;
+        const thumb = el('span', 'ep-thumb');
+        if (ep.still) { const img = el('img'); img.src = ep.still; img.alt = ''; img.loading = 'lazy'; thumb.append(img); }
+        thumb.append(el('span', 'ep-badge', `E${ep.n}`), el('span', 'ep-playing', '▶ Playing'));
+        const info = el('span', 'ep-info');
+        const meta = ep.aired === false
+          ? (ep.air_date ? `Airs ${fmtDate(ep.air_date)}` : 'Not aired yet')
+          : [ep.runtime && `${ep.runtime} min`, ep.air_date && fmtDate(ep.air_date)].filter(Boolean).join(' · ');
+        info.append(el('b', null, ep.name), el('small', null, meta));
+        b.append(thumb, info);
+        if (ep.aired === false) { b.disabled = true; b.classList.add('upcoming'); }
+        else b.addEventListener('click', () => play(s, ep.n));
+        return b;
+      }
+
+      // Neighbouring episode, crossing into the next/previous season when counts are known
+      function step(dir) {
+        const total = count(state.s);
+        if (dir > 0) {
+          if (!total || state.e < total) return aired(state.s, state.e + 1) ? { s: state.s, e: state.e + 1 } : null;
+          const ns = seasons[sIdx(state.s) + 1];
+          return ns ? { s: ns.n, e: 1 } : null;
+        }
+        if (state.e > 1) return { s: state.s, e: state.e - 1 };
+        const ps = seasons[sIdx(state.s) - 1];
+        return ps ? { s: ps.n, e: count(ps.n) || 1 } : null;
+      }
+
+      function mark() {
+        list.querySelectorAll('.ep-card').forEach(c => {
+          const on = shown === state.s && +c.dataset.e === state.e;
+          c.classList.toggle('on', on);
+          c.setAttribute('aria-current', on ? 'true' : 'false');
+          if (on) list.scrollTo({ left: c.offsetLeft - list.offsetLeft - 8, behavior: 'smooth' }); // horizontal only
+        });
+        const name = cache[state.s]?.find(x => x.n === state.e)?.name;
+        now.textContent = `Season ${state.s} · Episode ${state.e}` + (name ? ` — ${name}` : '');
+        prev.disabled = !step(-1);
+        next.disabled = !step(1);
+      }
+
+      async function showSeason(s) {
+        shown = s;
+        tabs.forEach(t => {
+          const on = +t.dataset.season === s;
+          t.setAttribute('aria-selected', String(on));
+          if (on) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
+        list.replaceChildren(el('p', 'ep-msg', 'Loading episodes…'));
+        const eps = await episodes(s);
+        if (shown !== s) return; // switched again while loading
+        const items = eps || Array.from({ length: count(s) || 0 }, (_, i) => ({ n: i + 1, name: `Episode ${i + 1}` }));
+        list.replaceChildren(...(items.length ? items.map(ep => card(s, ep)) : [el('p', 'ep-msg', 'Episode list unavailable — use Prev / Next.')]));
+        mark();
+      }
+
+      function play(s, e) {
+        state.s = s; state.e = e;
+        try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
+        load();
+        if (shown !== s) showSeason(s); else mark();
+      }
+
+      tabs.forEach(t => t.addEventListener('click', () => showSeason(+t.dataset.season)));
+      prev.addEventListener('click', () => { const t = step(-1); if (t) play(t.s, t.e); });
+      next.addEventListener('click', () => { const t = step(1); if (t) play(t.s, t.e); });
+
+      // Resume where this viewer left off
+      try {
+        const saved = JSON.parse(localStorage.getItem(EP_KEY) || 'null');
+        if (saved && sIdx(saved.s) >= 0 && saved.e >= 1) Object.assign(state, { s: saved.s, e: saved.e });
+      } catch {}
+      if (sIdx(state.s) < 0 && seasons.length) state.s = seasons[0].n;
+      showSeason(state.s);
+    }
+
     load();
-  }
-})();
+  }})();

@@ -268,9 +268,15 @@
       } catch { return null; }
     };
 
+    // Pop-out: the player can move into an always-on-top Document Picture-in-Picture window
+    // (Chrome/Edge) or, elsewhere, a plain pop-up window. While popped out the page frame is blank.
+    let pipWin = null;   // the pop-out window
+    let pipFrame = null; // player iframe inside a Document PiP window (null for a plain pop-up)
+    const frame = () => pipFrame || iframe;
+
     const url = () => {
       const p = cfg.players[mirror.value];
-      if (!p) return iframe.src;
+      if (!p) return frame().src;
       const u = new URL(`https://${mirror.value}` + p.path
         .replace('{id}', encodeURIComponent(p.id)).replace('{s}', state.s).replace('{e}', state.e));
       if (p.events) {
@@ -279,12 +285,17 @@
       }
       return u.href;
     };
-    const load = () => { const u = url(); if (iframe.src !== u) iframe.src = u; };
+    const load = () => {
+      const u = url();
+      if (pipWin && !pipFrame) { try { pipWin.location.href = u; } catch {} return; } // plain pop-up
+      const f = frame();
+      if (f.src !== u) f.src = u;
+    };
 
     // Playback events posted by the player (JSON strings). Only trust our own iframe.
     let lastSaved = 0;
-    addEventListener('message', e => {
-      if (e.source !== iframe.contentWindow || typeof e.data !== 'string') return;
+    function onPlayerMessage(e) {
+      if (e.source !== frame().contentWindow || typeof e.data !== 'string') return;
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
       if (msg.type === 'MEDIA_DATA' || !msg.event) return;
@@ -296,7 +307,63 @@
         lastSaved = 0;
         onEnded();
       }
-    });
+    }
+    addEventListener('message', onPlayerMessage);
+
+    const popBtn = document.getElementById('p-popout');
+    const popped = document.getElementById('p-popped');
+    let pollClosed;
+
+    function bringBack() {
+      if (!pipWin) return;
+      const w = pipWin;
+      pipWin = null;
+      pipFrame = null;
+      clearInterval(pollClosed);
+      player.classList.remove('popped');
+      popped.hidden = true;
+      popBtn.textContent = '⧉ Pop out';
+      load(); // back in the page, resuming from the saved position
+      try { if (!w.closed) w.close(); } catch {}
+    }
+
+    async function popOut() {
+      if (pipWin) return bringBack();
+      const u = url();
+      if ('documentPictureInPicture' in window) {
+        try {
+          pipWin = await documentPictureInPicture.requestWindow({ width: 640, height: 360 });
+        } catch { pipWin = null; }
+      }
+      if (pipWin) {
+        const d = pipWin.document;
+        d.title = document.querySelector('.d-info h1')?.childNodes[0]?.textContent.trim() || 'CineBase';
+        const style = d.createElement('style');
+        style.textContent = 'html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}';
+        d.head.append(style);
+        pipFrame = d.createElement('iframe');
+        for (const a of ['allow', 'referrerpolicy', 'sandbox', 'allowfullscreen', 'title']) {
+          if (iframe.hasAttribute(a)) pipFrame.setAttribute(a, iframe.getAttribute(a));
+        }
+        pipFrame.src = u;
+        d.body.append(pipFrame);
+        pipWin.addEventListener('message', onPlayerMessage); // the player now reports to the pop-out window
+        pipWin.addEventListener('pagehide', bringBack);
+      } else {
+        // No Document PiP (Firefox, Safari): a normal small window — not always on top
+        pipWin = window.open(u, 'cinebase-player', 'popup,width=720,height=405');
+        if (!pipWin) { popBtn.textContent = 'Allow pop-ups to pop out'; return; }
+        pollClosed = setInterval(() => { if (pipWin?.closed) bringBack(); }, 700);
+      }
+      iframe.src = 'about:blank'; // stop the page copy so audio doesn't play twice
+      player.classList.add('popped');
+      popped.hidden = false;
+      popBtn.textContent = '⤓ Bring back';
+    }
+
+    popBtn.addEventListener('click', popOut);
+    document.getElementById('p-bringback').addEventListener('click', bringBack);
+    addEventListener('pagehide', () => { try { pipWin?.close(); } catch {} });
 
     try {
       const saved = localStorage.getItem(MIRROR_KEY);

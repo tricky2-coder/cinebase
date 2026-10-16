@@ -57,9 +57,12 @@
       <% if (player && player.isSeries) { %><span class="now-playing" id="ep-now">Season 1 · Episode 1</span><% } %>
     </div>
     <% if (player) { %>
-    <label class="mirror">Player
-      <select id="p-mirror"><% player.options.forEach(o => { %><option value="<%= o.domain %>"><%= o.label %></option><% }) %></select>
-    </label>
+    <div class="player-tools">
+      <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window">⧉ Pop out</button>
+      <label class="mirror">Player
+        <select id="p-mirror"><% player.options.forEach(o => { %><option value="<%= o.domain %>"><%= o.label %></option><% }) %></select>
+      </label>
+    </div>
     <% } %>
   </div>
   <div class="player" <% if (player) { %>id="player" data-cfg="<%= JSON.stringify(player.cfg) %>"<% } %>>
@@ -71,6 +74,10 @@
         referrerpolicy="no-referrer"
         <% if (player.sandbox) { %>sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"<% } %>
         allowfullscreen></iframe>
+      <div class="popped-msg" id="p-popped" hidden>
+        <p><b>Playing in the pop-out window</b><span>Close it or bring it back to keep watching here.</span></p>
+        <button type="button" class="sbtn sbtn-play" id="p-bringback">⤓ Bring back</button>
+      </div>
     <% } else { %>
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>

@@ -8,7 +8,7 @@
   <% if (!isSearch) { %>
   <nav class="chips-bar" aria-label="Categories">
     <a href="/discover?<%= chipQs %>" class="cat-chip <%= genre ? '' : 'on' %>">All</a>
-    <% genres.forEach(g => { %><a href="/discover?<%= chipQs %>&genre=<%= g.id %>" class="cat-chip <%= genre === String(g.id) ? 'on' : '' %>"><%= g.name %></a><% }) %>
+    <% genres.forEach(g => { %><a href="/discover?<%= chipQs %>&genre=<%= encodeURIComponent(g.id) %>" class="cat-chip <%= genre === String(g.id) ? 'on' : '' %>"><%= g.name %></a><% }) %>
     <a href="/categories" class="cat-chip cat-more">All categories ›</a>
   </nav>
   <form class="filterbar" method="GET" action="/discover">
@@ -16,10 +16,12 @@
       <% Object.entries(types).forEach(([k, t]) => { %><option value="<%= k %>" <%= type === k ? 'selected' : '' %>><%= t.label %></option><% }) %>
     </select>
     <% if (genre) { %><input type="hidden" name="genre" value="<%= genre %>"><% } %>
+    <% if (languages) { %>
     <select name="language" aria-label="Language">
       <option value="">Any language</option>
       <% Object.entries(languages).forEach(([code, name]) => { %><option value="<%= code %>" <%= language === code ? 'selected' : '' %>><%= name %></option><% }) %>
     </select>
+    <% } %>
     <select name="year" aria-label="Year">
       <option value="">Any year</option>
       <% for (let y = new Date().getFullYear() + 1; y >= 1950; y--) { %><option <%= year === String(y) ? 'selected' : '' %>><%= y %></option><% } %>
@@ -35,8 +37,12 @@
   <% if (local.length) { %>
   <h2 class="sub-h">In your CineBase</h2>
   <div class="grid grid-gap"><% local.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
-  <h2 class="sub-h">On TMDB</h2>
   <% } %>
+  <% if (anime.length) { %>
+  <h2 class="sub-h">Anime</h2>
+  <div class="grid grid-gap"><% anime.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
+  <% } %>
+  <% if (local.length || anime.length) { %><h2 class="sub-h">Movies &amp; series</h2><% } %>
 
   <div class="grid">
     <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>

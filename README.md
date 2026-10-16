@@ -37,7 +37,7 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 - **Every movie & series (with `TMDB_API_KEY`):** the public site reads the live TMDB catalogue.
   - **Home:** Trending, Popular and Top Rated rows for movies and series, plus your own CineBase and Plex rows.
   - **Movies / Series:** discover the whole catalogue with genre, language, year and sort filters (paged).
-  - **Anime:** anime series and anime movies (TMDB titles tagged "anime"), with the same filters, title pages, player and episode picker.
+  - **Anime:** powered by [AniList](https://anilist.co) (no key needed) and played through Vidy's `/anime/{anilistId}/{episode}` route. Genre chips, trending / popular / top-rated sorting, anime movies, character & voice-actor cast, "Seasons & related", and an episode picker that splits long shows into tabs of 100 with a jump-to-episode box. TMDB pages for Japanese animation get a **Watch as anime** button. AniList allows ~30 requests/minute, so responses are cached for hours.
   - **Categories:** genre chips on every Movies / Series / Anime page, a Categories page (genres for movies, series and anime, plus languages), and category rows on the home page (Action, Hindi, Comedy, Horror, Korean Series, ...).
   - **Search:** finds any title on TMDB; matches from your own CineBase are listed first.
   - **Title pages** (`/m/:id`, `/tv/:id`): backdrop, cast, trailer, player and recommendations for any TMDB title.

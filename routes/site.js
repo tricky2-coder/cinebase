@@ -4,17 +4,19 @@ const db = require('../db');
 const plex = require('../services/plex');
 const tmdb = require('../services/tmdb');
 const vidsrc = require('../services/vidsrc');
+const anilist = require('../services/anilist');
 
 const router = express.Router();
 const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,backdrop_url,trailer_key,tmdb_id,plex_rating_key';
 const BROWSE_PAGE_SIZE = 24;
 const DISCOVER_SORTS = { popular: 'Most popular', rating: 'Top rated', newest: 'Newest' };
-// What /discover?type= can show. Anime = TMDB titles tagged "anime".
+const ANIME_SORTS = { popular: 'Most popular', trending: 'Trending now', rating: 'Top rated', newest: 'Newest' };
+// What /discover?type= can show. Anime comes from AniList (played via Vidy's /anime/{anilistId}/{episode}).
 const DISCOVER_TYPES = {
   movie: { media: 'movie', label: 'Movies' },
   tv: { media: 'tv', label: 'Series' },
-  anime: { media: 'tv', label: 'Anime', keywords: tmdb.ANIME_KEYWORD },
-  'anime-movie': { media: 'movie', label: 'Anime Movies', keywords: tmdb.ANIME_KEYWORD }
+  anime: { anilist: 'series', label: 'Anime' },
+  'anime-movie': { anilist: 'MOVIE', label: 'Anime Movies' }
 };
 // Genres that don't make useful categories
 const SKIP_GENRES = new Set(['TV Movie', 'News', 'Talk', 'Reality', 'Soap']);
@@ -27,6 +29,14 @@ router.use((req, res, next) => {
   next();
 });
 
+const aniDown = (res, e) => {
+  console.error('AniList request failed:', e.message);
+  const busy = e.status === 429;
+  res.status(busy ? 503 : 502).render('error', {
+    title: 'Anime unavailable',
+    message: busy ? 'The anime catalogue is busy right now. Please try again in a minute.' : 'Could not load anime from AniList right now. Please try again.'
+  });
+};
 const tmdbDown = (res, e) => {
   console.error('TMDB request failed:', e.message);
   res.status(502).render('error', { title: 'TMDB unavailable', message: 'Could not load titles from TMDB right now. Please try again.' });
@@ -40,18 +50,17 @@ router.get('/', async (req, res) => {
   let hero = [];
   let rows = [];
   if (tmdb.enabled()) {
-    const A = tmdb.ANIME_KEYWORD;
     const specs = [
       ['Trending This Week', null, () => tmdb.trending()],
       ['Popular Movies', '/discover?type=movie', () => tmdb.popular('movie')],
       ['Popular Series', '/discover?type=tv', () => tmdb.popular('tv')],
-      ['Popular Anime', '/discover?type=anime', () => tmdb.discover('tv', { keywords: A })],
+      ['Trending Anime', '/discover?type=anime&sort=trending', () => anilist.list({ sort: 'trending', format: 'series' })],
       ['Top Rated Movies', '/discover?type=movie&sort=rating', () => tmdb.topRated('movie')],
       ['Top Rated Series', '/discover?type=tv&sort=rating', () => tmdb.topRated('tv')],
       ['Action Movies', '/discover?type=movie&genre=28', () => tmdb.discover('movie', { genre: 28 })],
       ['Hindi Movies', '/discover?type=movie&language=hi', () => tmdb.discover('movie', { language: 'hi' })],
       ['Comedy Movies', '/discover?type=movie&genre=35', () => tmdb.discover('movie', { genre: 35 })],
-      ['Anime Movies', '/discover?type=anime-movie', () => tmdb.discover('movie', { keywords: A })],
+      ['Anime Movies', '/discover?type=anime-movie', () => anilist.list({ format: 'MOVIE' })],
       ['Horror Movies', '/discover?type=movie&genre=27', () => tmdb.discover('movie', { genre: 27 })],
       ['Sci-Fi & Fantasy Series', '/discover?type=tv&genre=10765', () => tmdb.discover('tv', { genre: 10765 })],
       ['Romance Movies', '/discover?type=movie&genre=10749', () => tmdb.discover('movie', { genre: 10749 })],
@@ -96,9 +105,10 @@ router.get('/', async (req, res) => {
 
 // DISCOVER — the full TMDB catalogue with filters
 router.get('/discover', async (req, res) => {
-  if (!tmdb.enabled()) return res.redirect('/browse');
   const type = DISCOVER_TYPES[req.query.type] ? req.query.type : 'movie';
-  const { media, label, keywords } = DISCOVER_TYPES[type];
+  const { media, label, keywords, anilist: aniFormat } = DISCOVER_TYPES[type];
+  if (aniFormat) return animeDiscover(req, res, type, label, aniFormat);
+  if (!tmdb.enabled()) return res.redirect('/browse');
   try {
     const genres = (await tmdb.genreList(media)).filter(g => !SKIP_GENRES.has(g.name));
     const genre = genres.find(g => String(g.id) === req.query.genre);
@@ -112,12 +122,29 @@ router.get('/discover', async (req, res) => {
     // Category chips keep the other filters and start again at page 1
     const chipQs = new URLSearchParams({ type, ...(language && { language }), ...(year && { year }), ...(sort !== 'popular' && { sort }) }).toString();
     res.render('site/discover', {
-      title: heading, heading, isSearch: false, local: [], ...result,
+      title: heading, heading, isSearch: false, local: [], anime: [], ...result,
       type, types: DISCOVER_TYPES, media, genres, genre: genre ? String(genre.id) : '', year, language, sort,
       sorts: DISCOVER_SORTS, languages: tmdb.LANGS, qs: qs.toString(), chipQs
     });
   } catch (e) { tmdbDown(res, e); }
 });
+
+async function animeDiscover(req, res, type, label, format) {
+  const genre = anilist.GENRES.includes(req.query.genre) ? req.query.genre : '';
+  const year = /^\d{4}$/.test(req.query.year || '') ? req.query.year : '';
+  const sort = ANIME_SORTS[req.query.sort] ? req.query.sort : 'popular';
+  try {
+    const result = await anilist.list({ sort, genre, format, year, page: pageParam(req.query.page) });
+    const heading = [genre, label].filter(Boolean).join(' ') + (year ? ` (${year})` : '');
+    const qs = new URLSearchParams({ type, ...(genre && { genre }), ...(year && { year }), sort });
+    const chipQs = new URLSearchParams({ type, ...(year && { year }), ...(sort !== 'popular' && { sort }) }).toString();
+    res.render('site/discover', {
+      title: heading, heading, isSearch: false, local: [], anime: [], ...result,
+      type, types: DISCOVER_TYPES, media: 'anime', genres: anilist.GENRES.map(g => ({ id: g, name: g })), genre, year,
+      language: '', languages: null, sort, sorts: ANIME_SORTS, qs: qs.toString(), chipQs
+    });
+  } catch (e) { aniDown(res, e); }
+}
 
 // CATEGORIES — every genre for movies, series and anime, plus languages
 router.get('/categories', async (req, res) => {
@@ -125,13 +152,12 @@ router.get('/categories', async (req, res) => {
   try {
     const [movie, tv] = await Promise.all([tmdb.genreList('movie'), tmdb.genreList('tv')]);
     const keep = list => list.filter(g => !SKIP_GENRES.has(g.name));
-    const animeGenres = keep(tv).filter(g => !['Animation', 'Documentary', 'Western', 'War & Politics'].includes(g.name));
     const sections = [
       { name: 'Movies', all: '/discover?type=movie', items: keep(movie).map(g => ({ id: g.id, name: g.name, href: `/discover?type=movie&genre=${g.id}` })) },
       { name: 'Series', all: '/discover?type=tv', items: keep(tv).map(g => ({ id: g.id, name: g.name, href: `/discover?type=tv&genre=${g.id}` })) },
       { name: 'Anime', all: '/discover?type=anime', items: [
         { id: 7, name: 'Anime Movies', href: '/discover?type=anime-movie' },
-        ...animeGenres.map(g => ({ id: g.id, name: g.name, href: `/discover?type=anime&genre=${g.id}` }))
+        ...anilist.GENRES.map((g, i) => ({ id: 13 * (i + 3), name: g, href: `/discover?type=anime&genre=${encodeURIComponent(g)}` }))
       ] },
       { name: 'Movies by language', all: null, items: Object.entries(tmdb.LANGS).map(([code, name], i) => ({ id: 31 * (i + 1), name, href: `/discover?type=movie&language=${code}` })) }
     ];
@@ -146,13 +172,16 @@ router.get('/search', async (req, res) => {
   if (!tmdb.enabled()) return res.redirect(`/browse?q=${encodeURIComponent(q)}`);
   const page = pageParam(req.query.page);
   try {
-    const result = await tmdb.searchAll(q, page);
+    const [result, animeRes] = await Promise.all([
+      tmdb.searchAll(q, page),
+      page === 1 ? anilist.list({ search: q, perPage: 12 }).catch(() => ({ items: [] })) : { items: [] }
+    ]);
     const like = `%${q}%`;
     const local = page === 1
       ? localCards(`SELECT ${CARD_COLS} FROM titles WHERE title LIKE ? OR director LIKE ? OR cast_members LIKE ? ORDER BY rating DESC LIMIT 24`, like, like, like)
       : [];
     res.render('site/discover', {
-      title: `Search: ${q}`, heading: `Results for "${q}"`, isSearch: true, local, ...result,
+      title: `Search: ${q}`, heading: `Results for "${q}"`, isSearch: true, local, anime: animeRes.items, ...result,
       q, qs: new URLSearchParams({ q }).toString()
     });
   } catch (e) { tmdbDown(res, e); }
@@ -207,14 +236,36 @@ router.get('/browse', (req, res) => {
 // Trailer for the hover preview on poster cards (JSON)
 router.get('/preview/:media/:id', async (req, res) => {
   const { media, id } = req.params;
-  if (!tmdb.enabled() || !['movie', 'tv'].includes(media) || !/^\d+$/.test(id)) return res.status(404).json({ trailer: null });
+  if (!['movie', 'tv', 'anime'].includes(media) || !/^\d+$/.test(id) || (media !== 'anime' && !tmdb.enabled())) return res.status(404).json({ trailer: null });
   res.set('Cache-Control', 'private, max-age=21600');
   try {
-    const { trailer_key } = await tmdb.details(media, id);
+    const trailer_key = media === 'anime' ? await anilist.trailer(id) : (await tmdb.details(media, id)).trailer_key;
     res.json({ trailer: /^[\w-]{11}$/.test(trailer_key) ? trailer_key : null });
   } catch (e) {
     res.status(e.status === 404 ? 404 : 502).json({ trailer: null });
   }
+});
+
+// Episodes of an anime, 100 per tab (JSON)
+router.get('/episodes/anime/:id/:chunk', async (req, res) => {
+  const { id, chunk } = req.params;
+  if (!/^\d+$/.test(id) || !/^\d+$/.test(chunk) || chunk === '0') return res.status(404).json([]);
+  res.set('Cache-Control', 'private, max-age=3600');
+  try { res.json(await anilist.episodes(id, Number(chunk))); }
+  catch (e) { res.status(e.status === 404 ? 404 : 502).json([]); }
+});
+
+// DETAIL — an anime from AniList; plays via Vidy /anime/{anilistId}/{episode}
+router.get('/a/:id', async (req, res, next) => {
+  if (!/^\d+$/.test(req.params.id)) return next();
+  let data;
+  try { data = await anilist.titlePage(req.params.id); }
+  catch (e) { return e.status === 404 ? next() : aniDown(res, e); }
+  const player = vidsrc.player(data.item, { seasons: data.seasons });
+  res.render('site/detail', {
+    title: data.item.title, item: data.item, player, similar: data.similar, cast: data.cast, castTitle: 'Characters',
+    related: data.related, source: { media: 'anime', localId: null }
+  });
 });
 
 // Episodes of a season (JSON) for the series player
@@ -271,8 +322,13 @@ async function tmdbTitle(req, res, next, media) {
     plex_rating_key: local?.plex_rating_key || null
   };
   const player = vidsrc.player(item, { seasons: data.seasons, tvId: media === 'tv' ? t.tmdb_id : null });
+  let animeHref = null;
+  if (data.isAnime) {
+    try { const aid = await anilist.match(t.title, t.release_year); if (aid) animeHref = `/a/${aid}#watch`; }
+    catch (e) { console.error('AniList match failed:', e.message); }
+  }
   res.render('site/detail', {
-    title: item.title, item, player, similar: data.similar, cast: data.cast,
+    title: item.title, item, player, similar: data.similar, cast: data.cast, animeHref,
     source: { media, tmdbId: t.tmdb_id, localId: local?.id || null }
   });
 }

@@ -174,6 +174,8 @@ async function titlePage(media, id) {
   const [d, names] = await Promise.all([raw(media, id), genreNames()]);
   return {
     item: mapDetails(media, d),
+    // Japanese animation -> offer the AniList-based anime player
+    isAnime: d.original_language === 'ja' && (d.genres || []).some(g => g.id === 16),
     similar: (d.recommendations?.results || []).filter(r => isTitle(r, media)).slice(0, 20).map(r => toCard(r, media, names)),
     cast: (d.credits?.cast || []).slice(0, 20).map(c => ({
       name: c.name,

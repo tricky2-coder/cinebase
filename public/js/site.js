@@ -318,15 +318,17 @@
 
       const sIdx = s => seasons.findIndex(x => x.n === s);
       const count = s => cache[s]?.length || seasons[sIdx(s)]?.episodes || null;
+      const first = s => seasons[sIdx(s)]?.start || 1; // anime tabs start at 101, 201, …
+      const last = s => (count(s) ? first(s) + count(s) - 1 : null);
       const aired = (s, e) => { const ep = cache[s]?.find(x => x.n === e); return !ep || ep.aired; };
       const fmtDate = d => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
       const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
       async function episodes(s) {
         if (s in cache) return cache[s];
-        if (!cfg.tvId) return (cache[s] = null);
+        if (!cfg.epBase) return (cache[s] = null);
         try {
-          const r = await fetch(`/episodes/${cfg.tvId}/${s}`);
+          const r = await fetch(`${cfg.epBase}${s}`);
           cache[s] = r.ok ? await r.json() : null;
         } catch { cache[s] = null; }
         return cache[s];
@@ -353,15 +355,15 @@
 
       // Neighbouring episode, crossing into the next/previous season when counts are known
       function step(dir) {
-        const total = count(state.s);
+        const end = last(state.s);
         if (dir > 0) {
-          if (!total || state.e < total) return aired(state.s, state.e + 1) ? { s: state.s, e: state.e + 1 } : null;
+          if (!end || state.e < end) return aired(state.s, state.e + 1) ? { s: state.s, e: state.e + 1 } : null;
           const ns = seasons[sIdx(state.s) + 1];
-          return ns ? { s: ns.n, e: 1 } : null;
+          return ns ? { s: ns.n, e: first(ns.n) } : null;
         }
-        if (state.e > 1) return { s: state.s, e: state.e - 1 };
+        if (state.e > first(state.s)) return { s: state.s, e: state.e - 1 };
         const ps = seasons[sIdx(state.s) - 1];
-        return ps ? { s: ps.n, e: count(ps.n) || 1 } : null;
+        return ps ? { s: ps.n, e: last(ps.n) || first(ps.n) } : null;
       }
 
       function mark() {
@@ -372,7 +374,9 @@
           if (on) list.scrollTo({ left: c.offsetLeft - list.offsetLeft - 8, behavior: 'smooth' }); // horizontal only
         });
         const name = cache[state.s]?.find(x => x.n === state.e)?.name;
-        now.textContent = `Season ${state.s} · Episode ${state.e}` + (name ? ` — ${name}` : '');
+        const label = cfg.anime ? `Episode ${state.e}` : `Season ${state.s} · Episode ${state.e}`;
+        now.textContent = label + (name && name !== `Episode ${state.e}` ? ` — ${name}` : '');
+        if (jump) jump.value = state.e;
         prev.disabled = !step(-1);
         next.disabled = !step(1);
       }
@@ -387,8 +391,8 @@
         list.replaceChildren(el('p', 'ep-msg', 'Loading episodes…'));
         const eps = await episodes(s);
         if (shown !== s) return; // switched again while loading
-        const items = eps || Array.from({ length: count(s) || 0 }, (_, i) => ({ n: i + 1, name: `Episode ${i + 1}` }));
-        list.replaceChildren(...(items.length ? items.map(ep => card(s, ep)) : [el('p', 'ep-msg', 'Episode list unavailable — use Prev / Next.')]));
+        const items = eps?.length ? eps : Array.from({ length: count(s) || 0 }, (_, i) => ({ n: first(s) + i, name: `Episode ${first(s) + i}` }));
+        list.replaceChildren(...(items.length ? items.map(ep => card(s, ep)) : [el('p', 'ep-msg', cfg.anime ? 'Episode list unavailable — enter an episode number or use Prev / Next.' : 'Episode list unavailable — use Prev / Next.')]));
         mark();
       }
 
@@ -402,6 +406,13 @@
       onEnded = () => { const t = step(1); if (t) play(t.s, t.e); };
 
       tabs.forEach(t => t.addEventListener('click', () => showSeason(+t.dataset.season)));
+      // Anime: jump straight to any episode number (long shows / unknown counts)
+      const jump = document.getElementById('ep-jump');
+      jump?.addEventListener('change', () => {
+        const e = Math.max(1, parseInt(jump.value, 10) || 1);
+        const tab = seasons.find(x => e >= first(x.n) && (!last(x.n) || e <= last(x.n))) || seasons[seasons.length - 1];
+        play(tab.n, e);
+      });
       prev.addEventListener('click', () => { const t = step(-1); if (t) play(t.s, t.e); });
       next.addEventListener('click', () => { const t = step(1); if (t) play(t.s, t.e); });
 
@@ -411,6 +422,7 @@
         if (saved && sIdx(saved.s) >= 0 && saved.e >= 1) Object.assign(state, { s: saved.s, e: saved.e });
       } catch {}
       if (sIdx(state.s) < 0 && seasons.length) state.s = seasons[0].n;
+      if (state.e < first(state.s)) state.e = first(state.s);
       showSeason(state.s);
     }
 

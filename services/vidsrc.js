@@ -14,6 +14,8 @@ const PLAYERS = {
   // Vidy: TMDB ids only; supports ?progress=, ?autoplay= and posts playback events to this page
   // autoplay=true: starts as soon as a stream is found when the browser allows it, otherwise shows a play button
   [VIDY]: { label: 'Vidy', id: 'tmdb', movie: '/movie/{id}?color=F5B301&autoplay=true', tv: '/tv/{id}/{s}/{e}?color=F5B301&autoplay=true', events: true },
+  // Anime: AniList id + absolute episode number ({e}); only Vidy supports AniList ids
+  'vidy-anime': { label: 'Vidy', domain: VIDY, movie: '/anime/{id}/1?color=F5B301&autoplay=true', tv: '/anime/{id}/{e}?color=F5B301&autoplay=true', events: true },
   // vidsrc.xyz / vidsrc.in / vidsrc.net family
   '*': { id: 'any', movie: '/embed/movie/{id}', tv: '/embed/tv/{id}/{s}-{e}' }
 };
@@ -36,9 +38,10 @@ function embedUrl(path, id, season = 1, episode = 1) {
 }
 
 // Everything the detail page needs to build and switch the player, or null if no player can play the title.
-// `seasons` ([{ n, name, episodes }]) and `tvId` come from TMDB when available.
+// `seasons` ([{ n, name, episodes, start? }]) and `tvId` come from TMDB (or AniList for anime) when available.
 function player(item, { seasons = null, tvId = null } = {}) {
   const isSeries = item.type === 'Series';
+  if (item.anilist_id) return animePlayer(item, seasons, isSeries);
   const options = domains().map(domain => {
     const p = PLAYERS[domain] || PLAYERS['*'];
     const id = p.id === 'tmdb' ? item.tmdb_id : item.imdb_id || item.tmdb_id;
@@ -60,7 +63,32 @@ function player(item, { seasons = null, tvId = null } = {}) {
       isSeries,
       tvId,
       key: String(tvId || item.tmdb_id || item.imdb_id),
+      epBase: tvId ? `/episodes/${tvId}/` : null,
       players: Object.fromEntries(options.map(o => [o.domain, { id: o.id, path: o.path, events: o.events }])),
+      seasons: seasonList
+    }
+  };
+}
+
+function animePlayer(item, seasons, isSeries) {
+  if (process.env.VIDY === '0') return null;
+  const p = PLAYERS['vidy-anime'];
+  const id = String(item.anilist_id);
+  const path = p[isSeries ? 'tv' : 'movie'];
+  const seasonList = isSeries ? seasons : null;
+  return {
+    src: `https://${p.domain}${embedUrl(path, id, 1, 1)}`,
+    sandbox: sandboxed(),
+    isSeries,
+    options: [{ domain: p.domain, label: p.label, id, path, events: true }],
+    seasons: seasonList,
+    cfg: {
+      isSeries,
+      anime: true,
+      tvId: null,
+      epBase: `/episodes/anime/${id}/`,
+      key: `a${id}`,
+      players: { [p.domain]: { id, path, events: true } },
       seasons: seasonList
     }
   };

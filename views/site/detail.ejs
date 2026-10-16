@@ -10,23 +10,26 @@
       <% } %>
     </div>
     <div class="d-info">
-      <p class="eyebrow"><%= item.type %> · <%= item.genre %></p>
+      <p class="eyebrow"><%= [item.kind || item.type, item.genre].filter(Boolean).join(' · ') %></p>
       <h1><%= item.title %> <span class="d-year"><%= item.release_year %></span></h1>
       <p class="chips">
         <% if (item.rating != null) { %><span class="chip gold">★ <%= item.rating %></span><% } %>
         <% if (item.language) { %><span class="chip"><%= item.language %></span><% } %>
         <% if (item.type === 'Series' && item.seasons) { %><span class="chip"><%= item.seasons %> season<%= item.seasons > 1 ? 's' : '' %></span><% } %>
+        <% if (item.anilist_id && item.type === 'Series' && item.episode_count) { %><span class="chip"><%= item.episode_count %> episode<%= item.episode_count > 1 ? 's' : '' %></span><% } %>
         <% if (item.duration_min) { %><span class="chip"><%= item.type === 'Movie' ? `${Math.floor(item.duration_min / 60)}h ${item.duration_min % 60}m` : `${item.duration_min} min / ep` %></span><% } %>
         <span class="chip"><%= item.status %></span>
         <% if (item.platform) { %><span class="chip"><%= item.platform %></span><% } %>
       </p>
       <div class="cta">
-        <% if (player) { %><a class="sbtn sbtn-play" href="#watch">▶ Watch</a><% } %>
+        <% if (typeof animeHref !== 'undefined' && animeHref) { %><a class="sbtn sbtn-play" href="<%= animeHref %>">▶ Watch as anime</a><% } %>
+        <% if (player) { %><a class="sbtn <%= typeof animeHref !== 'undefined' && animeHref ? 'sbtn-glass' : 'sbtn-play' %>" href="#watch">▶ Watch</a><% } %>
         <% if (item.plex_rating_key && plexEnabled) { %><a class="sbtn <%= player ? 'sbtn-glass' : 'sbtn-play' %>" href="/t/<%= item.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
         <% if (item.trailer_key) { %><button class="sbtn sbtn-glass" data-trailer="<%= item.trailer_key %>">Trailer</button><% } %>
         <% if (user && user.role === 'admin') { %>
           <% if (!source) { %>
             <a class="sbtn sbtn-glass" href="/titles/<%= item.id %>/edit">Edit</a>
+          <% } else if (source.media === 'anime') { %>
           <% } else if (source.localId) { %>
             <a class="sbtn sbtn-glass" href="/titles/<%= source.localId %>">✓ In your CineBase</a>
           <% } else { %>
@@ -82,6 +85,7 @@
         <% }) %>
       </div>
       <div class="ep-nav">
+        <% if (player.cfg.anime) { %><label class="ep-jump">Ep <input type="number" id="ep-jump" min="1" value="1" aria-label="Go to episode"></label><% } %>
         <button type="button" class="ep-step" id="ep-prev" aria-label="Previous episode">‹ Prev</button>
         <button type="button" class="ep-step" id="ep-next" aria-label="Next episode">Next ›</button>
       </div>
@@ -91,9 +95,20 @@
   <% } %>
 </section>
 
+<% if (typeof related !== 'undefined' && related.length) { %>
+<section class="row cast-row">
+  <div class="row-head"><h2>Seasons &amp; related</h2></div>
+  <div class="row-body">
+    <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
+    <div class="track"><% related.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
+    <button class="arrow r" data-dir="r" aria-label="Scroll right">›</button>
+  </div>
+</section>
+<% } %>
+
 <% if (cast.length) { %>
 <section class="row cast-row">
-  <div class="row-head"><h2>Cast</h2></div>
+  <div class="row-head"><h2><%= typeof castTitle !== 'undefined' ? castTitle : 'Cast' %></h2></div>
   <div class="row-body">
     <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
     <div class="track cast-track">

@@ -206,7 +206,7 @@ button { font: inherit; }
 .d-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .d-info h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: clamp(2.8rem, 6vw, 5rem); line-height: .95; margin: 0; letter-spacing: .02em; }
 .d-year { color: var(--dim); font-size: .5em; letter-spacing: .04em; }
-.d-syn { max-width: 720px; color: #d6d6de; font-size: 1.05rem; margin: 1.5rem 0 1rem; }
+.d-syn { max-width: 720px; color: #d6d6de; font-size: 1.05rem; margin: 1.5rem 0 1rem; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .d-facts { display: grid; gap: .6rem; margin: 0; max-width: 720px; }
 .d-facts div { display: grid; grid-template-columns: 120px 1fr; gap: 1rem; }
 .d-facts dt { color: var(--dim); font-size: .85rem; }
@@ -238,6 +238,9 @@ button { font: inherit; }
 .ep-step { padding: .45rem .95rem; border-radius: 8px; border: 1px solid var(--line); background: #17171c; color: var(--ink); font-weight: 600; font-size: .85rem; cursor: pointer; }
 .ep-step:hover:not(:disabled) { border-color: var(--dim); }
 .ep-step:disabled { opacity: .35; cursor: default; }
+.ep-jump { display: flex; align-items: center; gap: .35rem; color: var(--dim); font-size: .85rem; font-weight: 600; }
+.ep-jump input { width: 4.8rem; padding: .42rem .55rem; border-radius: 8px; border: 1px solid var(--line); background: #17171c; color: var(--ink); font: inherit; }
+.ep-jump input:focus { outline: 2px solid var(--gold); }
 .ep-list {
   display: grid; grid-auto-flow: column; grid-auto-columns: clamp(200px, 22vw, 270px); gap: 14px;
   overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x proximity; scrollbar-width: thin;

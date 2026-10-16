@@ -29,11 +29,14 @@
       role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="s-suggest">
     <ul class="s-suggest" id="s-suggest" role="listbox" hidden></ul>
   </form>
-  <% if (user && user.role === 'admin') { %><a href="/dashboard" class="s-admin">Dashboard</a><% } %>
   <% if (user) { %>
-  <form action="/logout" method="POST" class="s-user">
-    <span><%= user.name %></span>
-    <button type="submit" class="s-admin">Sign out</button>
-  </form>
+  <details class="s-acct">
+    <summary aria-label="Account menu"><span class="s-avatar" aria-hidden="true"><%= (user.name || user.username).trim().charAt(0).toUpperCase() %></span></summary>
+    <div class="s-acct-menu">
+      <p><b><%= user.name %></b><small><%= user.role === 'admin' ? 'Admin' : 'Viewer' %></small></p>
+      <% if (user.role === 'admin') { %><a href="/dashboard">Dashboard</a><% } %>
+      <form action="/logout" method="POST"><button type="submit">Sign out</button></form>
+    </div>
+  </details>
   <% } %>
 </header>

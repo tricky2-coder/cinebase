@@ -190,14 +190,17 @@ router.get('/t/:id', async (req, res, next) => {
   const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
   if (!item) return next();
   const similar = db.prepare(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`).all(item.genre, item.id);
-  // Series linked to TMDB get the full season/episode picker
-  let seasons = null;
-  if (item.type === 'Series' && item.tmdb_id && tmdb.enabled()) {
-    try { seasons = (await tmdb.titlePage('tv', item.tmdb_id)).seasons; }
-    catch (e) { console.error('TMDB seasons failed:', e.message); }
+  // Titles linked to TMDB get the cast row and, for series, the full season/episode picker
+  let seasons = null, cast = [];
+  if (item.tmdb_id && tmdb.enabled()) {
+    try {
+      const extra = await tmdb.titlePage(item.type === 'Series' ? 'tv' : 'movie', item.tmdb_id);
+      seasons = extra.seasons;
+      cast = extra.cast;
+    } catch (e) { console.error('TMDB extras failed:', e.message); }
   }
   const player = vidsrc.player(item, { seasons, tvId: seasons ? item.tmdb_id : null });
-  res.render('site/detail', { title: item.title, item, player, similar, source: null });
+  res.render('site/detail', { title: item.title, item, player, similar, cast, source: null });
 });
 
 // DETAIL — any TMDB title (/m/:id for movies, /tv/:id for series)
@@ -225,7 +228,7 @@ async function tmdbTitle(req, res, next, media) {
   };
   const player = vidsrc.player(item, { seasons: data.seasons, tvId: media === 'tv' ? t.tmdb_id : null });
   res.render('site/detail', {
-    title: item.title, item, player, similar: data.similar,
+    title: item.title, item, player, similar: data.similar, cast: data.cast,
     source: { media, tmdbId: t.tmdb_id, localId: local?.id || null }
   });
 }

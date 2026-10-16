@@ -91,6 +91,27 @@
   <% } %>
 </section>
 
+<% if (cast.length) { %>
+<section class="row cast-row">
+  <div class="row-head"><h2>Cast</h2></div>
+  <div class="row-body">
+    <button class="arrow l" data-dir="l" aria-label="Scroll left">‹</button>
+    <div class="track cast-track">
+      <% cast.forEach(p => { %>
+      <div class="cast-card">
+        <div class="cast-photo">
+          <% if (p.photo) { %><img src="<%= p.photo %>" alt="" loading="lazy"><% } else { %><span><%= p.name.split(' ').map(w => w[0]).slice(0, 2).join('') %></span><% } %>
+        </div>
+        <b><%= p.name %></b>
+        <% if (p.character) { %><small><%= p.character %></small><% } %>
+      </div>
+      <% }) %>
+    </div>
+    <button class="arrow r" data-dir="r" aria-label="Scroll right">›</button>
+  </div>
+</section>
+<% } %>
+
 <% if (similar.length) { %>
 <div class="rows">
   <section class="row">

@@ -1,6 +1,6 @@
-// Embedded players: VidSrc mirrors plus Vidy. Viewers pick one from the "Player" menu.
-//   VIDSRC_DOMAINS=vidsrc.pm,vidsrc.cc   VidSrc mirrors (the first player in the menu is the default)
-//   VIDY=0                               hide the Vidy player (shown by default)
+// Embedded players: Vidy (default) plus VidSrc mirrors. Viewers pick one from the "Player" menu.
+//   VIDSRC_DOMAINS=vidsrc.pm,vidsrc.cc   VidSrc mirrors, listed after Vidy (include vidy.st to place it elsewhere)
+//   VIDY=0                               hide the Vidy player
 //   VIDSRC_SANDBOX=1                     sandbox the iframe (blocks popups/redirects; some players
 //                                        refuse to play inside a sandbox)
 const DEFAULT_DOMAINS = ['vidsrc.pm', 'vidsrc.cc'];
@@ -12,7 +12,8 @@ const PLAYERS = {
   'vidsrc.pm': { label: 'VidSrc (vidsrc.pm)', id: 'any', movie: '/embed/movie/{id}', tv: '/embed/tv/{id}/{s}/{e}' },
   'vidsrc.cc': { label: 'VidSrc (vidsrc.cc)', id: 'any', movie: '/embed/movie/{id}', tv: '/v2/embed/tv/{id}/{s}/{e}' },
   // Vidy: TMDB ids only; supports ?progress=, ?autoplay= and posts playback events to this page
-  [VIDY]: { label: 'Vidy', id: 'tmdb', movie: '/movie/{id}?color=F5B301', tv: '/tv/{id}/{s}/{e}?color=F5B301', events: true },
+  // autoplay=true: starts as soon as a stream is found when the browser allows it, otherwise shows a play button
+  [VIDY]: { label: 'Vidy', id: 'tmdb', movie: '/movie/{id}?color=F5B301&autoplay=true', tv: '/tv/{id}/{s}/{e}?color=F5B301&autoplay=true', events: true },
   // vidsrc.xyz / vidsrc.in / vidsrc.net family
   '*': { id: 'any', movie: '/embed/movie/{id}', tv: '/embed/tv/{id}/{s}-{e}' }
 };
@@ -24,8 +25,8 @@ function domains() {
     .filter(d => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d))
     .map(d => (d === 'vidy.st' ? VIDY : d));
   const out = list.length ? list : [...DEFAULT_DOMAINS];
-  if (process.env.VIDY !== '0' && !out.includes(VIDY)) out.push(VIDY);
-  return out;
+  if (process.env.VIDY === '0') return out.filter(d => d !== VIDY);
+  return out.includes(VIDY) ? out : [VIDY, ...out]; // Vidy is the default player
 }
 
 const sandboxed = () => process.env.VIDSRC_SANDBOX === '1';

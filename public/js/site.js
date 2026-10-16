@@ -107,6 +107,13 @@
     document.addEventListener('click', e => { if (!searchForm.contains(e.target)) closeList(); });
   }
 
+  // Account menu (<details>): close on outside click / Escape
+  const acct = document.querySelector('.s-acct');
+  if (acct) {
+    document.addEventListener('click', e => { if (acct.open && !acct.contains(e.target)) acct.open = false; });
+    addEventListener('keydown', e => { if (e.key === 'Escape') acct.open = false; });
+  }
+
   // Netflix-style hover preview: hovering a poster opens a larger card that plays the trailer muted.
   // Mouse/trackpad only, and off for people who prefer reduced motion.
   const mq = q => !!window.matchMedia?.(q).matches;
@@ -116,6 +123,8 @@
     let openTimer, closeTimer, current = null, pv = null, req = 0;
 
     const mk = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    // Smaller TMDB backdrop for the card; fetched as soon as the hover starts
+    const pvImg = card => (card.dataset.pvImg || '').replace('/t/p/w1280/', '/t/p/w780/');
     const ytCommand = (frame, func) => frame?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube-nocookie.com');
 
     async function trailerFor(card) {
@@ -132,43 +141,72 @@
       return trailers.get(key);
     }
 
-    function closePreview() {
+    // Close with the reverse morph back into the poster (or instantly, e.g. on scroll)
+    function closePreview(instant = false) {
       clearTimeout(openTimer);
       current = null;
       if (!pv) return;
       const old = pv;
       pv = null;
+      const done = () => { old.remove(); old._card?.classList.remove('pv-open'); };
+      if (instant === true) return done();
       old.classList.remove('in');
-      setTimeout(() => old.remove(), 200);
+      setTimeout(done, 320);
     }
 
     async function openPreview(card) {
       const myReq = ++req;
-      if (pv) { pv.remove(); pv = null; }
+      if (pv) { pv.remove(); pv._card?.classList.remove('pv-open'); pv = null; }
       current = card;
+      card.classList.add('pv-open'); // drop the poster's own hover lift so the morph starts from its real box
       const href = card.getAttribute('href');
-      const r = card.getBoundingClientRect();
-      const width = Math.min(Math.max(r.width * 1.9, 300), 420);
-      const left = Math.min(Math.max(r.left + r.width / 2 - width / 2, 8), innerWidth - width - 8);
+      const poster = card.querySelector('.poster') || card;
+      const pr = poster.getBoundingClientRect();
+      const width = Math.min(Math.max(pr.width * 1.9, 300), 420);
+      const left = Math.min(Math.max(pr.left + pr.width / 2 - width / 2, 8), innerWidth - width - 8);
 
       pv = mk('div', 'pv');
+      pv._card = card;
       pv.style.width = `${width}px`;
       pv.style.left = `${left}px`;
+      const inner = mk('div', 'pv-inner');
       const media = mk('div', 'pv-media');
-      if (card.dataset.pvImg) { const img = mk('img'); img.src = card.dataset.pvImg; img.alt = ''; media.append(img); }
+      // Blurred poster fills the frame instantly; the backdrop fades in over it once loaded
+      const posterSrc = poster.querySelector('img')?.currentSrc;
+      if (posterSrc) { const blur = mk('img', 'pv-blur'); blur.src = posterSrc; blur.alt = ''; media.append(blur); }
+      if (pvImg(card)) {
+        const bg = mk('img', 'pv-bg');
+        bg.alt = '';
+        bg.addEventListener('load', () => bg.classList.add('on'));
+        bg.src = pvImg(card);
+        if (bg.complete) bg.classList.add('on');
+        media.append(bg);
+      }
       const body = mk('div', 'pv-body');
       const cta = mk('div', 'pv-cta');
       const playBtn = mk('a', 'sbtn sbtn-play', '▶ Play'); playBtn.href = `${href}#watch`;
       const info = mk('a', 'sbtn sbtn-glass', 'More info'); info.href = href;
       cta.append(playBtn, info);
       body.append(mk('b', null, card.dataset.pvTitle), mk('small', null, card.dataset.pvMeta), cta);
-      pv.append(media, body);
+      // A copy of the poster sits exactly over the real one and fades out as the card opens
+      const ghost = poster.cloneNode(true);
+      ghost.className = 'poster pv-ghost';
+      inner.append(media, body, ghost);
+      pv.append(inner);
       pv.addEventListener('mouseenter', () => clearTimeout(closeTimer));
       pv.addEventListener('mouseleave', () => { closeTimer = setTimeout(closePreview, CLOSE_DELAY); });
       document.body.append(pv);
-      // Centre vertically on the card, kept inside the viewport
+
+      // Centre on the poster, kept inside the viewport
       const h = pv.offsetHeight;
-      pv.style.top = `${Math.min(Math.max(r.top + r.height / 2 - h / 2, 8), innerHeight - h - 8)}px`;
+      const top = Math.min(Math.max(pr.top + pr.height / 2 - h / 2, 8), innerHeight - h - 8);
+      pv.style.top = `${top}px`;
+      // Start clipped to the poster's box (relative to the card), then grow to the full card
+      const x = pr.left - left, y = pr.top - top;
+      Object.assign(ghost.style, { left: `${x}px`, top: `${y}px`, width: `${pr.width}px`, height: `${pr.height}px` });
+      const clamp = v => Math.max(0, Math.round(v));
+      inner.style.setProperty('--from', `inset(${clamp(y)}px ${clamp(width - x - pr.width)}px ${clamp(h - y - pr.height)}px ${clamp(x)}px round 8px)`);
+      inner.getBoundingClientRect(); // commit the start state before transitioning
       requestAnimationFrame(() => pv?.classList.add('in'));
 
       const key = await trailerFor(card);
@@ -197,6 +235,7 @@
       if (!card || card === current) return;
       clearTimeout(openTimer);
       clearTimeout(closeTimer);
+      if (pvImg(card)) new Image().src = pvImg(card); // warm the cache during the hover delay
       openTimer = setTimeout(() => openPreview(card), OPEN_DELAY);
     });
     document.addEventListener('mouseout', e => {
@@ -205,8 +244,8 @@
       clearTimeout(openTimer);
       if (card === current && !pv?.contains(e.relatedTarget)) closeTimer = setTimeout(closePreview, CLOSE_DELAY);
     });
-    addEventListener('scroll', closePreview, { passive: true });
-    document.querySelectorAll('.track').forEach(t => t.addEventListener('scroll', closePreview, { passive: true }));
+    addEventListener('scroll', () => closePreview(true), { passive: true });
+    document.querySelectorAll('.track').forEach(t => t.addEventListener('scroll', () => closePreview(true), { passive: true }));
     addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
   }
 
@@ -216,7 +255,7 @@
     const cfg = JSON.parse(player.dataset.cfg);
     const iframe = player.querySelector('iframe');
     const mirror = document.getElementById('p-mirror');
-    const MIRROR_KEY = 'cinebase.mirror', EP_KEY = `cinebase.ep.${cfg.key}`;
+    const MIRROR_KEY = 'cinebase.player', EP_KEY = `cinebase.ep.${cfg.key}`;
     const state = { s: 1, e: 1 };
     let onEnded = () => {}; // series: continue with the next episode
 
@@ -229,7 +268,7 @@
       } catch { return null; }
     };
 
-    const url = ({ autoplay = false } = {}) => {
+    const url = () => {
       const p = cfg.players[mirror.value];
       if (!p) return iframe.src;
       const u = new URL(`https://${mirror.value}` + p.path
@@ -237,11 +276,10 @@
       if (p.events) {
         const t = resumeAt();
         if (t) u.searchParams.set('progress', t);
-        if (autoplay) u.searchParams.set('autoplay', 'true'); // only after a click on this page
       }
       return u.href;
     };
-    const load = opts => { const u = url(opts); if (iframe.src !== u) iframe.src = u; };
+    const load = () => { const u = url(); if (iframe.src !== u) iframe.src = u; };
 
     // Playback events posted by the player (JSON strings). Only trust our own iframe.
     let lastSaved = 0;
@@ -266,7 +304,7 @@
     } catch {}
     mirror.addEventListener('change', () => {
       try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
-      load({ autoplay: true });
+      load();
     });
 
     if (cfg.isSeries) {
@@ -358,7 +396,7 @@
         state.s = s; state.e = e;
         lastSaved = 0;
         try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
-        load({ autoplay: true });
+        load();
         if (shown !== s) showSeason(s); else mark();
       }
       onEnded = () => { const t = step(1); if (t) play(t.s, t.e); };

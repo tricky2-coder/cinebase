@@ -172,6 +172,11 @@ async function titlePage(media, id) {
   return {
     item: mapDetails(media, d),
     similar: (d.recommendations?.results || []).filter(r => isTitle(r, media)).slice(0, 20).map(r => toCard(r, media, names)),
+    cast: (d.credits?.cast || []).slice(0, 20).map(c => ({
+      name: c.name,
+      character: c.character || '',
+      photo: c.profile_path ? `${IMG}/w185${c.profile_path}` : null
+    })),
     // Regular seasons only (season 0 is "Specials")
     seasons: media === 'tv'
       ? (d.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0)

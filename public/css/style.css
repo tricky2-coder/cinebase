@@ -58,7 +58,7 @@ h2 { font-size: 1.1rem; margin-bottom: .75rem; }
 .container { width: 100%; max-width: 1240px; margin: 0 auto; padding: 1.5rem; flex: 1; }
 .footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 1.5rem; border-top: 1px solid var(--border); }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-.actions { display: flex; gap: .5rem; align-items: center; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .actions form { margin: 0; }
 .back { display: inline-block; color: var(--muted); font-size: .9rem; margin-bottom: .5rem; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.25rem; }
@@ -239,10 +239,12 @@ a.stat:hover { border-color: var(--accent); text-decoration: none; }
   .table td.row-actions::before, .table td.empty::before { content: none; }
   .table td.empty { justify-content: center; }
 
-  .login-wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .login-wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; }
   .login-art { padding: 2.5rem 1.5rem 1.5rem; border-right: 0; border-bottom: 1px solid var(--border); }
   .film-strip { right: 1rem; width: 32px; }
-  .login-card { margin: 1.5rem auto; }
+  .login-card { margin: 1.5rem auto; align-self: start; }
+  .page-head .actions { width: 100%; }
+  .page-head .actions .btn { flex: 1 1 auto; justify-content: center; text-align: center; }
 }
 
 /* ---------- Media / integrations ---------- */

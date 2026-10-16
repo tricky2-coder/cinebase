@@ -1,0 +1,18 @@
+<%- include('_head') %>
+<main class="s-page">
+  <div class="browse-head">
+    <h1>Categories</h1>
+    <p class="muted-s">Browse every movie, series and anime by genre or language.</p>
+  </div>
+  <% sections.forEach(sec => { %>
+  <section class="cat-section">
+    <div class="row-head cat-head"><h2><%= sec.name %></h2><% if (sec.all) { %><a href="<%= sec.all %>">See all ›</a><% } %></div>
+    <div class="cat-grid">
+      <% sec.items.forEach(c => { %>
+      <a class="cat-tile" href="<%= c.href %>" style="--h:<%= (c.id * 47) % 360 %>"><span><%= c.name %></span></a>
+      <% }) %>
+    </div>
+  </section>
+  <% }) %>
+</main>
+<%- include('_foot') %>

@@ -4,6 +4,7 @@
 const BASE = process.env.TMDB_API_BASE || 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p';
 const HOUR = 60 * 60 * 1000;
+const ANIME_KEYWORD = 210024; // TMDB keyword "anime"
 
 const key = () => (process.env.TMDB_API_KEY || '').trim();
 const enabled = () => !!key();
@@ -146,9 +147,10 @@ const popular = media => listPage(`/${media}/popular`, {}, media);
 const topRated = media => listPage(`/${media}/top_rated`, {}, media);
 const searchAll = (query, page = 1) => listPage('/search/multi', { query, page }, null);
 
-function discover(media, { genre, year, language, sort, page = 1 }) {
+function discover(media, { genre, year, language, sort, page = 1, keywords }) {
   const isTv = media === 'tv';
   const p = { page };
+  if (keywords) p.with_keywords = keywords;
   if (sort === 'rating') {
     p.sort_by = 'vote_average.desc';
     // Enough votes to be meaningful; regional/yearly slices have far fewer voters
@@ -159,6 +161,7 @@ function discover(media, { genre, year, language, sort, page = 1 }) {
     p['vote_count.gte'] = 10;
   } else {
     p.sort_by = 'popularity.desc';
+    if (keywords) p['vote_count.gte'] = 50; // keeps obscure/adult-leaning titles out of anime lists
   }
   if (genre) p.with_genres = genre;
   if (year) p[isTv ? 'first_air_date_year' : 'primary_release_year'] = year;
@@ -200,4 +203,4 @@ const season = (tvId, n) => cached(`season:${tvId}:${n}`, 6 * HOUR, async () => 
   }));
 });
 
-module.exports = { enabled, search, details, LANGS, genreList, trending, popular, topRated, discover, searchAll, titlePage, season };
+module.exports = { enabled, search, details, LANGS, ANIME_KEYWORD, genreList, trending, popular, topRated, discover, searchAll, titlePage, season };

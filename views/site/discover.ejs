@@ -6,15 +6,16 @@
   </div>
 
   <% if (!isSearch) { %>
+  <nav class="chips-bar" aria-label="Categories">
+    <a href="/discover?<%= chipQs %>" class="cat-chip <%= genre ? '' : 'on' %>">All</a>
+    <% genres.forEach(g => { %><a href="/discover?<%= chipQs %>&genre=<%= g.id %>" class="cat-chip <%= genre === String(g.id) ? 'on' : '' %>"><%= g.name %></a><% }) %>
+    <a href="/categories" class="cat-chip cat-more">All categories ›</a>
+  </nav>
   <form class="filterbar" method="GET" action="/discover">
     <select name="type" aria-label="Type">
-      <option value="movie" <%= media === 'movie' ? 'selected' : '' %>>Movies</option>
-      <option value="tv" <%= media === 'tv' ? 'selected' : '' %>>Series</option>
+      <% Object.entries(types).forEach(([k, t]) => { %><option value="<%= k %>" <%= type === k ? 'selected' : '' %>><%= t.label %></option><% }) %>
     </select>
-    <select name="genre" aria-label="Genre">
-      <option value="">All genres</option>
-      <% genres.forEach(g => { %><option value="<%= g.id %>" <%= genre === String(g.id) ? 'selected' : '' %>><%= g.name %></option><% }) %>
-    </select>
+    <% if (genre) { %><input type="hidden" name="genre" value="<%= genre %>"><% } %>
     <select name="language" aria-label="Language">
       <option value="">Any language</option>
       <% Object.entries(languages).forEach(([code, name]) => { %><option value="<%= code %>" <%= language === code ? 'selected' : '' %>><%= name %></option><% }) %>
@@ -27,7 +28,7 @@
       <% Object.entries(sorts).forEach(([k, label]) => { %><option value="<%= k %>" <%= sort === k ? 'selected' : '' %>><%= label %></option><% }) %>
     </select>
     <noscript><button class="sbtn sbtn-glass" type="submit">Apply</button></noscript>
-    <% if (genre || language || year || sort !== 'popular') { %><a href="/discover?type=<%= media %>" class="clear">Clear</a><% } %>
+    <% if (genre || language || year || sort !== 'popular') { %><a href="/discover?type=<%= type %>" class="clear">Clear</a><% } %>
   </form>
   <% } %>
 

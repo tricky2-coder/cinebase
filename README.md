@@ -37,6 +37,8 @@ A web application that replaces Excel-sheet record keeping for a movie & series 
 - **Every movie & series (with `TMDB_API_KEY`):** the public site reads the live TMDB catalogue.
   - **Home:** Trending, Popular and Top Rated rows for movies and series, plus your own CineBase and Plex rows.
   - **Movies / Series:** discover the whole catalogue with genre, language, year and sort filters (paged).
+  - **Anime:** anime series and anime movies (TMDB titles tagged "anime"), with the same filters, title pages, player and episode picker.
+  - **Categories:** genre chips on every Movies / Series / Anime page, a Categories page (genres for movies, series and anime, plus languages), and category rows on the home page (Action, Hindi, Comedy, Horror, Korean Series, ...).
   - **Search:** finds any title on TMDB; matches from your own CineBase are listed first.
   - **Title pages** (`/m/:id`, `/tv/:id`): backdrop, cast, trailer, player and recommendations for any TMDB title.
   - Logged-in admins get **+ Add to CineBase** on any title page to save it into the catalogue in one click.

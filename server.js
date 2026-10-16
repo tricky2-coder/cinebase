@@ -15,7 +15,7 @@ if (!process.env.SESSION_SECRET) {
 }
 
 const db = require('./db');
-const SqliteStore = require('./services/session-store');
+const SqlStore = require('./services/session-store');
 const { requireUser, requireAdmin } = require('./middleware/auth');
 
 const app = express();
@@ -54,8 +54,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Everything below needs the database schema in place (matters on serverless cold starts)
+app.use((req, res, next) => db.ready.then(() => next(), next));
+
 app.use(session({
-  store: new SqliteStore(db),
+  store: new SqlStore(db),
   secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
@@ -68,10 +71,9 @@ app.use(session({
 }));
 
 // Re-read the signed-in account on every request, so deleting a user or changing their role applies immediately
-const findSessionUser = db.prepare('SELECT id, name, username, role FROM users WHERE id = ?');
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (req.session.user) {
-    const fresh = findSessionUser.get(req.session.user.id);
+    const fresh = await db.get('SELECT id, name, username, role FROM users WHERE id = ?', req.session.user.id);
     if (fresh) req.session.user = { ...fresh };
     else delete req.session.user;
   }
@@ -100,6 +102,10 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { title: 'Error', message: 'Something went wrong.' });
 });
 
+db.ready.catch(e => {
+  console.error('FATAL: database setup failed:', e.message);
+  process.exit(1);
+});
 const server = app.listen(PORT, () => console.log(`CineBase running on http://localhost:${PORT}`));
 
 for (const sig of ['SIGINT', 'SIGTERM']) {

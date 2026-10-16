@@ -43,7 +43,7 @@ const tmdbDown = (res, e) => {
 };
 const pageParam = (v, max = 500) => Math.min(Math.max(1, parseInt(v, 10) || 1), max);
 const withHref = rows => rows.map(r => ({ ...r, href: `/t/${r.id}` }));
-const localCards = (sql, ...args) => db.prepare(sql).all(...args);
+const localCards = (sql, ...args) => db.all(sql, ...args);
 
 // HOME
 router.get('/', async (req, res) => {
@@ -82,22 +82,22 @@ router.get('/', async (req, res) => {
   if (rows.length) {
     // TMDB covers the big rows; show what's specific to this CineBase
     rows.push(
-      { name: 'Your CineBase', link: '/browse?sort=new', items: localCards(`SELECT ${CARD_COLS} FROM titles ORDER BY id DESC LIMIT 20`) },
-      { name: 'On Your Plex', link: '/browse?source=plex', items: localCards(`SELECT ${CARD_COLS} FROM titles WHERE plex_rating_key IS NOT NULL ORDER BY updated_at DESC LIMIT 20`) }
+      { name: 'Your CineBase', link: '/browse?sort=new', items: await localCards(`SELECT ${CARD_COLS} FROM titles ORDER BY id DESC LIMIT 20`) },
+      { name: 'On Your Plex', link: '/browse?source=plex', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE plex_rating_key IS NOT NULL ORDER BY updated_at DESC LIMIT 20`) }
     );
   } else {
-    const localHero = db.prepare('SELECT * FROM titles WHERE backdrop_url IS NOT NULL AND rating IS NOT NULL ORDER BY rating DESC LIMIT 5').all();
-    hero = withHref(localHero.length ? localHero : db.prepare('SELECT * FROM titles ORDER BY rating DESC LIMIT 5').all());
+    const localHero = (await db.all('SELECT * FROM titles WHERE backdrop_url IS NOT NULL AND rating IS NOT NULL ORDER BY rating DESC LIMIT 5'));
+    hero = withHref(localHero.length ? localHero : (await db.all('SELECT * FROM titles ORDER BY rating DESC LIMIT 5')));
     rows = [
-      { name: 'Recently Added', link: '/browse?sort=new', items: localCards(`SELECT ${CARD_COLS} FROM titles ORDER BY id DESC LIMIT 20`) },
-      { name: 'Top Rated', link: '/browse?sort=rating', items: localCards(`SELECT ${CARD_COLS} FROM titles WHERE rating IS NOT NULL ORDER BY rating DESC LIMIT 20`) },
-      { name: 'On Your Plex', link: '/browse?source=plex', items: localCards(`SELECT ${CARD_COLS} FROM titles WHERE plex_rating_key IS NOT NULL ORDER BY updated_at DESC LIMIT 20`) },
-      { name: 'Movies', link: '/browse?type=Movie', items: localCards(`SELECT ${CARD_COLS} FROM titles WHERE type='Movie' ORDER BY release_year DESC LIMIT 20`) },
-      { name: 'Series', link: '/browse?type=Series', items: localCards(`SELECT ${CARD_COLS} FROM titles WHERE type='Series' ORDER BY release_year DESC LIMIT 20`) }
+      { name: 'Recently Added', link: '/browse?sort=new', items: await localCards(`SELECT ${CARD_COLS} FROM titles ORDER BY id DESC LIMIT 20`) },
+      { name: 'Top Rated', link: '/browse?sort=rating', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE rating IS NOT NULL ORDER BY rating DESC LIMIT 20`) },
+      { name: 'On Your Plex', link: '/browse?source=plex', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE plex_rating_key IS NOT NULL ORDER BY updated_at DESC LIMIT 20`) },
+      { name: 'Movies', link: '/browse?type=Movie', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE type='Movie' ORDER BY release_year DESC LIMIT 20`) },
+      { name: 'Series', link: '/browse?type=Series', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE type='Series' ORDER BY release_year DESC LIMIT 20`) }
     ];
-    const genres = db.prepare('SELECT genre, COUNT(*) c FROM titles GROUP BY genre HAVING c >= 2 ORDER BY c DESC LIMIT 6').all();
+    const genres = (await db.all('SELECT genre, COUNT(*) c FROM titles GROUP BY genre HAVING c >= 2 ORDER BY c DESC LIMIT 6'));
     for (const g of genres) {
-      rows.push({ name: g.genre, link: `/browse?genre=${encodeURIComponent(g.genre)}`, items: localCards(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? ORDER BY rating DESC LIMIT 20`, g.genre) });
+      rows.push({ name: g.genre, link: `/browse?genre=${encodeURIComponent(g.genre)}`, items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? ORDER BY rating DESC LIMIT 20`, g.genre) });
     }
   }
   res.render('site/home', { title: 'Home', hero, rows: rows.filter(r => r.items.length) });
@@ -178,7 +178,7 @@ router.get('/search', async (req, res) => {
     ]);
     const like = `%${q}%`;
     const local = page === 1
-      ? localCards(`SELECT ${CARD_COLS} FROM titles WHERE title LIKE ? OR director LIKE ? OR cast_members LIKE ? ORDER BY rating DESC LIMIT 24`, like, like, like)
+      ? await localCards(`SELECT ${CARD_COLS} FROM titles WHERE title LIKE ? OR director LIKE ? OR cast_members LIKE ? ORDER BY rating DESC LIMIT 24`, like, like, like)
       : [];
     res.render('site/discover', {
       title: `Search: ${q}`, heading: `Results for "${q}"`, isSearch: true, local, anime: animeRes.items, ...result,
@@ -208,7 +208,7 @@ router.get('/suggest', async (req, res) => {
 });
 
 // BROWSE — your own CineBase catalogue
-router.get('/browse', (req, res) => {
+router.get('/browse', async (req, res) => {
   const where = [];
   const p = {};
   const q = (req.query.q || '').trim();
@@ -220,13 +220,12 @@ router.get('/browse', (req, res) => {
   const sorts = { rating: 'rating DESC', new: 'id DESC', year: 'release_year DESC', title: 'title COLLATE NOCASE' };
   const sort = sorts[req.query.sort] ? req.query.sort : 'rating';
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
-  const total = db.prepare(`SELECT COUNT(*) c FROM titles ${clause}`).get(p).c;
+  const total = (await db.get(`SELECT COUNT(*) c FROM titles ${clause}`, p)).c;
   const pages = Math.max(1, Math.ceil(total / BROWSE_PAGE_SIZE));
   const page = Math.min(Math.max(1, parseInt(req.query.page, 10) || 1), pages);
-  const items = db.prepare(`SELECT ${CARD_COLS} FROM titles ${clause} ORDER BY ${sorts[sort]}, id LIMIT @lim OFFSET @off`)
-    .all({ ...p, lim: BROWSE_PAGE_SIZE, off: (page - 1) * BROWSE_PAGE_SIZE });
-  const genres = db.prepare('SELECT DISTINCT genre FROM titles ORDER BY genre').all().map(r => r.genre);
-  const languages = db.prepare('SELECT DISTINCT language FROM titles ORDER BY language').all().map(r => r.language);
+  const items = (await db.all(`SELECT ${CARD_COLS} FROM titles ${clause} ORDER BY ${sorts[sort]}, id LIMIT @lim OFFSET @off`, { ...p, lim: BROWSE_PAGE_SIZE, off: (page - 1) * BROWSE_PAGE_SIZE }));
+  const genres = (await db.all('SELECT DISTINCT genre FROM titles ORDER BY genre')).map(r => r.genre);
+  const languages = (await db.all('SELECT DISTINCT language FROM titles ORDER BY language')).map(r => r.language);
   const heading = q ? `Results for "${q}"` : req.query.type === 'Movie' ? 'Movies' : req.query.type === 'Series' ? 'Series' : req.query.genre || (req.query.source === 'plex' ? 'On Your Plex' : 'Your CineBase');
   const qs = new URLSearchParams(req.query);
   qs.delete('page');
@@ -282,9 +281,9 @@ router.get('/episodes/:tvId/:season', async (req, res) => {
 
 // DETAIL — a title in your CineBase
 router.get('/t/:id', async (req, res, next) => {
-  const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
+  const item = (await db.get('SELECT * FROM titles WHERE id = ?', req.params.id));
   if (!item) return next();
-  const similar = db.prepare(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`).all(item.genre, item.id);
+  const similar = (await db.all(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`, item.genre, item.id));
   // Titles linked to TMDB get the cast row and, for series, the full season/episode picker
   let seasons = null, cast = [];
   if (item.tmdb_id && tmdb.enabled()) {
@@ -309,8 +308,8 @@ async function tmdbTitle(req, res, next, media) {
   }
   const t = data.item;
   // Same title already in CineBase? Link it (Plex button, admin shortcut)
-  const local = db.prepare('SELECT id, plex_rating_key FROM titles WHERE tmdb_id = ? AND type = ?').get(t.tmdb_id, t.type)
-    || (t.imdb_id ? db.prepare('SELECT id, plex_rating_key FROM titles WHERE imdb_id = ?').get(t.imdb_id) : null);
+  const local = (await db.get('SELECT id, plex_rating_key FROM titles WHERE tmdb_id = ? AND type = ?', t.tmdb_id, t.type))
+    || (t.imdb_id ? (await db.get('SELECT id, plex_rating_key FROM titles WHERE imdb_id = ?', t.imdb_id)) : null);
   const blank = v => (v === '' ? null : v);
   const item = {
     ...t,
@@ -332,12 +331,12 @@ async function tmdbTitle(req, res, next, media) {
     source: { media, tmdbId: t.tmdb_id, localId: local?.id || null }
   });
 }
-router.get('/m/:id', (req, res, next) => tmdbTitle(req, res, next, 'movie'));
-router.get('/tv/:id', (req, res, next) => tmdbTitle(req, res, next, 'tv'));
+router.get('/m/:id', async (req, res, next) => tmdbTitle(req, res, next, 'movie'));
+router.get('/tv/:id', async (req, res, next) => tmdbTitle(req, res, next, 'tv'));
 
 // Open on Plex
 router.get('/t/:id/plex', async (req, res, next) => {
-  const item = db.prepare('SELECT plex_rating_key FROM titles WHERE id = ?').get(req.params.id);
+  const item = (await db.get('SELECT plex_rating_key FROM titles WHERE id = ?', req.params.id));
   if (!item?.plex_rating_key || !plex.enabled()) return next();
   try { res.redirect(await plex.watchUrl(item.plex_rating_key)); }
   catch (e) { res.status(502).render('error', { title: 'Plex unavailable', message: 'Could not reach the Plex server right now.' }); }

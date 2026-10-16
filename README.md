@@ -105,7 +105,9 @@ Existing titles (same IMDb ID, or same title/type/year) are updated in place: mi
 | `SESSION_SECRET` | random per start | Secret for signing session cookies — **set this in production** |
 | `ADMIN_USERNAME` | `admin` | Initial admin username |
 | `ADMIN_PASSWORD` | `admin123` | Initial admin password |
-| `DATA_DIR` | `./data` | Folder for the SQLite database file |
+| `TURSO_DATABASE_URL` | — | Turso database (`libsql://…turso.io`). When set, all data, accounts and sessions live in Turso and are shared by every server instance |
+| `TURSO_AUTH_TOKEN` | — | Turso auth token (Read & Write) |
+| `DATA_DIR` | `./data` | Folder for the local SQLite file, used when `TURSO_DATABASE_URL` is empty |
 | `NODE_ENV` | — | Set to `production` to enable secure (HTTPS-only) cookies |
 | `PLEX_URL` | — | Plex server address, e.g. `http://192.168.1.50:32400` |
 | `PLEX_TOKEN` | — | Your X-Plex-Token |
@@ -141,7 +143,7 @@ Copy `.env.example` to `.env` and edit it. `npm start` loads it automatically.
 4. Add environment variables: `NODE_ENV=production`, `SESSION_SECRET=<long random string>`, `ADMIN_PASSWORD=<your password>`.
 5. Deploy — you get a public URL like `https://cinebase.onrender.com`.
 
-> **Note on data persistence:** Render's free tier has an ephemeral disk, so the SQLite file resets on every redeploy/restart. For permanent data, attach a persistent disk (paid) and set `DATA_DIR` to its mount path, or deploy on Railway with a volume.
+> **Data persistence:** serverless hosts (Vercel) and Render's free tier wipe local files, so set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` to a free [Turso](https://turso.tech) database. Titles, accounts and logins then survive deploys and are shared across instances. Without Turso, a local SQLite file in `DATA_DIR` is used.
 
 ---
 

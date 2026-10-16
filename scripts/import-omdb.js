@@ -2,6 +2,7 @@
 //   npm run import:omdb                                  -> curated list below
 //   npm run import:omdb -- --ids tt0133093 tt0110912
 //   npm run import:omdb -- --search Batman "Star Wars"
+// Works with the local database or Turso (TURSO_DATABASE_URL), like the app.
 // Existing titles (same imdb_id, or same title/type/year without one) are updated in place:
 // missing fields are filled and the rating refreshed. Plex links, TMDB data, trailers and manual edits are kept.
 const db = require('../db');
@@ -75,16 +76,16 @@ function toTitle(d) {
 }
 
 const q = {
-  byImdb: db.prepare('SELECT id FROM titles WHERE imdb_id = ?'),
-  byTitle: db.prepare(`SELECT id FROM titles WHERE imdb_id IS NULL AND type = ? AND lower(title) = lower(?)
-    AND release_year BETWEEN ? - 1 AND ? + 1 ORDER BY id LIMIT 1`),
-  insert: db.prepare(`INSERT INTO titles
+  byImdb: 'SELECT id FROM titles WHERE imdb_id = ?',
+  byTitle: `SELECT id FROM titles WHERE imdb_id IS NULL AND type = ? AND lower(title) = lower(?)
+    AND release_year BETWEEN ? - 1 AND ? + 1 ORDER BY id LIMIT 1`,
+  insert: `INSERT INTO titles
     (imdb_id,title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,status,synopsis,poster_url)
-    VALUES (@imdb_id,@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@status,@synopsis,@poster_url)`),
-  update: db.prepare(`UPDATE titles SET imdb_id=@imdb_id, rating=COALESCE(@rating,rating), seasons=COALESCE(@seasons,seasons),
+    VALUES (@imdb_id,@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@status,@synopsis,@poster_url)`,
+  update: `UPDATE titles SET imdb_id=@imdb_id, rating=COALESCE(@rating,rating), seasons=COALESCE(@seasons,seasons),
     director=COALESCE(director,@director), cast_members=COALESCE(cast_members,@cast_members),
     duration_min=COALESCE(duration_min,@duration_min), synopsis=COALESCE(synopsis,@synopsis),
-    poster_url=COALESCE(poster_url,@poster_url), updated_at=datetime('now') WHERE id=@id`)
+    poster_url=COALESCE(poster_url,@poster_url), updated_at=datetime('now') WHERE id=@id`
 };
 
 const stats = { added: 0, updated: 0, skipped: 0, failed: 0 };
@@ -93,15 +94,15 @@ async function importId(imdbId) {
   try {
     const t = toTitle(await omdb({ i: imdbId, plot: 'short' }));
     if (!t) { stats.skipped++; console.log(`[skip]    ${imdbId}: no title or release year`); return; }
-    const existing = q.byImdb.get(t.imdb_id) || q.byTitle.get(t.type, t.title, t.release_year, t.release_year);
+    const existing = (await db.get(q.byImdb, t.imdb_id)) || (await db.get(q.byTitle, t.type, t.title, t.release_year, t.release_year));
     if (existing) {
       // node:sqlite rejects named parameters the statement doesn't use, so pass only these
       const { imdb_id, rating, seasons, director, cast_members, duration_min, synopsis, poster_url } = t;
-      q.update.run({ imdb_id, rating, seasons, director, cast_members, duration_min, synopsis, poster_url, id: existing.id });
+      await db.run(q.update, { imdb_id, rating, seasons, director, cast_members, duration_min, synopsis, poster_url, id: existing.id });
       stats.updated++;
       console.log(`[update]  ${t.title} (${t.release_year})`);
     } else {
-      q.insert.run(t);
+      await db.run(q.insert, t);
       stats.added++;
       console.log(`[add]     ${t.title} (${t.release_year})`);
     }
@@ -122,6 +123,7 @@ async function searchIds(term) {
 }
 
 async function main() {
+  await db.ready;
   const [mode, ...args] = process.argv.slice(2);
   let ids;
   if (mode === '--ids') ids = args;

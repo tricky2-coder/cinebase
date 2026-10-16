@@ -27,19 +27,19 @@ const loginLimiter = rateLimit({
 // Where each role lands after signing in
 const homeFor = user => (user.role === 'admin' ? '/dashboard' : '/');
 
-router.get('/admin', (req, res) => res.redirect(req.session.user ? homeFor(req.session.user) : '/login'));
+router.get('/admin', async (req, res) => res.redirect(req.session.user ? homeFor(req.session.user) : '/login'));
 
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
   if (req.session.user) return res.redirect(homeFor(req.session.user));
   res.render('login', { title: 'Sign in', error: null, username: '', next: safeNext(req.query.next) });
 });
 
-router.post('/login', loginLimiter, (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   const username = (req.body.username || '').trim();
   const password = req.body.password || '';
   const target = safeNext(req.body.next);
   // Usernames are stored lowercase by the Users form; the seeded admin keeps ADMIN_USERNAME's casing
-  const row = db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username);
+  const row = (await db.get('SELECT * FROM users WHERE username = ? COLLATE NOCASE', username));
 
   const passwordOk = bcrypt.compareSync(password, row ? row.password : DUMMY_HASH);
   if (!row || !passwordOk) {
@@ -57,7 +57,7 @@ router.post('/login', loginLimiter, (req, res, next) => {
   });
 });
 
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 

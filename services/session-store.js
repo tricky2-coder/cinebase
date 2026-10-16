@@ -1,26 +1,15 @@
-// express-session store backed by the app's SQLite database (node:sqlite, no native build).
-// Sessions survive restarts; expired rows are pruned periodically.
+// express-session store backed by the app database (Turso or the local SQLite file).
+// With Turso every server instance shares the same sessions, so logins survive restarts,
+// deploys and requests landing on different Vercel instances. Expired rows are pruned periodically.
 const session = require('express-session');
 
 const DAY = 24 * 60 * 60 * 1000;
 
-class SqliteStore extends session.Store {
+class SqlStore extends session.Store {
   constructor(db, { pruneEveryMs = 15 * 60 * 1000 } = {}) {
     super();
-    db.exec(`CREATE TABLE IF NOT EXISTS sessions (
-      sid     TEXT PRIMARY KEY,
-      sess    TEXT NOT NULL,
-      expires INTEGER NOT NULL
-    )`);
-    this.q = {
-      get: db.prepare('SELECT sess FROM sessions WHERE sid = ? AND expires > ?'),
-      set: db.prepare(`INSERT INTO sessions (sid, sess, expires) VALUES (?, ?, ?)
-        ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires`),
-      touch: db.prepare('UPDATE sessions SET expires = ? WHERE sid = ?'),
-      destroy: db.prepare('DELETE FROM sessions WHERE sid = ?'),
-      prune: db.prepare('DELETE FROM sessions WHERE expires <= ?')
-    };
-    this.prune();
+    this.db = db;
+    db.ready.then(() => this.prune()).catch(() => {});
     setInterval(() => this.prune(), pruneEveryMs).unref();
   }
 
@@ -30,36 +19,27 @@ class SqliteStore extends session.Store {
   }
 
   prune() {
-    this.q.prune.run(Date.now());
+    return this.db.run('DELETE FROM sessions WHERE expires <= ?', Date.now()).catch(e => console.error('Session prune failed:', e.message));
   }
 
   get(sid, cb) {
-    try {
-      const row = this.q.get.get(sid, Date.now());
-      cb(null, row ? JSON.parse(row.sess) : null);
-    } catch (e) { cb(e); }
+    this.db.get('SELECT sess FROM sessions WHERE sid = ? AND expires > ?', sid, Date.now())
+      .then(row => cb(null, row ? JSON.parse(row.sess) : null), cb);
   }
 
   set(sid, sess, cb = () => {}) {
-    try {
-      this.q.set.run(sid, JSON.stringify(sess), SqliteStore.expiry(sess));
-      cb(null);
-    } catch (e) { cb(e); }
+    this.db.run(`INSERT INTO sessions (sid, sess, expires) VALUES (?, ?, ?)
+      ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires`,
+    sid, JSON.stringify(sess), SqlStore.expiry(sess)).then(() => cb(null), cb);
   }
 
   touch(sid, sess, cb = () => {}) {
-    try {
-      this.q.touch.run(SqliteStore.expiry(sess), sid);
-      cb(null);
-    } catch (e) { cb(e); }
+    this.db.run('UPDATE sessions SET expires = ? WHERE sid = ?', SqlStore.expiry(sess), sid).then(() => cb(null), cb);
   }
 
   destroy(sid, cb = () => {}) {
-    try {
-      this.q.destroy.run(sid);
-      cb(null);
-    } catch (e) { cb(e); }
+    this.db.run('DELETE FROM sessions WHERE sid = ?', sid).then(() => cb(null), cb);
   }
 }
 
-module.exports = SqliteStore;
+module.exports = SqlStore;

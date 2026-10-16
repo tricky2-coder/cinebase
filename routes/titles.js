@@ -17,9 +17,9 @@ const SORTS = {
 };
 const PAGE_SIZE = 10;
 
-const options = () => ({
+const options = async () => ({
   TYPES, STATUSES, GENRES, tmdbEnabled: tmdb.enabled(),
-  languages: db.prepare('SELECT DISTINCT language FROM titles ORDER BY language').all().map(r => r.language)
+  languages: (await db.all('SELECT DISTINCT language FROM titles ORDER BY language')).map(r => r.language)
 });
 
 function buildQuery(q) {
@@ -89,24 +89,23 @@ function validate(body) {
 }
 
 // LIST + SEARCH
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { clause, params } = buildQuery(req.query);
   const sort = SORTS[req.query.sort] ? req.query.sort : 'updated';
-  const total = db.prepare(`SELECT COUNT(*) c FROM titles ${clause}`).get(params).c;
+  const total = (await db.get(`SELECT COUNT(*) c FROM titles ${clause}`, params)).c;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, parseInt(req.query.page, 10) || 1), pages);
-  const rows = db.prepare(`SELECT * FROM titles ${clause} ORDER BY ${SORTS[sort]} LIMIT @lim OFFSET @off`)
-    .all({ ...params, lim: PAGE_SIZE, off: (page - 1) * PAGE_SIZE });
+  const rows = (await db.all(`SELECT * FROM titles ${clause} ORDER BY ${SORTS[sort]} LIMIT @lim OFFSET @off`, { ...params, lim: PAGE_SIZE, off: (page - 1) * PAGE_SIZE }));
 
   const qs = new URLSearchParams({ ...req.query });
   qs.delete('page');
-  res.render('titles/index', { title: 'Movies & Series', rows, total, page, pages, query: req.query, sort, qs: qs.toString(), ...options() });
+  res.render('titles/index', { title: 'Movies & Series', rows, total, page, pages, query: req.query, sort, qs: qs.toString(), ...(await options()) });
 });
 
 // EXPORT current search as CSV (opens in Excel)
-router.get('/export.csv', (req, res) => {
+router.get('/export.csv', async (req, res) => {
   const { clause, params } = buildQuery(req.query);
-  const rows = db.prepare(`SELECT * FROM titles ${clause} ORDER BY title`).all(params);
+  const rows = (await db.all(`SELECT * FROM titles ${clause} ORDER BY title`, params));
   const cols = ['id', 'title', 'type', 'genre', 'language', 'release_year', 'director', 'cast_members', 'seasons', 'duration_min', 'rating', 'platform', 'status', 'synopsis'];
   const esc = v => (v == null ? '' : `"${String(v).replace(/"/g, '""')}"`);
   const csv = '﻿' + [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\r\n');
@@ -137,14 +136,14 @@ const ENRICH_BUDGET_MS = 60 * 1000;
 
 router.post('/tmdb/enrich', async (req, res) => {
   if (!tmdb.enabled()) { setFlash(req, 'error', 'Set TMDB_API_KEY first.'); return res.redirect('/titles'); }
-  const rows = db.prepare(`SELECT id,title,type,release_year,tmdb_id FROM titles
+  const rows = (await db.all(`SELECT id,title,type,release_year,tmdb_id FROM titles
     WHERE (poster_url IS NULL OR backdrop_url IS NULL OR trailer_key IS NULL)
-      AND (tmdb_checked_at IS NULL OR tmdb_checked_at < datetime('now','-30 days'))`).all();
-  const upd = db.prepare(`UPDATE titles SET tmdb_id=COALESCE(tmdb_id,@tmdb_id), poster_url=COALESCE(poster_url,NULLIF(@poster_url,'')),
+      AND (tmdb_checked_at IS NULL OR tmdb_checked_at < datetime('now','-30 days'))`));
+  const UPDATE = `UPDATE titles SET tmdb_id=COALESCE(tmdb_id,@tmdb_id), poster_url=COALESCE(poster_url,NULLIF(@poster_url,'')),
     backdrop_url=COALESCE(backdrop_url,NULLIF(@backdrop_url,'')), trailer_key=COALESCE(trailer_key,@trailer_key),
     cast_members=COALESCE(cast_members,NULLIF(@cast_members,'')), synopsis=COALESCE(synopsis,NULLIF(@synopsis,'')),
-    tmdb_checked_at=datetime('now'), updated_at=datetime('now') WHERE id=@id`);
-  const markChecked = db.prepare("UPDATE titles SET tmdb_checked_at=datetime('now') WHERE id=?");
+    tmdb_checked_at=datetime('now'), updated_at=datetime('now') WHERE id=@id`;
+  const MARK_CHECKED = "UPDATE titles SET tmdb_checked_at=datetime('now') WHERE id=?";
 
   const deadline = Date.now() + ENRICH_BUDGET_MS;
   let next = 0, done = 0, missed = 0, failed = 0;
@@ -158,9 +157,9 @@ router.post('/tmdb/enrich', async (req, res) => {
           const hits = (await tmdb.search(r.title, r.release_year)).filter(h => h.media === media);
           id = hits[0]?.tmdb_id;
         }
-        if (!id) { markChecked.run(r.id); missed++; continue; }
+        if (!id) { await db.run(MARK_CHECKED, r.id); missed++; continue; }
         const d = await tmdb.details(media, id);
-        upd.run({ id: r.id, tmdb_id: d.tmdb_id, poster_url: d.poster_url, backdrop_url: d.backdrop_url, trailer_key: youtubeId(d.trailer_key), cast_members: d.cast_members, synopsis: d.synopsis });
+        await db.run(UPDATE, { id: r.id, tmdb_id: d.tmdb_id, poster_url: d.poster_url, backdrop_url: d.backdrop_url, trailer_key: youtubeId(d.trailer_key), cast_members: d.cast_members, synopsis: d.synopsis });
         done++;
       } catch { failed++; } // network/API errors: leave unchecked so the next run retries
     }
@@ -185,8 +184,8 @@ router.post('/import-tmdb', async (req, res) => {
   try {
     const d = await tmdb.details(media, id);
     const imdbId = /^tt\d+$/.test(d.imdb_id) ? d.imdb_id : null;
-    const existing = db.prepare('SELECT id FROM titles WHERE tmdb_id = ? AND type = ?').get(d.tmdb_id, d.type)
-      || (imdbId ? db.prepare('SELECT id FROM titles WHERE imdb_id = ?').get(imdbId) : null);
+    const existing = (await db.get('SELECT id FROM titles WHERE tmdb_id = ? AND type = ?', d.tmdb_id, d.type))
+      || (imdbId ? (await db.get('SELECT id FROM titles WHERE imdb_id = ?', imdbId)) : null);
     if (existing) return res.redirect(back);
 
     const { t, errors } = validate({ ...d, genre: d.genre || 'Drama', language: d.language || 'Unknown' });
@@ -194,9 +193,8 @@ router.post('/import-tmdb', async (req, res) => {
       setFlash(req, 'error', `Couldn't add "${d.title}" from TMDB: ${errors.join(' ')}`);
       return res.redirect('/titles');
     }
-    db.prepare(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis,poster_url,backdrop_url,trailer_key,tmdb_id,imdb_id,tmdb_checked_at)
-      VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@poster_url,@backdrop_url,@trailer_key,@tmdb_id,@imdb_id,datetime('now'))`)
-      .run({ ...t, imdb_id: imdbId });
+    (await db.run(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis,poster_url,backdrop_url,trailer_key,tmdb_id,imdb_id,tmdb_checked_at)
+      VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@poster_url,@backdrop_url,@trailer_key,@tmdb_id,@imdb_id,datetime('now'))`, { ...t, imdb_id: imdbId }));
     res.redirect(back);
   } catch (e) {
     setFlash(req, 'error', `Couldn't add from TMDB: ${e.message}`);
@@ -205,53 +203,53 @@ router.post('/import-tmdb', async (req, res) => {
 });
 
 // ADD
-router.get('/new', (req, res) => {
-  res.render('titles/form', { title: 'Add Title', item: { type: 'Movie', status: 'Released' }, errors: [], action: '/titles', method: 'POST', ...options() });
+router.get('/new', async (req, res) => {
+  res.render('titles/form', { title: 'Add Title', item: { type: 'Movie', status: 'Released' }, errors: [], action: '/titles', method: 'POST', ...(await options()) });
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { t, errors } = validate(req.body);
-  if (errors.length) return res.status(422).render('titles/form', { title: 'Add Title', item: req.body, errors, action: '/titles', method: 'POST', ...options() });
-  const info = db.prepare(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis,poster_url,backdrop_url,trailer_key,tmdb_id)
-    VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@poster_url,@backdrop_url,@trailer_key,@tmdb_id)`).run(t);
+  if (errors.length) return res.status(422).render('titles/form', { title: 'Add Title', item: req.body, errors, action: '/titles', method: 'POST', ...(await options()) });
+  const info = (await db.run(`INSERT INTO titles (title,type,genre,language,release_year,director,cast_members,seasons,duration_min,rating,platform,status,synopsis,poster_url,backdrop_url,trailer_key,tmdb_id)
+    VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@poster_url,@backdrop_url,@trailer_key,@tmdb_id)`, t));
   setFlash(req, 'success', `"${t.title}" added.`);
   res.redirect(`/titles/${info.lastInsertRowid}`);
 });
 
 // VIEW
-router.get('/:id', (req, res, next) => {
-  const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
+router.get('/:id', async (req, res, next) => {
+  const item = (await db.get('SELECT * FROM titles WHERE id = ?', req.params.id));
   if (!item) return next();
   res.render('titles/show', { title: item.title, item });
 });
 
 // MODIFY
-router.get('/:id/edit', (req, res, next) => {
-  const item = db.prepare('SELECT * FROM titles WHERE id = ?').get(req.params.id);
+router.get('/:id/edit', async (req, res, next) => {
+  const item = (await db.get('SELECT * FROM titles WHERE id = ?', req.params.id));
   if (!item) return next();
-  res.render('titles/form', { title: 'Edit Title', item, errors: [], action: `/titles/${item.id}?_method=PUT`, method: 'PUT', ...options() });
+  res.render('titles/form', { title: 'Edit Title', item, errors: [], action: `/titles/${item.id}?_method=PUT`, method: 'PUT', ...(await options()) });
 });
 
-router.put('/:id', (req, res, next) => {
-  const exists = db.prepare('SELECT id FROM titles WHERE id = ?').get(req.params.id);
+router.put('/:id', async (req, res, next) => {
+  const exists = (await db.get('SELECT id FROM titles WHERE id = ?', req.params.id));
   if (!exists) return next();
   const { t, errors } = validate(req.body);
   if (errors.length) {
-    return res.status(422).render('titles/form', { title: 'Edit Title', item: { ...req.body, id: exists.id }, errors, action: `/titles/${exists.id}?_method=PUT`, method: 'PUT', ...options() });
+    return res.status(422).render('titles/form', { title: 'Edit Title', item: { ...req.body, id: exists.id }, errors, action: `/titles/${exists.id}?_method=PUT`, method: 'PUT', ...(await options()) });
   }
-  db.prepare(`UPDATE titles SET title=@title,type=@type,genre=@genre,language=@language,release_year=@release_year,director=@director,
+  (await db.run(`UPDATE titles SET title=@title,type=@type,genre=@genre,language=@language,release_year=@release_year,director=@director,
     cast_members=@cast_members,seasons=@seasons,duration_min=@duration_min,rating=@rating,platform=@platform,status=@status,synopsis=@synopsis,
     poster_url=@poster_url,backdrop_url=@backdrop_url,trailer_key=@trailer_key,tmdb_id=@tmdb_id,
-    updated_at=datetime('now') WHERE id=@id`).run({ ...t, id: exists.id });
+    updated_at=datetime('now') WHERE id=@id`, { ...t, id: exists.id }));
   setFlash(req, 'success', `"${t.title}" updated.`);
   res.redirect(`/titles/${exists.id}`);
 });
 
 // DELETE
-router.delete('/:id', (req, res) => {
-  const item = db.prepare('SELECT title FROM titles WHERE id = ?').get(req.params.id);
+router.delete('/:id', async (req, res) => {
+  const item = (await db.get('SELECT title FROM titles WHERE id = ?', req.params.id));
   if (item) {
-    db.prepare('DELETE FROM titles WHERE id = ?').run(req.params.id);
+    (await db.run('DELETE FROM titles WHERE id = ?', req.params.id));
     setFlash(req, 'success', `"${item.title}" deleted.`);
   }
   res.redirect('/titles');

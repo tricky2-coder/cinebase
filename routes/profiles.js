@@ -31,19 +31,11 @@ const AVATAR_PRESETS = [
   { id: 'red-superhero', name: 'Red Superhero', path: '/profiles/avatars/red-superhero.svg' }
 ];
 
-// Standalone "Who's Watching?" page (shown immediately after login)
-router.get('/whos-watching', async (req, res) => {
-  try {
-    const profiles = await db.all('SELECT * FROM profiles WHERE user_id = ? ORDER BY id ASC', req.session.user.id);
-    res.render('site/whos_watching_page', {
-      title: "Who's Watching?",
-      userProfiles: profiles,
-      activeProfile: req.session.activeProfile || profiles[0] || null,
-      next: req.query.next || '/'
-    });
-  } catch (e) {
-    res.redirect('/');
-  }
+// "Who's Watching?" route
+router.get('/whos-watching', (req, res) => {
+  const dest = req.query.next || '/';
+  const redirectUrl = `${dest}${dest.includes('?') ? '&' : '?'}whosWatching=1`;
+  res.redirect(redirectUrl);
 });
 
 // List profiles

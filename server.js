@@ -109,7 +109,7 @@ app.use((req, res, next) => {
   res.locals.userProfiles = res.locals.userProfiles || [];
   res.locals.flash = req.session.flash || null;
   res.locals.path = req.path;
-  res.locals.showWhosWatching = !!req.session.justLoggedIn;
+  res.locals.showWhosWatching = !!(req.session.justLoggedIn || req.query.whosWatching);
   delete req.session.justLoggedIn;
   delete req.session.flash;
   next();

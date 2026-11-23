@@ -529,12 +529,50 @@ button { font: inherit; }
 }
 
 /* ---------- Netflix-Style "Who's Watching?" Modal (Images 1, 2, 3, 4) ---------- */
+body.ww-active {
+  overflow: hidden;
+}
+
+body.ww-active .ww-overlay {
+  animation: none !important;
+}
+
 .ww-overlay {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: 99999;
   background: #141414;
   display: flex; align-items: center; justify-content: center;
   padding: 24px; animation: wwFadeIn .2s ease-out;
   overflow-y: auto;
+}
+
+.ww-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 28px 48px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 10;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.ww-top-brand {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: .08em;
+  color: var(--gold, #f5b301);
+  line-height: 1;
+  display: inline-block;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+@media (max-width: 600px) {
+  .ww-top-bar { padding: 18px 20px; }
+  .ww-top-brand { font-size: 1.6rem; }
 }
 @keyframes wwFadeIn { from { opacity: 0; } to { opacity: 1; } }
 .ww-overlay[hidden], .ww-view[hidden], .ww-btn-delete[hidden] { display: none !important; }

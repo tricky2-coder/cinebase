@@ -50,6 +50,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
   req.session.regenerate(err => {
     if (err) return next(err);
     req.session.user = { id: row.id, name: row.name, username: row.username, role: row.role };
+    req.session.justLoggedIn = true;
     if (row.role === 'admin') req.session.flash = { type: 'success', msg: `Welcome back, ${row.name}!` };
     // Users can't open admin pages, so ignore an admin "next" for them
     const dest = target && (row.role === 'admin' || !/^\/(dashboard|titles|users|plex)\b/.test(target)) ? target : homeFor(row);
@@ -57,9 +58,8 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     if (isDashboard) {
       return res.redirect(dest);
     }
-    // Transition directly to the "Who's Watching?" page after login
-    const nextParam = dest && dest !== '/' ? `?next=${encodeURIComponent(dest)}` : '';
-    res.redirect(`/whos-watching${nextParam}`);
+    const redirectUrl = `${dest}${dest.includes('?') ? '&' : '?'}whosWatching=1`;
+    res.redirect(redirectUrl);
   });
 });
 

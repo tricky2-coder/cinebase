@@ -168,6 +168,7 @@
   let profilesData = [];
   let currentActiveId = null;
   let isManageMode = false;
+  let isSwitchingProfile = false;
   let selectedAvatar = '/profiles/avatars/blue-classic-icon.svg';
   let presetsList = AVATAR_PRESETS;
 
@@ -201,7 +202,7 @@
   }
 
   function renderProfiles() {
-    if (!wwGrid) return;
+    if (!wwGrid || isSwitchingProfile) return;
     wwGrid.innerHTML = '';
     wwGrid.classList.toggle('manage-mode', isManageMode);
 
@@ -278,8 +279,9 @@
   }
 
   async function switchProfile(id) {
+    if (isSwitchingProfile) return;
     try {
-      const isStandalonePage = window.location.pathname === '/whos-watching';
+      isSwitchingProfile = true;
       const isAlreadyActive = Number(id) === Number(currentActiveId);
 
       // Trigger Netflix-style hero highlight animation immediately
@@ -312,38 +314,38 @@
         const data = await res.json();
         currentActiveId = id;
 
-        if (isStandalonePage) {
-          const params = new URLSearchParams(window.location.search);
-          const target = params.get('next') || '/';
-          setTimeout(() => {
-            window.location.href = target;
-          }, 450);
-          return;
-        }
-
         // Inside website modal:
         const navImg = document.getElementById('nav-profile-avatar-img');
         if (navImg && data.profile && data.profile.avatar) {
           navImg.src = data.profile.avatar;
         }
+        const settingsName = document.querySelector('.s-settings-user-name');
+        if (settingsName && data.profile && data.profile.name) {
+          settingsName.textContent = data.profile.name;
+        }
 
         setTimeout(() => {
           if (wwModal) wwModal.classList.add('ww-modal-exiting');
           setTimeout(() => {
+            const isFromLogin = document.body.dataset.showWhosWatching === 'true';
             closeWhosWatching();
             delete document.body.dataset.showWhosWatching;
-            if (!isAlreadyActive) {
+            document.body.classList.remove('ww-active');
+            isSwitchingProfile = false;
+            if (!isAlreadyActive && !isFromLogin) {
               window.location.reload();
             } else {
               resetProfileSelectionAnimations();
             }
-          }, 200);
+          }, 350);
         }, 420);
       } else {
+        isSwitchingProfile = false;
         resetProfileSelectionAnimations();
       }
     } catch (e) {
       console.error('Error switching profile:', e);
+      isSwitchingProfile = false;
       resetProfileSelectionAnimations();
     }
   }
@@ -428,11 +430,16 @@
   function openWhosWatching() {
     if (!wwModal) return;
     isManageMode = false;
+    isSwitchingProfile = false;
     resetProfileSelectionAnimations();
     if (wwSelectTitle) wwSelectTitle.textContent = "Who's watching?";
     if (wwSelectSub) wwSelectSub.textContent = 'Each profile keeps its own watchlist, progress and settings.';
     if (wwManageBtn) wwManageBtn.textContent = 'MANAGE PROFILES';
-    if (wwCancelBtn) wwCancelBtn.hidden = false;
+    const isMandatory = document.body.dataset.showWhosWatching === 'true';
+    if (wwCancelBtn) {
+      wwCancelBtn.hidden = isMandatory;
+      wwCancelBtn.style.display = isMandatory ? 'none' : '';
+    }
     if (wwViewSelect) wwViewSelect.hidden = false;
     if (wwViewForm) wwViewForm.hidden = true;
     wwModal.hidden = false;
@@ -450,6 +457,7 @@
     wwModal.hidden = true;
     document.body.style.overflow = '';
     isManageMode = false;
+    isSwitchingProfile = false;
     delete document.body.dataset.showWhosWatching;
     resetProfileSelectionAnimations();
   }
@@ -466,7 +474,11 @@
       if (wwSelectTitle) wwSelectTitle.textContent = isManageMode ? 'Manage Profiles' : "Who's watching?";
       if (wwSelectSub) wwSelectSub.textContent = isManageMode ? 'Choose a profile to edit.' : 'Each profile keeps its own watchlist, progress and settings.';
       wwManageBtn.textContent = isManageMode ? 'DONE' : 'MANAGE PROFILES';
-      if (wwCancelBtn) wwCancelBtn.hidden = isManageMode;
+      const isMandatory = document.body.dataset.showWhosWatching === 'true';
+      if (wwCancelBtn) {
+        wwCancelBtn.hidden = isManageMode || isMandatory;
+        wwCancelBtn.style.display = (isManageMode || isMandatory) ? 'none' : '';
+      }
       renderProfiles();
     });
   }

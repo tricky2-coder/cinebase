@@ -1,5 +1,8 @@
 <!-- Netflix-Style Who's Watching & Profile Management Modal -->
-<div class="ww-overlay" id="whos-watching-modal" <%- (typeof standalone !== 'undefined' && standalone) ? '' : 'hidden' %>>
+<div class="ww-overlay" id="whos-watching-modal" <%- (typeof showWhosWatching !== 'undefined' && showWhosWatching) ? '' : 'hidden' %>>
+  <header class="ww-top-bar">
+    <span class="ww-top-brand">CINEBASE</span>
+  </header>
   <div class="ww-container">
     
     <!-- View 1: Who's watching? / Manage Profiles -->
@@ -48,7 +51,7 @@
 
       <div class="ww-actions">
         <button type="button" class="ww-btn-outline" id="btn-ww-manage">MANAGE PROFILES</button>
-        <button type="button" class="ww-btn-outline" id="btn-ww-cancel">CANCEL</button>
+        <button type="button" class="ww-btn-outline" id="btn-ww-cancel" <%- (typeof showWhosWatching !== 'undefined' && showWhosWatching) ? 'style="display:none;"' : '' %>>CANCEL</button>
       </div>
     </div>
 

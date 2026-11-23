@@ -58,10 +58,15 @@
     </div>
     <% if (player) { %>
     <div class="player-tools">
+      <% if (player.isSeries) { %>
+      <div class="player-quick-nav" id="p-quick-nav">
+        <button type="button" class="ep-step ep-quick-btn" id="p-quick-prev" title="Previous episode" aria-label="Previous episode">‹</button>
+        <select class="ep-quick-select" id="p-quick-select" aria-label="Select episode"></select>
+        <button type="button" class="ep-step ep-quick-btn" id="p-quick-next" title="Next episode" aria-label="Next episode">›</button>
+        <button type="button" class="ep-step ep-autonext-btn" id="p-autonext" title="Toggle auto-play next episode">Auto-next: ON</button>
+      </div>
+      <% } %>
       <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window">⧉ Pop out</button>
-      <label class="mirror">Player
-        <select id="p-mirror"><% player.options.forEach(o => { %><option value="<%= o.domain %>"><%= o.label %></option><% }) %></select>
-      </label>
     </div>
     <% } %>
   </div>
@@ -72,7 +77,6 @@
         title="<%= item.title %> player"
         allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
         referrerpolicy="no-referrer"
-        <% if (player.sandbox) { %>sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"<% } %>
         allowfullscreen></iframe>
       <div class="popped-msg" id="p-popped" hidden>
         <p><b>Playing in the pop-out window</b><span>Close it or bring it back to keep watching here.</span></p>
@@ -82,12 +86,6 @@
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>
   </div>
-  <!-- <% if (player) { %>
-  <div class="vidy-tip" id="vidy-ad-tip" hidden>
-    <span>💡 Vidy detects iframe sandboxing. For built-in zero-popup playback, switch to <b>VidSrc</b> in the Player menu above, or use an adblocker extension.</span>
-    <button type="button" class="vidy-tip-switch-btn" id="btn-switch-to-vidsrc">Switch to VidSrc</button>
-  </div>
-  <% } %> -->
 
   <% if (player && player.isSeries) { %>
   <div class="episodes" id="episodes">

@@ -37,13 +37,14 @@ async function gql(query, variables) {
 }
 
 const CARD_FIELDS = `id title { romaji english } format episodes seasonYear averageScore status
-  coverImage { large extraLarge } bannerImage genres description(asHtml: false)`;
+  coverImage { large extraLarge } bannerImage genres description(asHtml: false) trailer { id site }`;
 
 const titleOf = m => m.title.english || m.title.romaji;
 const stripHtml = s => (s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
 // AniList media -> the card shape used by views/site/_card.ejs
 function toCard(m) {
+  const trailerKey = m.trailer?.site === 'youtube' && /^[\w-]{11}$/.test(m.trailer.id) ? m.trailer.id : null;
   return {
     id: m.id,
     anilist_id: m.id,
@@ -56,7 +57,8 @@ function toCard(m) {
     language: 'Japanese',
     synopsis: stripHtml(m.description) || null,
     poster_url: m.coverImage?.large || null,
-    backdrop_url: m.bannerImage || m.coverImage?.extraLarge || null
+    backdrop_url: m.bannerImage || m.coverImage?.extraLarge || null,
+    trailer_key: trailerKey
   };
 }
 
@@ -103,15 +105,14 @@ const media = id => cached(`media:${id}`, 6 * HOUR, async () => (await gql(`quer
   Media(id: $id, type: ANIME) {
     ${CARD_FIELDS}
     title { romaji english native } status duration season
-    trailer { id site }
     studios(isMain: true) { nodes { name } }
     nextAiringEpisode { episode }
     streamingEpisodes { title thumbnail }
-    characters(sort: [ROLE, RELEVANCE], perPage: 20) {
+    characters(sort: [ROLE, RELEVANCE], perPage: 12) {
       edges { role node { name { full } image { large } } voiceActors(language: JAPANESE) { name { full } } }
     }
     relations { edges { relationType node { ${CARD_FIELDS} type } } }
-    recommendations(perPage: 20, sort: RATING_DESC) { nodes { mediaRecommendation { ${CARD_FIELDS} } } }
+    recommendations(perPage: 12, sort: RATING_DESC) { nodes { mediaRecommendation { ${CARD_FIELDS} } } }
   }
 }`, { id: Number(id) })).Media);
 
@@ -133,6 +134,7 @@ async function titlePage(id) {
   if (!m) throw Object.assign(new Error('AniList 404'), { status: 404 });
   const count = availableEpisodes(m);
   const isMovie = m.format === 'MOVIE';
+  const effectiveCount = count || (isMovie ? 1 : 24);
   const item = {
     ...toCard(m),
     type: isMovie ? 'Movie' : 'Series',          // drives the player (single video vs episodes)
@@ -148,12 +150,10 @@ async function titlePage(id) {
     episode_count: count
   };
   // Episode "seasons": one tab for short shows, 100-episode tabs for long ones
-  const seasons = isMovie ? null : count
-    ? Array.from({ length: Math.ceil(count / EPISODE_CHUNK) }, (_, i) => {
-      const start = i * EPISODE_CHUNK + 1, end = Math.min(count, start + EPISODE_CHUNK - 1);
-      return { n: i + 1, name: count <= EPISODE_CHUNK ? 'Episodes' : `${start}–${end}`, episodes: end - start + 1, start };
-    })
-    : [{ n: 1, name: 'Episodes', episodes: null, start: 1 }];
+  const seasons = isMovie ? null : Array.from({ length: Math.ceil(effectiveCount / EPISODE_CHUNK) }, (_, i) => {
+    const start = i * EPISODE_CHUNK + 1, end = Math.min(effectiveCount, start + EPISODE_CHUNK - 1);
+    return { n: i + 1, name: effectiveCount <= EPISODE_CHUNK ? 'Episodes' : `${start}–${end}`, episodes: end - start + 1, start };
+  });
   return {
     item,
     seasons,
@@ -173,17 +173,16 @@ async function titlePage(id) {
 async function episodes(id, chunk) {
   const m = await media(id);
   if (!m) throw Object.assign(new Error('AniList 404'), { status: 404 });
-  const count = availableEpisodes(m);
-  if (!count) return [];
+  const count = availableEpisodes(m) || 24;
   const start = (chunk - 1) * EPISODE_CHUNK + 1;
-  if (start > count) throw Object.assign(new Error('No such episodes'), { status: 404 });
+  if (start > count && start > 1) throw Object.assign(new Error('No such episodes'), { status: 404 });
   const end = Math.min(count, start + EPISODE_CHUNK - 1);
   const named = new Map();
   for (const e of m.streamingEpisodes || []) {
     const [, num, name] = e.title.match(/Episode\s+(\d+)\s*-\s*(.*)/i) || [];
     if (num) named.set(Number(num), { name: name.trim(), still: e.thumbnail });
   }
-  return Array.from({ length: end - start + 1 }, (_, i) => {
+  return Array.from({ length: Math.max(1, end - start + 1) }, (_, i) => {
     const n = start + i;
     return { n, name: named.get(n)?.name || `Episode ${n}`, still: named.get(n)?.still || null, runtime: m.duration || null, air_date: null, aired: true };
   });

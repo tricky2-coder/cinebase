@@ -599,46 +599,12 @@
     });
   }
 
-  // "Show ads" Toggle & Video Player Sandbox (Image 1)
+  // "Show ads" Toggle
   const adsToggle = document.getElementById('toggle-show-ads');
-  const isShowingAds = localStorage.getItem('cinebase.showAds') === 'true';
-
-  // Smart Player-Aware Sandbox Function (Option 1)
-  function applyPlayerSandbox() {
-    const ifr = document.querySelector('.player iframe, #player iframe');
-    const mirror = document.getElementById('p-mirror');
-    const vidyTip = document.getElementById('vidy-ad-tip');
-    if (!ifr) return;
-
-    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
-    const isVidy = mirror ? mirror.value.includes('vidy') : (ifr.src && ifr.src.includes('vidy'));
-
-    if (showAds || isVidy) {
-      // Vidy actively blocks sandboxed iframes with an anti-sandbox error screen.
-      // When on Vidy or when showAds is true, remove sandbox so Vidy plays cleanly without errors.
-      ifr.removeAttribute('sandbox');
-      if (vidyTip) {
-        vidyTip.hidden = showAds || !isVidy;
-      }
-    } else {
-      // VidSrc and other mirrors: apply sandbox to block popups completely
-      ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
-      if (vidyTip) {
-        vidyTip.hidden = true;
-      }
-    }
-  }
-
-  // Initial application on load
-  applyPlayerSandbox();
-
   if (adsToggle) {
-    adsToggle.checked = isShowingAds;
+    adsToggle.checked = localStorage.getItem('cinebase.showAds') === 'true';
     adsToggle.addEventListener('change', () => {
       localStorage.setItem('cinebase.showAds', adsToggle.checked);
-      applyPlayerSandbox();
-      const ifr = document.querySelector('.player iframe, #player iframe');
-      if (ifr) ifr.src = ifr.src; // Reload player with updated sandbox
     });
   }
 
@@ -826,22 +792,50 @@
     addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
   }
 
-  // VidSrc player: mirror switcher (remembered per browser) + season/episode picker for series
+  // Vidy player: dedicated engine for movies, series, and anime + quick season/episode navigation
   const player = document.getElementById('player');
   if (player) {
     const cfg = JSON.parse(player.dataset.cfg);
     const iframe = player.querySelector('iframe');
-    const mirror = document.getElementById('p-mirror');
-    const MIRROR_KEY = 'cinebase.player', EP_KEY = `cinebase.ep.${cfg.key}`;
-    const state = { s: 1, e: 1 };
-    let onEnded = () => {}; // series: continue with the next episode
+    const EP_KEY = `cinebase.ep.${cfg.key}`;
+    const AUTONEXT_KEY = 'cinebase.autonext';
+    let autoNext = localStorage.getItem(AUTONEXT_KEY) !== 'false';
+    const autoNextBtn = document.getElementById('p-autonext');
+    function syncAutoNext() {
+      if (!autoNextBtn) return;
+      autoNextBtn.textContent = `Auto-next: ${autoNext ? 'ON' : 'OFF'}`;
+      autoNextBtn.classList.toggle('off', !autoNext);
+    }
+    syncAutoNext();
+    if (autoNextBtn) {
+      autoNextBtn.addEventListener('click', () => {
+        autoNext = !autoNext;
+        localStorage.setItem(AUTONEXT_KEY, autoNext ? 'true' : 'false');
+        syncAutoNext();
+      });
+    }
 
-    // Watch position per movie / episode (players that report playback events, e.g. Vidy)
-    const posKey = () => `cinebase.pos.${cfg.key}` + (cfg.isSeries ? `.${state.s}.${state.e}` : '');
+    const state = { s: 1, e: 1 };
+    let pendingNav = null; // { s, e, deadline } to guard against stale messages during episode change
+
+    // Watch position per movie / episode (reported by Vidy events)
+    const posKey = (s = state.s, e = state.e) => `cinebase.pos.${cfg.key}` + (cfg.isSeries ? `.${s}.${e}` : '');
     const resumeAt = () => {
       try {
-        const p = JSON.parse(localStorage.getItem(posKey()) || 'null');
-        return p && p.t > 30 && (!p.d || p.t < p.d - 60) ? Math.floor(p.t) : null;
+        const key = posKey();
+        const p = JSON.parse(localStorage.getItem(key) || 'null');
+        if (!p || typeof p.t !== 'number' || p.t <= 30) return null;
+        // If watched past 90% or within last 90 seconds, episode is completed -> restart from 0:00
+        if (p.d && (p.t >= p.d - 90 || (p.d > 120 && p.t / p.d >= 0.90))) {
+          localStorage.removeItem(key);
+          return null;
+        }
+        // If duration was not recorded but time is over 35 min on a series / 18 min on anime, likely credits -> restart from 0:00
+        if (!p.d && cfg.isSeries && p.t > (cfg.anime ? 1100 : 2100)) {
+          localStorage.removeItem(key);
+          return null;
+        }
+        return Math.floor(p.t);
       } catch { return null; }
     };
 
@@ -852,37 +846,123 @@
     const frame = () => pipFrame || iframe;
 
     const url = () => {
-      const p = cfg.players[mirror.value];
-      if (!p) return frame().src;
-      const u = new URL(`https://${mirror.value}` + p.path
-        .replace('{id}', encodeURIComponent(p.id)).replace('{s}', state.s).replace('{e}', state.e));
-      if (p.events) {
-        const t = resumeAt();
-        if (t) u.searchParams.set('progress', t);
-      }
+      const u = new URL(`https://${cfg.domain || 'www.vidy.st'}` + cfg.path
+        .replace('{id}', encodeURIComponent(cfg.id)).replace('{s}', state.s).replace('{e}', state.e));
+      const t = resumeAt();
+      // Explicitly set progress=0 when starting from the beginning.
+      // Vidy requires ?progress=0 in query params to override its internal localStorage history;
+      // otherwise, Vidy resumes completed episodes at their end time (e.g. 40:00) and immediately skips to the next episode!
+      u.searchParams.set('progress', (t && t > 0) ? t : 0);
       return u.href;
     };
-    const load = () => {
+    const load = (force = false) => {
       const u = url();
       if (pipWin && !pipFrame) { try { pipWin.location.href = u; } catch {} return; } // plain pop-up
       const f = frame();
-      if (f.src !== u) f.src = u;
+      if (!f) return;
+      if (force || f.src !== u) f.src = u;
     };
 
-    // Playback events posted by the player (JSON strings). Only trust our own iframe.
+    // Playback events posted by Vidy player (JSON strings). Only trust our own iframe.
     let lastSaved = 0;
+
     function onPlayerMessage(e) {
       if (e.source !== frame().contentWindow || typeof e.data !== 'string') return;
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
-      if (msg.type === 'MEDIA_DATA' || !msg.event) return;
-      if (msg.event === 'timeupdate' && Number.isFinite(msg.currentTime) && Math.abs(msg.currentTime - lastSaved) >= 5) {
-        lastSaved = msg.currentTime;
-        try { localStorage.setItem(posKey(), JSON.stringify({ t: msg.currentTime, d: msg.duration || null })); } catch {}
-      } else if (msg.event === 'ended') {
-        try { localStorage.removeItem(posKey()); } catch {}
+      if (!msg || typeof msg !== 'object') return;
+
+      let epNum = null;
+      let snNum = null;
+      let data = msg;
+
+      // Vidy sends PLAYER_EVENT during playback and MEDIA_DATA every second via _app
+      if (msg.type === 'PLAYER_EVENT') {
+        data = (msg.data && typeof msg.data === 'object') ? msg.data : msg;
+        epNum = Number(data.episode != null ? data.episode : msg.episode);
+        snNum = Number(data.season != null ? data.season : msg.season);
+      } else if (msg.type === 'MEDIA_DATA' && msg.data) {
+        try {
+          const raw = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          if (raw && typeof raw === 'object') {
+            const itemKey = `${cfg.anime ? 'anime' : 'tv'}-${cfg.id}`;
+            const item = raw[itemKey] || raw[cfg.id] || Object.values(raw).find(v => v && (v.id == cfg.id || v.tmdbId == cfg.id));
+            if (item) {
+              epNum = Number(item.last_episode_watched || item.episode || item.e);
+              snNum = Number(item.last_season_watched || item.season || item.s);
+            }
+          }
+        } catch {}
+      }
+
+      // 1. If we commanded a manual navigation, ignore any stale messages from old episodes until target loads
+      if (pendingNav) {
+        if (Date.now() < pendingNav.deadline) {
+          if (Number.isFinite(epNum) && epNum === pendingNav.e && (!snNum || snNum === pendingNav.s)) {
+            pendingNav = null; // Target episode arrived!
+          } else {
+            return; // Drop stale messages from old episode
+          }
+        } else {
+          pendingNav = null;
+        }
+      }
+
+      // 2. Synchronize when user navigates inside Vidy (Next Episode button, Vidy's auto-next, or drawer)
+      // When Vidy auto-nexts, Next.js routes client-side without query flags.
+      // We detect the episode change, clear the finished episode's progress, and reload with all flags intact (autoplay=true, nextEpisode, episodeSelector).
+      if (cfg.isSeries && Number.isFinite(epNum) && epNum > 0) {
+        const diffEp = epNum !== state.e;
+        const diffSn = Number.isFinite(snNum) && snNum > 0 && snNum !== state.s;
+        if (diffEp || diffSn) {
+          // Clear previously finished episode's saved position so re-watching starts at 0:00
+          try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+          play(diffSn ? snNum : state.s, epNum);
+          return;
+        }
+      }
+
+      const event = data.event || msg.event;
+      const currentTime = Number(data.currentTime != null ? data.currentTime : msg.currentTime);
+      const duration = Number(data.duration != null ? data.duration : msg.duration);
+
+      // 3. Save watch progress periodically during playback
+      if (Number.isFinite(currentTime)) {
+        const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
+        const isFinished = Number.isFinite(duration) && duration > 60 && currentTime >= duration - 1;
+
+        if (isFinished && cfg.isSeries && autoNext && !pendingNav) {
+          // Episode reached the end -> clear saved position and advance cleanly to the next episode from 0:00
+          try { localStorage.removeItem(posKey(snNum || state.s, epNum || state.e)); } catch {}
+          lastSaved = 0;
+          const nxt = step(1);
+          if (nxt) {
+            play(nxt.s, nxt.e);
+            return;
+          }
+        } else if (isNearEnd) {
+          // If within credits / end, clear saved position so future visits start from 0:00
+          try { localStorage.removeItem(posKey(snNum || state.s, epNum || state.e)); } catch {}
+          lastSaved = 0;
+        } else if (Math.abs(currentTime - lastSaved) >= 5) {
+          lastSaved = currentTime;
+          try {
+            localStorage.setItem(posKey(snNum || state.s, epNum || state.e), JSON.stringify({
+              t: currentTime,
+              d: Number.isFinite(duration) && duration > 0 ? duration : null
+            }));
+          } catch {}
+        }
+      }
+
+      // 4. When episode finishes, advance to next episode if autoNext is on
+      if (event === 'ended') {
+        try { localStorage.removeItem(posKey(snNum || state.s, epNum || state.e)); } catch {}
         lastSaved = 0;
-        onEnded();
+        if (cfg.isSeries && autoNext && !pendingNav) {
+          const nxt = step(1);
+          if (nxt) play(nxt.s, nxt.e);
+        }
       }
     }
     addEventListener('message', onPlayerMessage);
@@ -919,7 +999,7 @@
         style.textContent = 'html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}';
         d.head.append(style);
         pipFrame = d.createElement('iframe');
-        for (const a of ['allow', 'referrerpolicy', 'sandbox', 'allowfullscreen', 'title']) {
+        for (const a of ['allow', 'referrerpolicy', 'allowfullscreen', 'title']) {
           if (iframe.hasAttribute(a)) pipFrame.setAttribute(a, iframe.getAttribute(a));
         }
         pipFrame.src = u;
@@ -942,35 +1022,15 @@
     document.getElementById('p-bringback').addEventListener('click', bringBack);
     addEventListener('pagehide', () => { try { pipWin?.close(); } catch {} });
 
-    try {
-      const saved = localStorage.getItem(MIRROR_KEY);
-      if (saved && [...mirror.options].some(o => o.value === saved)) mirror.value = saved;
-    } catch {}
-    applyPlayerSandbox();
-    mirror.addEventListener('change', () => {
-      try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
-      applyPlayerSandbox();
-      load();
-    });
-
-    const switchToVidsrcBtn = document.getElementById('btn-switch-to-vidsrc');
-    if (switchToVidsrcBtn && mirror) {
-      switchToVidsrcBtn.addEventListener('click', () => {
-        const vidsrcOpt = [...mirror.options].find(o => !o.value.includes('vidy'));
-        if (vidsrcOpt) {
-          mirror.value = vidsrcOpt.value;
-          mirror.dispatchEvent(new Event('change'));
-        }
-      });
-    }
-
     if (cfg.isSeries) {
       const seasons = cfg.seasons;
       const tabs = [...document.querySelectorAll('.season-tab')];
       const list = document.getElementById('ep-list');
       const now = document.getElementById('ep-now');
       const prev = document.getElementById('ep-prev'), next = document.getElementById('ep-next');
-      const cache = {}; // season number -> episodes from TMDB (or null if unavailable)
+      const quickPrev = document.getElementById('p-quick-prev'), quickNext = document.getElementById('p-quick-next');
+      const quickSelect = document.getElementById('p-quick-select');
+      const cache = {}; // season number -> episodes from TMDB / AniList (or null if unavailable)
       let shown = null; // season whose episodes are listed
 
       const sIdx = s => seasons.findIndex(x => x.n === s);
@@ -997,7 +1057,15 @@
         b.dataset.e = ep.n;
         if (ep.overview) b.title = ep.overview;
         const thumb = el('span', 'ep-thumb');
-        if (ep.still) { const img = el('img'); img.src = ep.still; img.alt = ''; img.loading = 'lazy'; thumb.append(img); }
+        if (ep.still) {
+          const img = el('img');
+          img.src = ep.still;
+          img.alt = '';
+          img.loading = 'lazy';
+          img.decoding = 'async';
+          img.onerror = () => img.remove();
+          thumb.append(img);
+        }
         thumb.append(el('span', 'ep-badge', `E${ep.n}`), el('span', 'ep-playing', '▶ Playing'));
         const info = el('span', 'ep-info');
         const meta = ep.aired === false
@@ -1023,6 +1091,34 @@
         return ps ? { s: ps.n, e: last(ps.n) || first(ps.n) } : null;
       }
 
+      function syncQuickSelect() {
+        if (!quickSelect) return;
+        quickSelect.replaceChildren();
+        seasons.forEach(sn => {
+          const c = count(sn.n) || (cfg.anime ? Math.max(24, state.e) : 10);
+          const st = first(sn.n);
+          const container = seasons.length > 1 ? el('optgroup') : quickSelect;
+          if (seasons.length > 1) container.label = sn.name || `Season ${sn.n}`;
+          for (let e = st; e < st + c; e++) {
+            const epData = cache[sn.n]?.find(x => x.n === e);
+            const opt = el('option', null, cfg.anime
+              ? `Ep ${e}${epData?.name && epData.name !== `Episode ${e}` ? ` · ${epData.name}` : ''}`
+              : `S${sn.n} E${e}${epData?.name && epData.name !== `Episode ${e}` ? ` · ${epData.name}` : ''}`);
+            opt.value = `${sn.n}:${e}`;
+            container.append(opt);
+          }
+          if (seasons.length > 1) quickSelect.append(container);
+        });
+        const currentVal = `${state.s}:${state.e}`;
+        quickSelect.value = currentVal;
+        if (quickSelect.value !== currentVal) {
+          const opt = el('option', null, cfg.anime ? `Ep ${state.e}` : `S${state.s} E${state.e}`);
+          opt.value = currentVal;
+          quickSelect.append(opt);
+          quickSelect.value = currentVal;
+        }
+      }
+
       function mark() {
         list.querySelectorAll('.ep-card').forEach(c => {
           const on = shown === state.s && +c.dataset.e === state.e;
@@ -1034,8 +1130,20 @@
         const label = cfg.anime ? `Episode ${state.e}` : `Season ${state.s} · Episode ${state.e}`;
         now.textContent = label + (name && name !== `Episode ${state.e}` ? ` — ${name}` : '');
         if (jump) jump.value = state.e;
-        prev.disabled = !step(-1);
-        next.disabled = !step(1);
+        if (quickSelect) quickSelect.value = `${state.s}:${state.e}`;
+        const canPrev = !!step(-1);
+        const canNext = !!step(1);
+        prev.disabled = !canPrev;
+        next.disabled = !canNext;
+        if (quickPrev) quickPrev.disabled = !canPrev;
+        if (quickNext) quickNext.disabled = !canNext;
+      }
+
+      function renderCards(s, eps) {
+        const items = eps?.length
+          ? eps
+          : Array.from({ length: count(s) || (cfg.anime ? Math.max(24, state.e) : 10) }, (_, i) => ({ n: first(s) + i, name: `Episode ${first(s) + i}` }));
+        list.replaceChildren(...(items.length ? items.map(ep => card(s, ep)) : [el('p', 'ep-msg', cfg.anime ? 'Episode list unavailable — enter an episode number or use Prev / Next.' : 'Episode list unavailable — use Prev / Next.')]));
       }
 
       async function showSeason(s) {
@@ -1045,22 +1153,31 @@
           t.setAttribute('aria-selected', String(on));
           if (on) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         });
-        list.replaceChildren(el('p', 'ep-msg', 'Loading episodes…'));
+
+        // 1. Render cards instantly from cache or known counts (0ms delay)
+        renderCards(s, cache[s]);
+        syncQuickSelect();
+        mark();
+
+        // 2. Fetch full metadata in background (enriching titles, stills, air dates)
         const eps = await episodes(s);
         if (shown !== s) return; // switched again while loading
-        const items = eps?.length ? eps : Array.from({ length: count(s) || 0 }, (_, i) => ({ n: first(s) + i, name: `Episode ${first(s) + i}` }));
-        list.replaceChildren(...(items.length ? items.map(ep => card(s, ep)) : [el('p', 'ep-msg', cfg.anime ? 'Episode list unavailable — enter an episode number or use Prev / Next.' : 'Episode list unavailable — use Prev / Next.')]));
-        mark();
+        if (eps?.length) {
+          renderCards(s, eps);
+          syncQuickSelect();
+          mark();
+        }
       }
 
       function play(s, e) {
+        s = Number(s); e = Number(e);
         state.s = s; state.e = e;
         lastSaved = 0;
         try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
-        load();
+        pendingNav = { s, e, deadline: Date.now() + 5000 };
+        load(true);
         if (shown !== s) showSeason(s); else mark();
       }
-      onEnded = () => { const t = step(1); if (t) play(t.s, t.e); };
 
       tabs.forEach(t => t.addEventListener('click', () => showSeason(+t.dataset.season)));
       // Anime: jump straight to any episode number (long shows / unknown counts)
@@ -1072,6 +1189,14 @@
       });
       prev.addEventListener('click', () => { const t = step(-1); if (t) play(t.s, t.e); });
       next.addEventListener('click', () => { const t = step(1); if (t) play(t.s, t.e); });
+      if (quickPrev) quickPrev.addEventListener('click', () => { const t = step(-1); if (t) play(t.s, t.e); });
+      if (quickNext) quickNext.addEventListener('click', () => { const t = step(1); if (t) play(t.s, t.e); });
+      if (quickSelect) {
+        quickSelect.addEventListener('change', () => {
+          const [s, e] = quickSelect.value.split(':').map(Number);
+          if (s && e) play(s, e);
+        });
+      }
 
       // Resume where this viewer left off
       try {

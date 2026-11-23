@@ -172,9 +172,15 @@ router.get('/search', async (req, res) => {
   if (!tmdb.enabled()) return res.redirect(`/browse?q=${encodeURIComponent(q)}`);
   const page = pageParam(req.query.page);
   try {
+    const animePromise = page === 1
+      ? Promise.race([
+          anilist.list({ search: q, perPage: 12 }),
+          new Promise(resolve => setTimeout(() => resolve({ items: [] }), 2000))
+        ]).catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] });
     const [result, animeRes] = await Promise.all([
       tmdb.searchAll(q, page),
-      page === 1 ? anilist.list({ search: q, perPage: 12 }).catch(() => ({ items: [] })) : { items: [] }
+      animePromise
     ]);
     const like = `%${q}%`;
     const local = page === 1
@@ -238,7 +244,7 @@ router.get('/preview/:media/:id', async (req, res) => {
   if (!['movie', 'tv', 'anime'].includes(media) || !/^\d+$/.test(id) || (media !== 'anime' && !tmdb.enabled())) return res.status(404).json({ trailer: null });
   res.set('Cache-Control', 'private, max-age=21600');
   try {
-    const trailer_key = media === 'anime' ? await anilist.trailer(id) : (await tmdb.details(media, id)).trailer_key;
+    const trailer_key = media === 'anime' ? await anilist.trailer(id) : await tmdb.trailer(media, id);
     res.json({ trailer: /^[\w-]{11}$/.test(trailer_key) ? trailer_key : null });
   } catch (e) {
     res.status(e.status === 404 ? 404 : 502).json({ trailer: null });

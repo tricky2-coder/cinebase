@@ -205,4 +205,12 @@ const season = (tvId, n) => cached(`season:${tvId}:${n}`, 6 * HOUR, async () => 
   }));
 });
 
-module.exports = { enabled, search, details, LANGS, ANIME_KEYWORD, genreList, trending, popular, topRated, discover, searchAll, titlePage, season };
+// Lightweight trailer fetch for hover previews (only fetches videos, avoiding heavy full details)
+const trailer = (media, id) => cached(`trailer:${media}:${id}`, 24 * HOUR, async () => {
+  const d = await call(`/${media === 'tv' ? 'tv' : 'movie'}/${id}/videos`);
+  const v = (d.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer')
+    || (d.results || []).find(v => v.site === 'YouTube');
+  return v?.key || null;
+});
+
+module.exports = { enabled, search, details, LANGS, ANIME_KEYWORD, genreList, trending, popular, topRated, discover, searchAll, titlePage, season, trailer };

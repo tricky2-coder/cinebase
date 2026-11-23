@@ -54,7 +54,7 @@ function player(item, { seasons = null, tvId = null } = {}) {
   const first = options[0];
   return {
     src: `https://${first.domain}${embedUrl(first.path, first.id)}`,
-    sandbox: sandboxed(),
+    sandbox: sandboxed() && !first.domain.includes('vidy'),
     isSeries,
     options,
     seasons: seasonList,
@@ -78,7 +78,7 @@ function animePlayer(item, seasons, isSeries) {
   const seasonList = isSeries ? seasons : null;
   return {
     src: `https://${p.domain}${embedUrl(path, id, 1, 1)}`,
-    sandbox: sandboxed(),
+    sandbox: sandboxed() && !p.domain.includes('vidy'),
     isSeries,
     options: [{ domain: p.domain, label: p.label, id, path, events: true }],
     seasons: seasonList,

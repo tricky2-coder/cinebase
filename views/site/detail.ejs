@@ -82,6 +82,12 @@
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>
   </div>
+  <!-- <% if (player) { %>
+  <div class="vidy-tip" id="vidy-ad-tip" hidden>
+    <span>💡 Vidy detects iframe sandboxing. For built-in zero-popup playback, switch to <b>VidSrc</b> in the Player menu above, or use an adblocker extension.</span>
+    <button type="button" class="vidy-tip-switch-btn" id="btn-switch-to-vidsrc">Switch to VidSrc</button>
+  </div>
+  <% } %> -->
 
   <% if (player && player.isSeries) { %>
   <div class="episodes" id="episodes">

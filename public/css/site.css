@@ -405,6 +405,36 @@ button { font: inherit; }
 .popped-msg span { color: var(--dim); font-size: .9rem; }
 .player-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 1rem; text-align: center; color: var(--dim); }
 
+/* Vidy ad tip / switch button */
+.vidy-tip {
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: rgba(245, 179, 1, 0.08);
+  border: 1px solid rgba(245, 179, 1, 0.22);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.88rem;
+  color: #fef08a;
+  flex-wrap: wrap;
+}
+.vidy-tip[hidden] { display: none !important; }
+.vidy-tip-switch-btn {
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 600;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: opacity .15s, transform .12s;
+  white-space: nowrap;
+}
+.vidy-tip-switch-btn:hover { opacity: 0.9; transform: scale(1.02); }
+
 /* Cast */
 .cast-row { margin-bottom: 2.2rem; }
 .cast-track { grid-auto-columns: clamp(104px, 10vw, 136px); gap: 16px; }

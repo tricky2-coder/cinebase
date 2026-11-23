@@ -470,30 +470,42 @@
   const adsToggle = document.getElementById('toggle-show-ads');
   const isShowingAds = localStorage.getItem('cinebase.showAds') === 'true';
 
-  // Apply sandbox state to player iframe on initial load
-  const playerIframe = document.querySelector('.player iframe, #player iframe');
-  if (playerIframe) {
-    if (isShowingAds) {
-      playerIframe.removeAttribute('sandbox');
+  // Smart Player-Aware Sandbox Function (Option 1)
+  function applyPlayerSandbox() {
+    const ifr = document.querySelector('.player iframe, #player iframe');
+    const mirror = document.getElementById('p-mirror');
+    const vidyTip = document.getElementById('vidy-ad-tip');
+    if (!ifr) return;
+
+    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
+    const isVidy = mirror ? mirror.value.includes('vidy') : (ifr.src && ifr.src.includes('vidy'));
+
+    if (showAds || isVidy) {
+      // Vidy actively blocks sandboxed iframes with an anti-sandbox error screen.
+      // When on Vidy or when showAds is true, remove sandbox so Vidy plays cleanly without errors.
+      ifr.removeAttribute('sandbox');
+      if (vidyTip) {
+        vidyTip.hidden = showAds || !isVidy;
+      }
     } else {
-      playerIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+      // VidSrc and other mirrors: apply sandbox to block popups completely
+      ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+      if (vidyTip) {
+        vidyTip.hidden = true;
+      }
     }
   }
+
+  // Initial application on load
+  applyPlayerSandbox();
 
   if (adsToggle) {
     adsToggle.checked = isShowingAds;
     adsToggle.addEventListener('change', () => {
-      const enabled = adsToggle.checked;
-      localStorage.setItem('cinebase.showAds', enabled);
+      localStorage.setItem('cinebase.showAds', adsToggle.checked);
+      applyPlayerSandbox();
       const ifr = document.querySelector('.player iframe, #player iframe');
-      if (ifr) {
-        if (enabled) {
-          ifr.removeAttribute('sandbox');
-        } else {
-          ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
-        }
-        ifr.src = ifr.src; // Reload player with updated sandbox
-      }
+      if (ifr) ifr.src = ifr.src; // Reload player with updated sandbox
     });
   }
 
@@ -801,10 +813,23 @@
       const saved = localStorage.getItem(MIRROR_KEY);
       if (saved && [...mirror.options].some(o => o.value === saved)) mirror.value = saved;
     } catch {}
+    applyPlayerSandbox();
     mirror.addEventListener('change', () => {
       try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
+      applyPlayerSandbox();
       load();
     });
+
+    const switchToVidsrcBtn = document.getElementById('btn-switch-to-vidsrc');
+    if (switchToVidsrcBtn && mirror) {
+      switchToVidsrcBtn.addEventListener('click', () => {
+        const vidsrcOpt = [...mirror.options].find(o => !o.value.includes('vidy'));
+        if (vidsrcOpt) {
+          mirror.value = vidsrcOpt.value;
+          mirror.dispatchEvent(new Event('change'));
+        }
+      });
+    }
 
     if (cfg.isSeries) {
       const seasons = cfg.seasons;

@@ -2,8 +2,11 @@
 (() => {
   // Header turns solid on scroll
   const header = document.getElementById('s-top');
-  const onScroll = () => header.classList.toggle('solid', scrollY > 30);
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  if (header) {
+    const onScroll = () => header.classList.toggle('solid', scrollY > 30);
+    addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
 
   // Row arrows
   document.querySelectorAll('.row').forEach(row => {
@@ -26,17 +29,20 @@
   }
 
   // Trailer modal (privacy-enhanced YouTube embed)
-  const modal = document.getElementById('trailer-modal'), frame = modal.querySelector('.modal-frame');
-  const close = () => { modal.hidden = true; frame.innerHTML = ''; document.body.style.overflow = ''; };
-  document.addEventListener('click', e => {
-    const t = e.target.closest('[data-trailer]');
-    if (t) {
-      e.preventDefault();
-      frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.trailer)}?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Trailer"></iframe>`;
-      modal.hidden = false; document.body.style.overflow = 'hidden';
-    } else if (e.target === modal || e.target.closest('.modal-x')) close();
-  });
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
+  const modal = document.getElementById('trailer-modal');
+  if (modal) {
+    const frame = modal.querySelector('.modal-frame');
+    const close = () => { modal.hidden = true; frame.innerHTML = ''; document.body.style.overflow = ''; };
+    document.addEventListener('click', e => {
+      const t = e.target.closest('[data-trailer]');
+      if (t) {
+        e.preventDefault();
+        frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.trailer)}?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Trailer"></iframe>`;
+        modal.hidden = false; document.body.style.overflow = 'hidden';
+      } else if (e.target === modal || e.target.closest('.modal-x')) close();
+    });
+    addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
+  }
 
   // Live search suggestions: type -> TMDB matches -> click opens the title at its player
   const searchForm = document.querySelector('.s-search[data-suggest]');
@@ -165,6 +171,19 @@
   let selectedAvatar = '/profiles/avatars/blue-classic-icon.svg';
   let presetsList = AVATAR_PRESETS;
 
+  // Pre-populate profiles data from server-rendered JSON if available
+  const initDataEl = document.getElementById('ww-init-data');
+  if (initDataEl) {
+    try {
+      const initData = JSON.parse(initDataEl.textContent);
+      if (initData && Array.isArray(initData.profiles) && initData.profiles.length) {
+        profilesData = initData.profiles;
+        currentActiveId = initData.activeProfileId;
+        renderProfiles();
+      }
+    } catch (e) {}
+  }
+
   async function loadProfiles() {
     try {
       const res = await fetch('/api/profiles');
@@ -244,20 +263,88 @@
     }
   }
 
+  function resetProfileSelectionAnimations() {
+    document.querySelectorAll('.ww-profile-item').forEach(el => {
+      el.classList.remove('selected-hero', 'ww-dim-item');
+      el.style.transform = '';
+      el.style.transition = '';
+      el.style.zIndex = '';
+      el.style.opacity = '';
+    });
+    if (wwSelectTitle) wwSelectTitle.classList.remove('ww-fade-element');
+    if (wwSelectSub) wwSelectSub.classList.remove('ww-fade-element');
+    if (wwManageBtn && wwManageBtn.parentElement) wwManageBtn.parentElement.classList.remove('ww-fade-element');
+    if (wwModal) wwModal.classList.remove('ww-modal-exiting');
+  }
+
   async function switchProfile(id) {
     try {
+      const isStandalonePage = window.location.pathname === '/whos-watching';
+      const isAlreadyActive = Number(id) === Number(currentActiveId);
+
+      // Trigger Netflix-style hero highlight animation immediately
+      const clickedItem = document.querySelector(`.ww-profile-item[data-id="${id}"]`);
+      if (clickedItem) {
+        // Calculate offset to move clicked item to exact viewport center
+        const itemRect = clickedItem.getBoundingClientRect();
+        const itemCenterX = itemRect.left + itemRect.width / 2;
+        const itemCenterY = itemRect.top + itemRect.height / 2;
+        const viewportCenterX = window.innerWidth / 2;
+        const viewportCenterY = window.innerHeight / 2;
+        const deltaX = Math.round(viewportCenterX - itemCenterX);
+        const deltaY = Math.round(viewportCenterY - itemCenterY);
+
+        clickedItem.classList.add('selected-hero');
+        clickedItem.style.zIndex = '9999';
+        clickedItem.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
+        clickedItem.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.25)`;
+
+        document.querySelectorAll('.ww-profile-item').forEach(el => {
+          if (el !== clickedItem) el.classList.add('ww-dim-item');
+        });
+        if (wwSelectTitle) wwSelectTitle.classList.add('ww-fade-element');
+        if (wwSelectSub) wwSelectSub.classList.add('ww-fade-element');
+        if (wwManageBtn && wwManageBtn.parentElement) wwManageBtn.parentElement.classList.add('ww-fade-element');
+      }
+
       const res = await fetch(`/api/profiles/${id}/switch`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
+        currentActiveId = id;
+
+        if (isStandalonePage) {
+          const params = new URLSearchParams(window.location.search);
+          const target = params.get('next') || '/';
+          setTimeout(() => {
+            window.location.href = target;
+          }, 450);
+          return;
+        }
+
+        // Inside website modal:
         const navImg = document.getElementById('nav-profile-avatar-img');
         if (navImg && data.profile && data.profile.avatar) {
           navImg.src = data.profile.avatar;
         }
-        closeWhosWatching();
-        window.location.reload();
+
+        setTimeout(() => {
+          if (wwModal) wwModal.classList.add('ww-modal-exiting');
+          setTimeout(() => {
+            closeWhosWatching();
+            delete document.body.dataset.showWhosWatching;
+            if (!isAlreadyActive) {
+              window.location.reload();
+            } else {
+              resetProfileSelectionAnimations();
+            }
+          }, 200);
+        }, 420);
+      } else {
+        resetProfileSelectionAnimations();
       }
     } catch (e) {
       console.error('Error switching profile:', e);
+      resetProfileSelectionAnimations();
     }
   }
 
@@ -341,9 +428,11 @@
   function openWhosWatching() {
     if (!wwModal) return;
     isManageMode = false;
+    resetProfileSelectionAnimations();
     if (wwSelectTitle) wwSelectTitle.textContent = "Who's watching?";
     if (wwSelectSub) wwSelectSub.textContent = 'Each profile keeps its own watchlist, progress and settings.';
     if (wwManageBtn) wwManageBtn.textContent = 'MANAGE PROFILES';
+    if (wwCancelBtn) wwCancelBtn.hidden = false;
     if (wwViewSelect) wwViewSelect.hidden = false;
     if (wwViewForm) wwViewForm.hidden = true;
     wwModal.hidden = false;
@@ -352,10 +441,17 @@
   }
 
   function closeWhosWatching() {
+    if (window.location.pathname === '/whos-watching') {
+      const params = new URLSearchParams(window.location.search);
+      window.location.href = params.get('next') || '/';
+      return;
+    }
     if (!wwModal) return;
     wwModal.hidden = true;
     document.body.style.overflow = '';
     isManageMode = false;
+    delete document.body.dataset.showWhosWatching;
+    resetProfileSelectionAnimations();
   }
 
   if (wwBtn) {
@@ -370,6 +466,7 @@
       if (wwSelectTitle) wwSelectTitle.textContent = isManageMode ? 'Manage Profiles' : "Who's watching?";
       if (wwSelectSub) wwSelectSub.textContent = isManageMode ? 'Choose a profile to edit.' : 'Each profile keeps its own watchlist, progress and settings.';
       wwManageBtn.textContent = isManageMode ? 'DONE' : 'MANAGE PROFILES';
+      if (wwCancelBtn) wwCancelBtn.hidden = isManageMode;
       renderProfiles();
     });
   }
@@ -413,6 +510,11 @@
           });
         }
         if (res.ok) {
+          const savedData = await res.json();
+          if (!editId && savedData && savedData.id) {
+            await switchProfile(savedData.id);
+            return;
+          }
           await loadProfiles();
           if (wwViewForm) wwViewForm.hidden = true;
           if (wwViewSelect) wwViewSelect.hidden = false;
@@ -437,6 +539,25 @@
         console.error('Error deleting profile:', err);
       }
     });
+  }
+
+  // Handle standalone "/whos-watching" page vs. modal mode
+  const isStandalonePage = window.location.pathname === '/whos-watching';
+  if (isStandalonePage) {
+    if (wwModal) wwModal.hidden = false;
+    isManageMode = false;
+    loadProfiles();
+  } else {
+    // Auto-open "Who's watching?" modal on regular site pages if requested
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('whosWatching') || document.body.dataset.showWhosWatching === 'true') {
+      openWhosWatching();
+      if (urlParams.has('whosWatching')) {
+        urlParams.delete('whosWatching');
+        const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '') + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
   }
 
   // Settings Dropdown Toggle (Images 1 & 2)

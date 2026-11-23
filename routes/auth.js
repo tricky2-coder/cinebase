@@ -53,7 +53,13 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     if (row.role === 'admin') req.session.flash = { type: 'success', msg: `Welcome back, ${row.name}!` };
     // Users can't open admin pages, so ignore an admin "next" for them
     const dest = target && (row.role === 'admin' || !/^\/(dashboard|titles|users|plex)\b/.test(target)) ? target : homeFor(row);
-    res.redirect(dest);
+    const isDashboard = /^\/(dashboard|titles|users|plex)\b/.test(dest);
+    if (isDashboard) {
+      return res.redirect(dest);
+    }
+    // Transition directly to the "Who's Watching?" page after login
+    const nextParam = dest && dest !== '/' ? `?next=${encodeURIComponent(dest)}` : '';
+    res.redirect(`/whos-watching${nextParam}`);
   });
 });
 

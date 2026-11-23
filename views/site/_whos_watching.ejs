@@ -1,5 +1,5 @@
 <!-- Netflix-Style Who's Watching & Profile Management Modal -->
-<div class="ww-overlay" id="whos-watching-modal" hidden>
+<div class="ww-overlay" id="whos-watching-modal" <%- (typeof standalone !== 'undefined' && standalone) ? '' : 'hidden' %>>
   <div class="ww-container">
     
     <!-- View 1: Who's watching? / Manage Profiles -->
@@ -8,8 +8,23 @@
       <p class="ww-main-sub" id="ww-select-sub">Each profile keeps its own watchlist, progress and settings.</p>
       
       <div class="ww-grid" id="ww-profiles-grid">
-        <!-- Injected dynamically by site.js -->
-        <% if (typeof activeProfile !== 'undefined' && activeProfile) { %>
+        <!-- Rendered profiles -->
+        <% if (typeof userProfiles !== 'undefined' && userProfiles && userProfiles.length) { %>
+          <% userProfiles.forEach(function(p) { %>
+          <div class="ww-profile-item <%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) ? 'active' : '' %>" data-id="<%= p.id %>">
+            <div class="ww-avatar-wrap">
+              <img src="<%= p.avatar %>" alt="<%= p.name %>">
+              <div class="ww-edit-overlay">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </div>
+            </div>
+            <span class="ww-profile-name"><%= p.name %></span>
+          </div>
+          <% }); %>
+        <% } else if (typeof activeProfile !== 'undefined' && activeProfile) { %>
         <div class="ww-profile-item active" data-id="<%= activeProfile.id %>">
           <div class="ww-avatar-wrap">
             <img src="<%= activeProfile.avatar %>" alt="<%= activeProfile.name %>">
@@ -129,3 +144,4 @@
 
   </div>
 </div>
+<script id="ww-init-data" type="application/json"><%- JSON.stringify({ profiles: (typeof userProfiles !== 'undefined' && userProfiles ? userProfiles : []), activeProfileId: (typeof activeProfile !== 'undefined' && activeProfile ? activeProfile.id : null) }) %></script>

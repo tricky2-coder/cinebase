@@ -564,12 +564,20 @@ button { font: inherit; }
   background: transparent; border: 0; padding: 0; cursor: pointer;
   display: flex; flex-direction: column; align-items: center;
   width: clamp(110px, 15vw, 140px); color: #808080;
-  transition: color .2s ease;
+  transition: color .2s ease, opacity .25s ease, transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 .ww-avatar-wrap {
   width: 100%; aspect-ratio: 1; border-radius: 6px;
   overflow: hidden; position: relative; background: #262626;
   outline: 3px solid transparent; transition: all .2s ease;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 .ww-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ww-profile-name {
@@ -582,6 +590,44 @@ button { font: inherit; }
   outline: 3px solid #ffffff; transform: scale(1.04);
 }
 .ww-profile-item:hover .ww-profile-name { color: #ffffff; }
+
+/* Netflix-style Selection Transition */
+.ww-fade-element {
+  opacity: 0 !important;
+  transform: translateY(-8px) !important;
+  transition: opacity 0.28s ease, transform 0.28s ease !important;
+}
+
+.ww-dim-item {
+  opacity: 0 !important;
+  transform: scale(0.88) !important;
+  pointer-events: none !important;
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.ww-profile-item.selected-hero {
+  z-index: 9999 !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+.ww-profile-item.selected-hero .ww-avatar-wrap {
+  outline: 3px solid #ffffff !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 255, 255, 0.4) !important;
+  transition: box-shadow 0.4s ease, outline 0.4s ease !important;
+}
+
+.ww-profile-item.selected-hero .ww-profile-name {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  transform: scale(1.05) !important;
+  transition: color 0.4s ease, transform 0.4s ease !important;
+}
+
+.ww-overlay.ww-modal-exiting {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
 
 /* Edit pencil overlay in manage mode (Image 3) */
 .ww-edit-overlay {

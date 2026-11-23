@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/site.css">
 </head>
-<body class="site">
+<body class="site" <%- (typeof showWhosWatching !== 'undefined' && showWhosWatching) ? 'data-show-whos-watching="true"' : '' %>>
 <header class="s-top" id="s-top">
   <a href="/" class="s-brand">CINEBASE</a>
   <nav class="s-nav">

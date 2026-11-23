@@ -92,6 +92,7 @@ app.use(async (req, res, next) => {
         req.session.activeProfileId = profile.id;
       }
       req.session.activeProfile = profile;
+      res.locals.userProfiles = await db.all('SELECT * FROM profiles WHERE user_id = ? ORDER BY id ASC', fresh.id);
     } else {
       delete req.session.user;
       delete req.session.activeProfileId;
@@ -105,8 +106,11 @@ app.use(async (req, res, next) => {
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.activeProfile = req.session.activeProfile || null;
+  res.locals.userProfiles = res.locals.userProfiles || [];
   res.locals.flash = req.session.flash || null;
   res.locals.path = req.path;
+  res.locals.showWhosWatching = !!req.session.justLoggedIn;
+  delete req.session.justLoggedIn;
   delete req.session.flash;
   next();
 });

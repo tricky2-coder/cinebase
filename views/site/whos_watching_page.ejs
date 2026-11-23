@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · CineBase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+  <style>
+    body.ww-standalone-page {
+      background: #141414;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .ww-standalone-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 28px 48px;
+      z-index: 10000;
+      box-sizing: border-box;
+      pointer-events: none;
+      transform: translate3d(0, 0, 0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform;
+    }
+    .ww-standalone-brand {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      letter-spacing: .08em;
+      color: var(--gold, #f5b301);
+      text-decoration: none;
+      line-height: 1;
+      display: inline-block;
+      pointer-events: auto;
+      transform: translate3d(0, 0, 0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      transition: opacity .2s ease;
+    }
+    .ww-standalone-brand:hover {
+      opacity: 0.85;
+    }
+    body.ww-standalone-page .ww-overlay {
+      position: relative;
+      inset: auto;
+      min-height: 100vh;
+      animation: none;
+      padding: 90px 24px 40px;
+      display: flex;
+    }
+    body.ww-standalone-page .ww-container {
+      animation: wwEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      will-change: transform, opacity;
+      transform: translate3d(0, 0, 0);
+      backface-visibility: hidden;
+    }
+    @keyframes wwEnter {
+      0% {
+        opacity: 0;
+        transform: scale(0.94) translateY(10px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+    body.ww-standalone-page #btn-ww-cancel {
+      display: none !important;
+    }
+    @media (max-width: 600px) {
+      .ww-standalone-header {
+        padding: 18px 20px;
+      }
+      .ww-standalone-brand {
+        font-size: 1.6rem;
+      }
+      body.ww-standalone-page .ww-overlay {
+        padding: 75px 16px 30px;
+      }
+    }
+  </style>
+</head>
+<body class="site ww-standalone-page">
+  <header class="ww-standalone-header">
+    <a href="/" class="ww-standalone-brand">CINEBASE</a>
+  </header>
+
+  <%- include('_whos_watching', { standalone: true }) %>
+
+  <script src="/js/site.js"></script>
+</body>
+</html>

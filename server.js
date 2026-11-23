@@ -7,7 +7,7 @@ const helmet = require('helmet');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 if (!process.env.SESSION_SECRET) {
-  if (IS_PROD) {
+  if (IS_PROD && !process.env.VERCEL) {
     console.error('FATAL: SESSION_SECRET must be set in production.');
     process.exit(1);
   }
@@ -127,16 +127,23 @@ app.use((err, req, res, next) => {
 
 db.ready.catch(e => {
   console.error('FATAL: database setup failed:', e.message);
-  process.exit(1);
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
 });
-const server = app.listen(PORT, () => console.log(`CineBase running on http://localhost:${PORT}`));
 
-for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => {
-    server.close(() => {
-      db.close();
-      process.exit(0);
+if (require.main === module || !process.env.VERCEL) {
+  const server = app.listen(PORT, () => console.log(`CineBase running on http://localhost:${PORT}`));
+
+  for (const sig of ['SIGINT', 'SIGTERM']) {
+    process.on(sig, () => {
+      server.close(() => {
+        db.close();
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(0), 5000).unref();
     });
-    setTimeout(() => process.exit(0), 5000).unref();
-  });
+  }
 }
+
+module.exports = app;

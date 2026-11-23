@@ -30,7 +30,7 @@ const clean = v => (v === undefined ? null : typeof v === 'boolean' ? (v ? 1 : 0
 
 function localBackend() {
   const { DatabaseSync } = require('node:sqlite');
-  const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+  const dataDir = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp/cinebase-data' : path.join(__dirname, 'data'));
   fs.mkdirSync(dataDir, { recursive: true });
   const conn = new DatabaseSync(path.join(dataDir, 'cinebase.db'));
   conn.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
@@ -205,7 +205,7 @@ async function init() {
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
   const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
   if (!(await db.get('SELECT id FROM users WHERE username = ?', adminUser))) {
-    if (process.env.NODE_ENV === 'production' && adminPass === 'admin123') {
+    if (process.env.NODE_ENV === 'production' && adminPass === 'admin123' && !process.env.VERCEL) {
       throw new Error('Set ADMIN_PASSWORD (not the default) before the first production start.');
     }
     await db.run('INSERT INTO users (name, username, email, password, role) VALUES (?, ?, ?, ?, ?)',

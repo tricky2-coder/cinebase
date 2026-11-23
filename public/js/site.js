@@ -895,6 +895,17 @@
         } catch {}
       }
 
+      // Vidy's anime embed has no season parameter; Vidy's events either omit season or mirror the episode number.
+      // Map the anime episode number to CineBase's season chunk (1 for 1–100, 2 for 101–200, etc.)
+      if (cfg.anime) {
+        if (Number.isFinite(epNum) && epNum > 0) {
+          const tab = cfg.seasons?.find(x => epNum >= (x.start || 1) && (!x.episodes || epNum <= (x.start || 1) + x.episodes - 1));
+          snNum = tab ? tab.n : 1;
+        } else {
+          snNum = 1;
+        }
+      }
+
       // 1. If we commanded a manual navigation, ignore any stale messages from old episodes until target loads
       if (pendingNav) {
         if (Date.now() < pendingNav.deadline) {
@@ -1171,6 +1182,10 @@
 
       function play(s, e) {
         s = Number(s); e = Number(e);
+        if (cfg.anime) {
+          const tab = seasons.find(x => e >= first(x.n) && (!last(x.n) || e <= last(x.n)));
+          s = tab ? tab.n : (seasons[0]?.n || 1);
+        }
         state.s = s; state.e = e;
         lastSaved = 0;
         try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
@@ -1203,8 +1218,13 @@
         const saved = JSON.parse(localStorage.getItem(EP_KEY) || 'null');
         if (saved && sIdx(saved.s) >= 0 && saved.e >= 1) Object.assign(state, { s: saved.s, e: saved.e });
       } catch {}
-      if (sIdx(state.s) < 0 && seasons.length) state.s = seasons[0].n;
-      if (state.e < first(state.s)) state.e = first(state.s);
+      if (cfg.anime) {
+        const tab = seasons.find(x => state.e >= first(x.n) && (!last(x.n) || state.e <= last(x.n)));
+        state.s = tab ? tab.n : (seasons[0]?.n || 1);
+      } else {
+        if (sIdx(state.s) < 0 && seasons.length) state.s = seasons[0].n;
+        if (state.e < first(state.s)) state.e = first(state.s);
+      }
       showSeason(state.s);
     }
 

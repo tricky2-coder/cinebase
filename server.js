@@ -50,6 +50,7 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -74,15 +75,36 @@ app.use(session({
 app.use(async (req, res, next) => {
   if (req.session.user) {
     const fresh = await db.get('SELECT id, name, username, role FROM users WHERE id = ?', req.session.user.id);
-    if (fresh) req.session.user = { ...fresh };
-    else delete req.session.user;
+    if (fresh) {
+      req.session.user = { ...fresh };
+      // Ensure active profile exists
+      let profile = null;
+      if (req.session.activeProfileId) {
+        profile = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.session.activeProfileId, fresh.id);
+      }
+      if (!profile) {
+        profile = await db.get('SELECT * FROM profiles WHERE user_id = ? ORDER BY id ASC LIMIT 1', fresh.id);
+        if (!profile) {
+          const defaultAvatar = '/profiles/avatars/purple-superhero.svg';
+          const r = await db.run('INSERT INTO profiles (user_id, name, avatar, is_kids) VALUES (?, ?, ?, 0)', fresh.id, 'Me', defaultAvatar);
+          profile = { id: r.lastInsertRowid, user_id: fresh.id, name: 'Me', avatar: defaultAvatar, is_kids: 0 };
+        }
+        req.session.activeProfileId = profile.id;
+      }
+      req.session.activeProfile = profile;
+    } else {
+      delete req.session.user;
+      delete req.session.activeProfileId;
+      delete req.session.activeProfile;
+    }
   }
   next();
 });
 
-// Flash messages + current user available in every view
+// Flash messages + current user + active profile available in every view
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
+  res.locals.activeProfile = req.session.activeProfile || null;
   res.locals.flash = req.session.flash || null;
   res.locals.path = req.path;
   delete req.session.flash;
@@ -94,6 +116,7 @@ app.use('/dashboard', requireAdmin, require('./routes/dashboard'));
 app.use('/titles', requireAdmin, require('./routes/titles'));
 app.use('/users', requireAdmin, require('./routes/users'));
 app.use('/plex', requireAdmin, require('./routes/plex'));
+app.use('/', require('./routes/profiles'));
 app.use('/', requireUser, require('./routes/site')); // the movie site — any signed-in account
 
 app.use((req, res) => res.status(404).render('error', { title: 'Not found', message: 'Page not found.' }));

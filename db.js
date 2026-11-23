@@ -126,6 +126,47 @@ async function init() {
       sess    TEXT NOT NULL,
       expires INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS profiles (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name       TEXT NOT NULL,
+      avatar     TEXT NOT NULL DEFAULT '/profiles/avatars/purple-superhero.svg',
+      is_kids    INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS watchlists (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      profile_id   INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      media_type   TEXT NOT NULL,
+      media_id     TEXT NOT NULL,
+      title        TEXT NOT NULL,
+      poster_url   TEXT,
+      release_year TEXT,
+      rating       REAL,
+      href         TEXT NOT NULL,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(profile_id, media_type, media_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS watch_history (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      profile_id       INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      media_type       TEXT NOT NULL,
+      media_id         TEXT NOT NULL,
+      title            TEXT NOT NULL,
+      poster_url       TEXT,
+      href             TEXT NOT NULL,
+      season           INTEGER,
+      episode          INTEGER,
+      progress_seconds REAL DEFAULT 0,
+      duration_seconds REAL DEFAULT 0,
+      updated_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(profile_id, media_type, media_id)
+    );
   `);
 
   // Media / integration columns — added via migration so existing databases upgrade in place

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="8" fill="#fff1f2"/>
+  <!-- Hair bangs -->
+  <path d="M12 25 Q30 50 30 90 L12 90 Z M88 25 Q70 50 70 90 L88 90 Z" fill="#ec4899"/>
+  <path d="M12 20 Q50 32 88 20 Q50 10 12 20 Z" fill="#ec4899"/>
+  <!-- Laughing eyes -->
+  <path d="M28 46 Q38 40 46 48" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M72 46 Q62 40 54 48" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <!-- Blushes -->
+  <circle cx="26" cy="56" r="4" fill="#f43f5e" opacity="0.6"/>
+  <circle cx="74" cy="56" r="4" fill="#f43f5e" opacity="0.6"/>
+  <!-- Open mouth smile -->
+  <path d="M42 56 Q50 52 58 56 Q50 74 42 56 Z" fill="#ec4899"/>
+</svg>

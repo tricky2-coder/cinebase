@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="nbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="nmask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="20" fill="url(#nbg)"/>
+  <!-- Hood -->
+  <path d="M15 90 C15 30, 25 10, 50 10 C75 10, 85 30, 85 90 Z" fill="#18181b"/>
+  <!-- Mask face -->
+  <path d="M26 35 C28 20, 72 20, 74 35 C78 70, 72 82, 50 85 C28 82, 22 70, 26 35 Z" fill="url(#nmask)"/>
+  <!-- Headband / visor -->
+  <rect x="25" y="42" width="50" height="18" rx="4" fill="#09090b"/>
+  <!-- Glowing eyes -->
+  <ellipse cx="38" cy="51" rx="7" ry="2.5" fill="#fef08a"/>
+  <ellipse cx="62" cy="51" rx="7" ry="2.5" fill="#fef08a"/>
+</svg>

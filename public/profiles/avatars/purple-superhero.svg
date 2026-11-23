@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="pshbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a0e8f"/>
+      <stop offset="100%" stop-color="#2a085c"/>
+    </linearGradient>
+    <linearGradient id="pshhair" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8a2be2"/>
+      <stop offset="100%" stop-color="#551a8b"/>
+    </linearGradient>
+    <linearGradient id="pshskin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffcc00"/>
+      <stop offset="100%" stop-color="#e6b800"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="8" fill="url(#pshbg)"/>
+  <path d="M12 40 C10 15, 30 5, 50 5 C70 5, 90 15, 88 40 C95 65, 85 85, 82 95 L18 95 C15 85, 5 65, 12 40 Z" fill="url(#pshhair)"/>
+  <path d="M30 35 Q50 30 70 35 Q74 65 50 82 Q26 65 30 35 Z" fill="url(#pshskin)"/>
+  <path d="M25 42 Q50 48 75 42 Q80 58 68 62 Q50 54 32 62 Q20 58 25 42 Z" fill="#111116"/>
+  <path d="M32 50 Q40 45 46 51 Q39 56 32 50 Z" fill="#ffffff"/>
+  <circle cx="40" cy="50" r="3.2" fill="#111116"/>
+  <circle cx="41.2" cy="49" r="1.1" fill="#ffffff"/>
+  <path d="M68 50 Q60 45 54 51 Q61 56 68 50 Z" fill="#ffffff"/>
+  <circle cx="60" cy="50" r="3.2" fill="#111116"/>
+  <circle cx="61.2" cy="49" r="1.1" fill="#ffffff"/>
+  <path d="M44 71 Q50 68 56 71 Q50 76 44 71 Z" fill="#e50914"/>
+  <path d="M15 35 Q35 15 50 32 Q65 12 85 35 Q65 30 50 48 Q35 30 15 35 Z" fill="#9932cc"/>
+</svg>

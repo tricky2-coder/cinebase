@@ -107,11 +107,443 @@
     document.addEventListener('click', e => { if (!searchForm.contains(e.target)) closeList(); });
   }
 
-  // Account menu (<details>): close on outside click / Escape
-  const acct = document.querySelector('.s-acct');
-  if (acct) {
-    document.addEventListener('click', e => { if (acct.open && !acct.contains(e.target)) acct.open = false; });
-    addEventListener('keydown', e => { if (e.key === 'Escape') acct.open = false; });
+  // Netflix-Style Who's Watching? Modal (Images 3, 5, 6, 7)
+  const wwModal = document.getElementById('whos-watching-modal');
+  const wwBtn = document.getElementById('btn-whos-watching');
+  const wwViewSelect = document.getElementById('ww-view-select');
+  const wwViewForm = document.getElementById('ww-view-form');
+  const wwSelectTitle = document.getElementById('ww-select-title');
+  const wwSelectSub = document.getElementById('ww-select-sub');
+  const wwGrid = document.getElementById('ww-profiles-grid');
+  const wwManageBtn = document.getElementById('btn-ww-manage');
+  const wwCancelBtn = document.getElementById('btn-ww-cancel');
+
+  // Form View elements
+  const wwFormHeading = document.getElementById('ww-form-heading');
+  const wwFormPreviewImg = document.getElementById('ww-form-preview-img');
+  const wwFormPreviewName = document.getElementById('ww-form-preview-name');
+  const wwProfileForm = document.getElementById('ww-profile-form');
+  const wwEditId = document.getElementById('ww-edit-id');
+  const wwProfileName = document.getElementById('ww-profile-name');
+  const wwCharCount = document.getElementById('ww-char-count');
+  const wwAvatarSearchInput = document.getElementById('ww-avatar-search-input');
+  const wwAvatarGrid = document.getElementById('ww-avatar-grid');
+  const wwIsKids = document.getElementById('ww-is-kids');
+  const wwLockPin = document.getElementById('ww-lock-pin');
+  const wwFormCancel = document.getElementById('btn-ww-form-cancel');
+  const wwDeleteBtn = document.getElementById('btn-ww-delete');
+
+  const AVATAR_PRESETS = [
+    { id: 'alien', name: 'Alien', path: '/profiles/avatars/alien.svg' },
+    { id: 'blue-classic-icon', name: 'Blue Classic Icon', path: '/profiles/avatars/blue-classic-icon.svg' },
+    { id: 'chicken', name: 'Chicken', path: '/profiles/avatars/chicken.svg' },
+    { id: 'dark-grey-smile', name: 'Dark Grey Smile', path: '/profiles/avatars/dark-grey-smile.svg' },
+    { id: 'dog', name: 'Dog', path: '/profiles/avatars/dog.svg' },
+    { id: 'dusty-chilleez', name: 'Dusty Chilleez', path: '/profiles/avatars/dusty-chilleez.svg' },
+    { id: 'eyepatch', name: 'Eyepatch', path: '/profiles/avatars/eyepatch.svg' },
+    { id: 'green-smile', name: 'Green Smile', path: '/profiles/avatars/green-smile.svg' },
+    { id: 'helmet', name: 'Helmet', path: '/profiles/avatars/helmet.svg' },
+    { id: 'moustache', name: 'Moustache', path: '/profiles/avatars/moustache.svg' },
+    { id: 'mummy', name: 'Mummy', path: '/profiles/avatars/mummy.svg' },
+    { id: 'pink-giggle', name: 'Pink Giggle', path: '/profiles/avatars/pink-giggle.svg' },
+    { id: 'pink-smile', name: 'Pink Smile', path: '/profiles/avatars/pink-smile.svg' },
+    { id: 'purple-penguin', name: 'Purple Penguin', path: '/profiles/avatars/purple-penguin.svg' },
+    { id: 'purple-smile', name: 'Purple Smile', path: '/profiles/avatars/purple-smile.svg' },
+    { id: 'purple-superhero', name: 'Purple Superhero', path: '/profiles/avatars/purple-superhero.svg' },
+    { id: 'red-smile', name: 'Red Smile', path: '/profiles/avatars/red-smile.svg' },
+    { id: 'robin-chilleez', name: 'Robin Chilleez', path: '/profiles/avatars/robin-chilleez.svg' },
+    { id: 'robot', name: 'Robot', path: '/profiles/avatars/robot.svg' },
+    { id: 'scarlet-chilleez', name: 'Scarlet Chilleez', path: '/profiles/avatars/scarlet-chilleez.svg' },
+    { id: 'sunny-chilleez', name: 'Sunny Chilleez', path: '/profiles/avatars/sunny-chilleez.svg' },
+    { id: 'yellow-smile', name: 'Yellow Smile', path: '/profiles/avatars/yellow-smile.svg' },
+    { id: 'red-superhero', name: 'Red Superhero', path: '/profiles/avatars/red-superhero.svg' }
+  ];
+
+  let profilesData = [];
+  let currentActiveId = null;
+  let isManageMode = false;
+  let selectedAvatar = '/profiles/avatars/blue-classic-icon.svg';
+  let presetsList = AVATAR_PRESETS;
+
+  async function loadProfiles() {
+    try {
+      const res = await fetch('/api/profiles');
+      if (!res.ok) return;
+      const data = await res.json();
+      profilesData = data.profiles || [];
+      currentActiveId = data.activeProfileId;
+      if (data.presets && data.presets.length) {
+        presetsList = data.presets;
+      }
+      renderProfiles();
+    } catch (e) {
+      console.error('Failed to load profiles:', e);
+    }
+  }
+
+  function renderProfiles() {
+    if (!wwGrid) return;
+    wwGrid.innerHTML = '';
+    wwGrid.classList.toggle('manage-mode', isManageMode);
+
+    profilesData.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'ww-profile-item' + (p.id === currentActiveId ? ' active' : '');
+      item.dataset.id = p.id;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'ww-avatar-wrap';
+
+      const img = document.createElement('img');
+      img.src = p.avatar;
+      img.alt = p.name;
+      wrap.appendChild(img);
+
+      const overlay = document.createElement('div');
+      overlay.className = 'ww-edit-overlay';
+      overlay.innerHTML = `
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      `;
+      wrap.appendChild(overlay);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'ww-profile-name';
+      nameSpan.textContent = p.name;
+
+      item.appendChild(wrap);
+      item.appendChild(nameSpan);
+
+      item.addEventListener('click', () => {
+        if (isManageMode) {
+          openEditProfileForm(p);
+        } else {
+          switchProfile(p.id);
+        }
+      });
+
+      wwGrid.appendChild(item);
+    });
+
+    // Add Profile button (if < 6 profiles and not in manage mode)
+    if (profilesData.length < 6 && !isManageMode) {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'ww-profile-item ww-add-item';
+      addBtn.id = 'btn-ww-add-profile';
+      addBtn.innerHTML = `
+        <div class="ww-avatar-wrap ww-add-wrap">
+          <span class="ww-add-plus">+</span>
+        </div>
+        <span class="ww-profile-name">Add Profile</span>
+      `;
+      addBtn.addEventListener('click', openAddProfileForm);
+      wwGrid.appendChild(addBtn);
+    }
+  }
+
+  async function switchProfile(id) {
+    try {
+      const res = await fetch(`/api/profiles/${id}/switch`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const navImg = document.getElementById('nav-profile-avatar-img');
+        if (navImg && data.profile && data.profile.avatar) {
+          navImg.src = data.profile.avatar;
+        }
+        closeWhosWatching();
+        window.location.reload();
+      }
+    } catch (e) {
+      console.error('Error switching profile:', e);
+    }
+  }
+
+  function getPresetByPath(path) {
+    return presetsList.find(p => p.path === path) || { id: '', name: 'Classic Icon', path };
+  }
+
+  function renderAvatarGrid(filterQuery = '') {
+    if (!wwAvatarGrid) return;
+    wwAvatarGrid.innerHTML = '';
+    const q = filterQuery.toLowerCase();
+    const filtered = presetsList.filter(p => !q || p.name.toLowerCase().includes(q));
+
+    filtered.forEach(preset => {
+      const tile = document.createElement('div');
+      tile.className = 'ww-avatar-tile' + (preset.path === selectedAvatar ? ' selected' : '');
+      tile.title = preset.name;
+      tile.innerHTML = `<img src="${preset.path}" alt="${preset.name}">`;
+
+      tile.addEventListener('click', () => {
+        selectedAvatar = preset.path;
+        if (wwFormPreviewImg) wwFormPreviewImg.src = preset.path;
+        if (wwFormPreviewName) wwFormPreviewName.textContent = preset.name;
+        wwAvatarGrid.querySelectorAll('.ww-avatar-tile').forEach(t => t.classList.remove('selected'));
+        tile.classList.add('selected');
+      });
+
+      wwAvatarGrid.appendChild(tile);
+    });
+  }
+
+  function openAddProfileForm() {
+    if (wwFormHeading) wwFormHeading.textContent = 'Add Profile';
+    if (wwEditId) wwEditId.value = '';
+    if (wwProfileName) {
+      wwProfileName.value = '';
+      if (wwCharCount) wwCharCount.textContent = '0/20';
+    }
+    if (wwIsKids) wwIsKids.checked = false;
+    if (wwLockPin) wwLockPin.checked = false;
+
+    // Default avatar
+    const defaultPreset = presetsList[1] || presetsList[0];
+    selectedAvatar = defaultPreset ? defaultPreset.path : '/profiles/avatars/blue-classic-icon.svg';
+    if (wwFormPreviewImg) wwFormPreviewImg.src = selectedAvatar;
+    if (wwFormPreviewName) wwFormPreviewName.textContent = defaultPreset ? defaultPreset.name : 'Blue Classic Icon';
+
+    if (wwAvatarSearchInput) wwAvatarSearchInput.value = '';
+    renderAvatarGrid('');
+
+    if (wwDeleteBtn) wwDeleteBtn.hidden = true;
+    if (wwViewSelect) wwViewSelect.hidden = true;
+    if (wwViewForm) wwViewForm.hidden = false;
+    if (wwProfileName) wwProfileName.focus();
+  }
+
+  function openEditProfileForm(profile) {
+    if (wwFormHeading) wwFormHeading.textContent = 'Edit Profile';
+    if (wwEditId) wwEditId.value = profile.id;
+    if (wwProfileName) {
+      wwProfileName.value = profile.name;
+      if (wwCharCount) wwCharCount.textContent = `${profile.name.length}/20`;
+    }
+    if (wwIsKids) wwIsKids.checked = !!profile.is_kids;
+    if (wwLockPin) wwLockPin.checked = false;
+
+    selectedAvatar = profile.avatar;
+    const preset = getPresetByPath(selectedAvatar);
+    if (wwFormPreviewImg) wwFormPreviewImg.src = selectedAvatar;
+    if (wwFormPreviewName) wwFormPreviewName.textContent = preset.name;
+
+    if (wwAvatarSearchInput) wwAvatarSearchInput.value = '';
+    renderAvatarGrid('');
+
+    if (wwDeleteBtn) wwDeleteBtn.hidden = profilesData.length <= 1;
+    if (wwViewSelect) wwViewSelect.hidden = true;
+    if (wwViewForm) wwViewForm.hidden = false;
+    if (wwProfileName) wwProfileName.focus();
+  }
+
+  function openWhosWatching() {
+    if (!wwModal) return;
+    isManageMode = false;
+    if (wwSelectTitle) wwSelectTitle.textContent = "Who's watching?";
+    if (wwSelectSub) wwSelectSub.textContent = 'Each profile keeps its own watchlist, progress and settings.';
+    if (wwManageBtn) wwManageBtn.textContent = 'MANAGE PROFILES';
+    if (wwViewSelect) wwViewSelect.hidden = false;
+    if (wwViewForm) wwViewForm.hidden = true;
+    wwModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    loadProfiles();
+  }
+
+  function closeWhosWatching() {
+    if (!wwModal) return;
+    wwModal.hidden = true;
+    document.body.style.overflow = '';
+    isManageMode = false;
+  }
+
+  if (wwBtn) {
+    wwBtn.addEventListener('click', openWhosWatching);
+  }
+  if (wwCancelBtn) {
+    wwCancelBtn.addEventListener('click', closeWhosWatching);
+  }
+  if (wwManageBtn) {
+    wwManageBtn.addEventListener('click', () => {
+      isManageMode = !isManageMode;
+      if (wwSelectTitle) wwSelectTitle.textContent = isManageMode ? 'Manage Profiles' : "Who's watching?";
+      if (wwSelectSub) wwSelectSub.textContent = isManageMode ? 'Choose a profile to edit.' : 'Each profile keeps its own watchlist, progress and settings.';
+      wwManageBtn.textContent = isManageMode ? 'DONE' : 'MANAGE PROFILES';
+      renderProfiles();
+    });
+  }
+  if (wwFormCancel) {
+    wwFormCancel.addEventListener('click', () => {
+      if (wwViewForm) wwViewForm.hidden = true;
+      if (wwViewSelect) wwViewSelect.hidden = false;
+    });
+  }
+  if (wwProfileName) {
+    wwProfileName.addEventListener('input', () => {
+      if (wwCharCount) wwCharCount.textContent = `${wwProfileName.value.length}/20`;
+    });
+  }
+  if (wwAvatarSearchInput) {
+    wwAvatarSearchInput.addEventListener('input', (e) => {
+      renderAvatarGrid(e.target.value.trim());
+    });
+  }
+  if (wwProfileForm) {
+    wwProfileForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = (wwProfileName ? wwProfileName.value : '').trim();
+      if (!name) return;
+      const isKids = wwIsKids ? wwIsKids.checked : false;
+      const editId = wwEditId ? wwEditId.value : '';
+
+      try {
+        let res;
+        if (editId) {
+          res = await fetch(`/api/profiles/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, avatar: selectedAvatar, is_kids: isKids })
+          });
+        } else {
+          res = await fetch('/api/profiles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, avatar: selectedAvatar, is_kids: isKids })
+          });
+        }
+        if (res.ok) {
+          await loadProfiles();
+          if (wwViewForm) wwViewForm.hidden = true;
+          if (wwViewSelect) wwViewSelect.hidden = false;
+        }
+      } catch (err) {
+        console.error('Error saving profile:', err);
+      }
+    });
+  }
+  if (wwDeleteBtn) {
+    wwDeleteBtn.addEventListener('click', async () => {
+      const editId = wwEditId ? wwEditId.value : '';
+      if (!editId || !confirm('Are you sure you want to delete this profile?')) return;
+      try {
+        const res = await fetch(`/api/profiles/${editId}`, { method: 'DELETE' });
+        if (res.ok) {
+          await loadProfiles();
+          if (wwViewForm) wwViewForm.hidden = true;
+          if (wwViewSelect) wwViewSelect.hidden = false;
+        }
+      } catch (err) {
+        console.error('Error deleting profile:', err);
+      }
+    });
+  }
+
+  // Settings Dropdown Toggle (Images 1 & 2)
+  const settingsBtn = document.getElementById('btn-settings-toggle');
+  const settingsMenu = document.getElementById('s-settings-menu');
+
+  if (settingsBtn && settingsMenu) {
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = settingsMenu.hidden;
+      settingsMenu.hidden = !isHidden;
+      settingsBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!settingsMenu.hidden && !settingsMenu.contains(e.target) && !settingsBtn.contains(e.target)) {
+        settingsMenu.hidden = true;
+        settingsBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !settingsMenu.hidden) {
+        settingsMenu.hidden = true;
+        settingsBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  // "Show ads" Toggle & Video Player Sandbox (Image 1)
+  const adsToggle = document.getElementById('toggle-show-ads');
+  const isShowingAds = localStorage.getItem('cinebase.showAds') === 'true';
+
+  // Apply sandbox state to player iframe on initial load
+  const playerIframe = document.querySelector('.player iframe, #player iframe');
+  if (playerIframe) {
+    if (isShowingAds) {
+      playerIframe.removeAttribute('sandbox');
+    } else {
+      playerIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+    }
+  }
+
+  if (adsToggle) {
+    adsToggle.checked = isShowingAds;
+    adsToggle.addEventListener('change', () => {
+      const enabled = adsToggle.checked;
+      localStorage.setItem('cinebase.showAds', enabled);
+      const ifr = document.querySelector('.player iframe, #player iframe');
+      if (ifr) {
+        if (enabled) {
+          ifr.removeAttribute('sandbox');
+        } else {
+          ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+        }
+        ifr.src = ifr.src; // Reload player with updated sandbox
+      }
+    });
+  }
+
+  // Watch Party Modal
+  const wpBtn = document.getElementById('btn-watch-party');
+  const wpModal = document.getElementById('watchparty-modal');
+  const wpClose = document.getElementById('btn-close-watchparty');
+  const wpRoomLink = document.getElementById('wp-room-link');
+  const wpCopyBtn = document.getElementById('btn-wp-copy');
+  const wpCopiedMsg = document.getElementById('wp-copied-msg');
+
+  if (wpBtn && wpModal) {
+    wpBtn.addEventListener('click', () => {
+      if (settingsMenu) {
+        settingsMenu.hidden = true;
+        settingsBtn?.setAttribute('aria-expanded', 'false');
+      }
+      const roomCode = Math.random().toString(36).substring(2, 9);
+      const link = window.location.origin + window.location.pathname + '?party=' + roomCode;
+      if (wpRoomLink) wpRoomLink.value = link;
+      if (wpCopiedMsg) wpCopiedMsg.hidden = true;
+      wpModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+    });
+  }
+
+  if (wpClose && wpModal) {
+    wpClose.addEventListener('click', () => {
+      wpModal.hidden = true;
+      document.body.style.overflow = '';
+    });
+  }
+
+  if (wpCopyBtn && wpRoomLink) {
+    wpCopyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(wpRoomLink.value);
+        if (wpCopiedMsg) {
+          wpCopiedMsg.hidden = false;
+          setTimeout(() => { if (wpCopiedMsg) wpCopiedMsg.hidden = true; }, 3000);
+        }
+      } catch (err) {
+        wpRoomLink.select();
+        document.execCommand('copy');
+        if (wpCopiedMsg) {
+          wpCopiedMsg.hidden = false;
+          setTimeout(() => { if (wpCopiedMsg) wpCopiedMsg.hidden = true; }, 3000);
+        }
+      }
+    });
   }
 
   // Netflix-style hover preview: hovering a poster opens a larger card that plays the trailer muted.

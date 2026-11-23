@@ -26,19 +26,99 @@
     <% } %>
     <% if (plexEnabled) { %><a href="/browse?source=plex" class="<%= query && query.source === 'plex' ? 'on' : '' %>">My Plex</a><% } %>
   </nav>
-  <form class="s-search" action="<%= tmdbEnabled ? '/search' : '/browse' %>" method="GET" role="search" <%- tmdbEnabled ? 'data-suggest="/suggest"' : '' %>>
-    <input type="search" name="q" value="<%= q %>" placeholder="Search movies & series…" aria-label="Search" autocomplete="off"
-      role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="s-suggest">
-    <ul class="s-suggest" id="s-suggest" role="listbox" hidden></ul>
-  </form>
-  <% if (user) { %>
-  <details class="s-acct">
-    <summary aria-label="Account menu"><span class="s-avatar" aria-hidden="true"><%= (user.name || user.username).trim().charAt(0).toUpperCase() %></span></summary>
-    <div class="s-acct-menu">
-      <p><b><%= user.name %></b><small><%= user.role === 'admin' ? 'Admin' : 'Viewer' %></small></p>
-      <% if (user.role === 'admin') { %><a href="/dashboard">Dashboard</a><% } %>
-      <form action="/logout" method="POST"><button type="submit">Sign out</button></form>
+  <div class="s-right-actions">
+    <form class="s-search" action="<%= tmdbEnabled ? '/search' : '/browse' %>" method="GET" role="search" <%- tmdbEnabled ? 'data-suggest="/suggest"' : '' %>>
+      <input type="search" name="q" value="<%= q %>" placeholder="Search movies & series…" aria-label="Search" autocomplete="off"
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="s-suggest">
+      <ul class="s-suggest" id="s-suggest" role="listbox" hidden></ul>
+    </form>
+
+    <% if (user) { %>
+    <!-- User Avatar Button: Displays the chosen profile avatar image instead of gold letter -->
+    <button type="button" class="s-avatar-btn" id="btn-whos-watching" title="Who's watching?" aria-label="Who's watching?">
+      <div class="s-avatar-img-wrap">
+        <img src="<%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.avatar) ? activeProfile.avatar : '/profiles/avatars/purple-superhero.svg' %>" alt="<%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.name) ? activeProfile.name : 'Profile' %>" class="s-avatar-img" id="nav-profile-avatar-img">
+      </div>
+    </button>
+    <% } %>
+
+    <!-- Settings Button on the right of the avatar button -->
+    <div class="s-settings-wrap">
+      <button type="button" class="s-settings-btn" id="btn-settings-toggle" title="Settings" aria-label="Settings" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+
+      <!-- Settings Dropdown Menu (Image 1 & Image 2) -->
+      <div class="s-settings-menu" id="s-settings-menu" hidden>
+        <% if (user) { %>
+        <div class="s-settings-user-header">
+          <div class="s-settings-user-name"><%= (typeof activeProfile !== 'undefined' && activeProfile) ? activeProfile.name : user.name %></div>
+          <div class="s-settings-user-role"><%= user.role === 'admin' ? 'Admin' : 'Viewer' %></div>
+        </div>
+        <div class="s-settings-divider"></div>
+        <% } %>
+
+        <a href="/history" class="s-settings-item">
+          <svg class="s-settings-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>History</span>
+        </a>
+
+        <a href="/watchlist" class="s-settings-item">
+          <svg class="s-settings-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Watchlist</span>
+        </a>
+
+        <button type="button" class="s-settings-item" id="btn-watch-party">
+          <svg class="s-settings-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 14l6-6 4 4 6-6"></path><path d="M12 2l3 3-3 3"></path><path d="M2 18l3-3"></path><circle cx="18" cy="8" r="1"></circle>
+          </svg>
+          <span>Watch Party</span>
+        </button>
+
+        <div class="s-settings-divider"></div>
+
+        <!-- Show ads toggle switch (Image 1) -->
+        <div class="s-settings-item s-settings-toggle-row">
+          <div class="s-settings-toggle-label">
+            <svg class="s-settings-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+            <span>Show ads</span>
+          </div>
+          <label class="s-ad-switch" title="Toggle Ads / Popups">
+            <input type="checkbox" id="toggle-show-ads">
+            <span class="s-ad-slider"></span>
+          </label>
+        </div>
+
+        <% if (user) { %>
+          <div class="s-settings-divider"></div>
+
+          <% if (user.role === 'admin') { %>
+            <a href="/dashboard" class="s-settings-item s-settings-admin-link">Dashboard</a>
+            <div class="s-settings-divider"></div>
+          <% } %>
+
+          <form action="/logout" method="POST" class="s-settings-logout-form">
+            <button type="submit" class="s-settings-signout-btn">Sign out</button>
+          </form>
+        <% } else { %>
+          <div class="s-settings-divider"></div>
+          <div class="s-settings-auth-row">
+            <a href="/login" class="s-auth-btn s-auth-login">Login</a>
+            <a href="/login?tab=register" class="s-auth-btn s-auth-signup">Sign up</a>
+          </div>
+        <% } %>
+      </div>
     </div>
-  </details>
-  <% } %>
+  </div>
 </header>

@@ -8,6 +8,27 @@
     <div class="modal-frame"></div>
   </div>
 </div>
+<!-- Watch Party Modal -->
+<div class="modal" id="watchparty-modal" hidden>
+  <div class="modal-box wp-modal-box">
+    <button class="modal-x" id="btn-close-watchparty" aria-label="Close">×</button>
+    <div class="wp-modal-body">
+      <div class="wp-icon-circle">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 14l6-6 4 4 6-6"></path><path d="M12 2l3 3-3 3"></path><path d="M2 18l3-3"></path><circle cx="18" cy="8" r="1"></circle>
+        </svg>
+      </div>
+      <h2>Watch Party</h2>
+      <p>Invite friends to watch movies and series together in real time. Share this link:</p>
+      <div class="wp-link-row">
+        <input type="text" id="wp-room-link" readonly value="">
+        <button type="button" id="btn-wp-copy">Copy</button>
+      </div>
+      <span class="wp-copied-msg" id="wp-copied-msg" hidden>Link copied to clipboard!</span>
+    </div>
+  </div>
+</div>
+<%- include('_whos_watching') %>
 <script src="/js/site.js"></script>
 </body>
 </html>

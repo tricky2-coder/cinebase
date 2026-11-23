@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="8" fill="#334155"/>
+  <path d="M22 36 L44 36 M56 36 L78 36" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+  <!-- Gold aviators -->
+  <path d="M20 46 Q34 42 46 46 Q46 68 33 68 Q20 68 20 46 Z" fill="#eab308" stroke="#ca8a04" stroke-width="2"/>
+  <path d="M54 46 Q66 42 80 46 Q80 68 67 68 Q54 68 54 46 Z" fill="#eab308" stroke="#ca8a04" stroke-width="2"/>
+  <line x1="46" y1="46" x2="54" y2="46" stroke="#ca8a04" stroke-width="3"/>
+  <!-- Moustache -->
+  <path d="M30 76 Q50 70 70 76 Q60 86 50 80 Q40 86 30 76 Z" fill="#0f172a"/>
+</svg>

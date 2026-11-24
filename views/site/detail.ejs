@@ -88,13 +88,20 @@
       </div>
       <select class="ep-quick-select anime-server-select" id="anime-server" aria-label="Select server">
         <option value="anizone">Server 1</option>
-        <option value="anihq">Server 2</option>
-        <option value="aniwaves">Server 3</option>
-        <option value="reanime">Server 4</option>
+        <option value="anikoto">Server 2</option>
+        <option value="anipm">Server 3</option>
+        <option value="anihq">Server 4</option>
+        <option value="aniwaves">Server 5</option>
+        <option value="pahenime">Server 6</option>
+        <option value="animedunya">Server 7</option>
+        <option value="animegg">Server 8</option>
+        <option value="animenosub">Server 9</option>
+        <option value="reanime">Server 10</option>
+        <option value="vidy">Vidy (Backup)</option>
       </select>
       <% } %>
       <button type="button" class="ep-step ep-fs-btn" id="p-fullscreen" title="Full screen">⛶ Fullscreen</button>
-      <% if (!player.cfg.anime) { %><button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window">⧉ Pop out</button><% } %>
+      <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window"<%= player.cfg.anime ? ' hidden' : '' %>>⧉ Pop out</button>
     </div>
     <% } %>
   </div>
@@ -103,6 +110,19 @@
       <% if (player.cfg.anime) { %>
         <div class="anime-artplayer" id="anime-artplayer"></div>
         <div class="anime-player-msg" id="anime-player-msg" hidden></div>
+        <iframe
+          id="anime-vidy-frame"
+          hidden
+          src="about:blank"
+          title="<%= item.title %> player"
+          loading="lazy"
+          allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
+          referrerpolicy="no-referrer"
+          allowfullscreen></iframe>
+        <div class="popped-msg" id="p-popped" hidden>
+          <p><b>Playing in the pop-out window</b><span>Close it or bring it back to keep watching here.</span></p>
+          <button type="button" class="sbtn sbtn-play" id="p-bringback">⤓ Bring back</button>
+        </div>
       <% } else { %>
         <iframe
           src="<%= player.src %>"

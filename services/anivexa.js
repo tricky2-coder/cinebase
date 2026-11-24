@@ -1,12 +1,15 @@
 // Anivexa-API integration for anime streaming (server-side only; hidden from end users)
 const DEFAULT_PROVIDERS = [
   { id: 'anizone', label: 'Server 1' },
-  { id: 'anihq', label: 'Server 2' },
-  { id: 'aniwaves', label: 'Server 3' },
-  { id: 'pahenime', label: 'Server 4' },
-  { id: 'animenosub', label: 'Server 5' },
-  { id: 'animeonsen', label: 'Server 6' },
-  { id: 'reanime', label: 'Server 7' }
+  { id: 'anikoto', label: 'Server 2' },
+  { id: 'anipm', label: 'Server 3' },
+  { id: 'anihq', label: 'Server 4' },
+  { id: 'aniwaves', label: 'Server 5' },
+  { id: 'pahenime', label: 'Server 6' },
+  { id: 'animedunya', label: 'Server 7' },
+  { id: 'animegg', label: 'Server 8' },
+  { id: 'animenosub', label: 'Server 9' },
+  { id: 'reanime', label: 'Server 10' }
 ];
 
 let lastWakeAt = 0;
@@ -129,7 +132,7 @@ async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider =
   const cleanAudio = audio === 'dub' ? 'dub' : 'sub';
 
   // If user explicitly picked a specific server, try it first
-  if (preferredProvider) {
+  if (preferredProvider && preferredProvider !== 'vidy') {
     const picked = DEFAULT_PROVIDERS.find(p => p.id === preferredProvider);
     if (picked) {
       try {
@@ -141,7 +144,7 @@ async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider =
   }
 
   // Try remaining providers in parallel so we finish well inside Vercel's timeout
-  const candidates = preferredProvider
+  const candidates = preferredProvider && preferredProvider !== 'vidy'
     ? DEFAULT_PROVIDERS.filter(p => p.id !== preferredProvider)
     : DEFAULT_PROVIDERS;
 

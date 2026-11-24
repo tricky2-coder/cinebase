@@ -1751,12 +1751,28 @@
       p.textContent = text;
       animeMsg.append(p);
       if (allowRetry) {
+        const actions = document.createElement('div');
+        actions.className = 'anime-msg-actions';
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'sbtn sbtn-play';
         btn.textContent = 'Retry';
         btn.addEventListener('click', () => load(true));
-        animeMsg.append(btn);
+        actions.append(btn);
+        if (iframe) {
+          const vidyBtn = document.createElement('button');
+          vidyBtn.type = 'button';
+          vidyBtn.className = 'sbtn sbtn-glass';
+          vidyBtn.textContent = 'Play on Vidy';
+          vidyBtn.addEventListener('click', () => {
+            animeProvider = 'vidy';
+            try { localStorage.setItem('cinebase.animeServer', 'vidy'); } catch {}
+            if (animeServerSel) animeServerSel.value = 'vidy';
+            load(true);
+          });
+          actions.append(vidyBtn);
+        }
+        animeMsg.append(actions);
       }
       animeMsg.hidden = false;
     }
@@ -1774,7 +1790,7 @@
           animeAudio = nextAudio;
           try { localStorage.setItem('cinebase.animeAudio', animeAudio); } catch {}
           animeAudioBox.querySelectorAll('button[data-audio]').forEach(b => b.classList.toggle('on', b.dataset.audio === animeAudio));
-          load(true);
+          if (animeProvider !== 'vidy') load(true);
         });
       });
     }
@@ -1800,11 +1816,18 @@
       if (!isAnimePlayer) return;
       if (animeAbort) animeAbort.abort();
       animeAbort = new AbortController();
+      if (iframe) {
+        iframe.hidden = true;
+        if (iframe.src && iframe.src !== 'about:blank') iframe.src = 'about:blank';
+      }
+      if (animeMount) animeMount.hidden = false;
+      const pBtn = document.getElementById('p-popout');
+      if (pBtn) pBtn.hidden = true;
       showAnimeMsg(`Loading Episode ${epNum}...`, false);
 
       try {
         const qs = new URLSearchParams({ audio: animeAudio });
-        if (animeProvider) qs.set('provider', animeProvider);
+        if (animeProvider && animeProvider !== 'vidy') qs.set('provider', animeProvider);
         const res = await fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(epNum)}?${qs.toString()}`, {
           signal: animeAbort.signal
         });
@@ -1821,6 +1844,10 @@
             opt.textContent = p.label;
             animeServerSel.append(opt);
           });
+          const vidyOpt = document.createElement('option');
+          vidyOpt.value = 'vidy';
+          vidyOpt.textContent = 'Vidy (Backup)';
+          animeServerSel.append(vidyOpt);
           if (data.provider) {
             animeProvider = data.provider;
             animeServerSel.value = data.provider;
@@ -1967,9 +1994,18 @@
     }
 
     const load = (force = false) => {
-      if (isAnimePlayer) {
+      if (isAnimePlayer && animeProvider !== 'vidy') {
         loadAnimeEpisode(state.e);
         return;
+      }
+      if (isAnimePlayer && animeProvider === 'vidy') {
+        if (animeAbort) animeAbort.abort();
+        destroyArtplayer();
+        hideAnimeMsg();
+        if (animeMount) animeMount.hidden = true;
+        if (iframe) iframe.hidden = false;
+        const pBtn = document.getElementById('p-popout');
+        if (pBtn) pBtn.hidden = false;
       }
       const u = url();
       if (pipWin && !pipFrame) { try { pipWin.location.href = u; } catch {} return; } // plain pop-up
@@ -2372,7 +2408,7 @@
           const nxt = step(1);
           if (!nxt) return;
           try {
-            if (isAnimePlayer) {
+            if (isAnimePlayer && animeProvider !== 'vidy') {
               const qs = new URLSearchParams({ audio: animeAudio });
               if (animeProvider) qs.set('provider', animeProvider);
               fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(nxt.e)}?${qs.toString()}`).catch(() => {});

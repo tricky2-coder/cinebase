@@ -204,42 +204,17 @@
       </div>
     </div>
 
-    <!-- Custom Themed Delete Confirmation Dialog (replacing browser popup) -->
+    <!-- Simple & Minimal Delete Confirmation Dialog -->
     <div class="ww-dialog-overlay" id="ww-delete-dialog" hidden>
       <div class="ww-dialog-card">
-        <!-- Ambient Crimson Spotlight -->
-        <div class="ww-delete-ambient-glow"></div>
-        
-        <!-- Avatar Spotlight with Mini Badge -->
-        <div class="ww-delete-hero">
-          <div class="ww-delete-avatar-frame">
-            <img id="ww-delete-dialog-avatar" src="" alt="Profile Avatar">
-            <div class="ww-delete-badge-icon" title="Delete">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </div>
-          </div>
+        <div class="ww-dialog-avatar-preview">
+          <img id="ww-delete-dialog-avatar" src="" alt="Profile Avatar">
         </div>
-
-        <span class="ww-delete-pill">DELETE PROFILE</span>
-        <h3 class="ww-dialog-title" id="ww-delete-dialog-title">Delete <span class="ww-delete-name-accent" id="ww-delete-dialog-name">Profile</span>?</h3>
-        <p class="ww-dialog-text" id="ww-delete-dialog-text">This profile's history and watchlist will be permanently deleted.</p>
-
-        <!-- Warning Callout Strip -->
-        <div class="ww-delete-warning-strip">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <span>This action cannot be undone</span>
-        </div>
-
+        <h3 class="ww-dialog-title" id="ww-delete-dialog-title">Delete <span id="ww-delete-dialog-name">Profile</span>?</h3>
+        <p class="ww-dialog-text" id="ww-delete-dialog-text">This profile's history and watchlist will be deleted.</p>
         <div class="ww-dialog-actions">
-          <button type="button" class="ww-btn-dialog-cancel" id="btn-ww-delete-cancel">Cancel</button>
-          <button type="button" class="ww-btn-dialog-delete" id="btn-ww-delete-confirm">Delete Profile</button>
+          <button type="button" class="ww-btn-cancel" id="btn-ww-delete-cancel">Cancel</button>
+          <button type="button" class="ww-btn-danger" id="btn-ww-delete-confirm">Delete</button>
         </div>
       </div>
     </div>

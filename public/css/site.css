@@ -602,6 +602,8 @@ body.ww-active .ww-overlay {
 .ww-avatar-wrap {
   width: 100%; aspect-ratio: 1; border-radius: 10px;
   overflow: hidden; position: relative; background: transparent;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1);
   transform: translate3d(0, 0, 0);
@@ -806,6 +808,8 @@ body.ww-active .ww-overlay {
   width: 140px; height: 140px; border-radius: 11px; overflow: hidden;
   position: relative;
   background: transparent;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
   transform: translate3d(0, 0, 0);
   transition: transform 0.48s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.48s ease, opacity 0.25s ease;
@@ -1036,15 +1040,15 @@ body.ww-active .ww-overlay {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Custom Themed Delete Confirmation Dialog */
+/* Simple & Minimal Delete Confirmation Dialog */
 .ww-dialog-overlay {
   position: fixed; inset: 0; z-index: 10005;
-  background: radial-gradient(circle at center, rgba(30, 16, 22, 0.88) 0%, rgba(6, 6, 10, 0.94) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
-  animation: wwDialogFade 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  animation: wwDialogFade 0.2s ease;
 }
 .ww-dialog-overlay[hidden] { display: none !important; }
 @keyframes wwDialogFade {
@@ -1052,178 +1056,55 @@ body.ww-active .ww-overlay {
   to { opacity: 1; }
 }
 .ww-dialog-card {
-  position: relative;
-  background: linear-gradient(165deg, rgba(28, 28, 40, 0.96) 0%, rgba(14, 14, 22, 0.98) 100%);
+  background: #151520;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.05), 0 0 50px rgba(239, 68, 68, 0.14);
-  border-radius: 20px;
-  max-width: 400px; width: 100%;
-  padding: 34px 28px 28px; text-align: center;
-  overflow: hidden;
-  animation: wwCardPop 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 12px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+  max-width: 350px; width: 100%;
+  padding: 26px 22px 22px; text-align: center;
+  animation: wwCardPop 0.22s cubic-bezier(0.25, 1, 0.5, 1);
   box-sizing: border-box;
 }
 @keyframes wwCardPop {
-  from { opacity: 0; transform: scale(0.92) translateY(14px); }
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
-
-/* Ambient Top Glow */
-.ww-delete-ambient-glow {
-  position: absolute;
-  top: -60px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 240px;
-  height: 160px;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.35) 0%, rgba(239, 68, 68, 0) 70%);
-  filter: blur(30px);
-  pointer-events: none;
-  z-index: 0;
+.ww-dialog-avatar-preview {
+  width: 58px; height: 58px; border-radius: 8px; overflow: hidden;
+  margin: 0 auto 14px; position: relative;
+  background: transparent;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
-
-/* Avatar Spotlight with Mini Delete Badge */
-.ww-delete-hero {
-  position: relative;
-  z-index: 1;
-  margin: 0 auto 14px;
-  display: flex;
-  justify-content: center;
+.ww-dialog-avatar-preview img {
+  width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit;
 }
-.ww-delete-avatar-frame {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
-  overflow: visible;
-}
-.ww-delete-avatar-frame img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 12px;
-  display: block;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75), 0 0 0 1.5px rgba(255, 255, 255, 0.2);
-}
-.ww-delete-badge-icon {
-  position: absolute;
-  bottom: -5px;
-  right: -5px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ef4444;
-  border: 2px solid #14141e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.5);
-}
-
-.ww-delete-pill {
-  display: inline-block;
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  font-weight: 700;
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  padding: 3px 10px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-  position: relative;
-  z-index: 1;
-}
-
 .ww-dialog-title {
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 8px;
-  letter-spacing: -0.015em;
-  position: relative;
-  z-index: 1;
-}
-.ww-delete-name-accent {
-  color: #ffd24d;
-  font-weight: 700;
-  text-shadow: 0 0 12px rgba(245, 179, 1, 0.4);
+  font-size: 1.25rem; font-weight: 600; color: #ffffff; margin: 0 0 6px;
 }
 .ww-dialog-text {
-  font-size: 0.88rem;
-  color: #a1a1aa;
-  line-height: 1.45;
-  margin: 0 auto 16px;
-  max-width: 310px;
-  position: relative;
-  z-index: 1;
+  font-size: 0.86rem; color: #8e8e9c; line-height: 1.45; margin: 0 auto 20px; max-width: 270px;
 }
-
-/* Callout Strip */
-.ww-delete-warning-strip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.18);
-  border-radius: 8px;
-  padding: 7px 14px;
-  margin: 0 auto 24px;
-  max-width: 310px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #fca5a5;
-  position: relative;
-  z-index: 1;
-}
-
 .ww-dialog-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  position: relative;
-  z-index: 1;
+  display: flex; gap: 10px; justify-content: center;
 }
-.ww-btn-dialog-cancel {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #f4f4f5;
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 11px 24px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+.ww-dialog-actions .ww-btn-cancel {
+  background: transparent; color: #a4a4b2;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 9px 22px; border-radius: 6px; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer; transition: all 0.15s ease;
 }
-.ww-btn-dialog-cancel:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #ffffff;
-  transform: translateY(-1px);
+.ww-dialog-actions .ww-btn-cancel:hover {
+  color: #ffffff; border-color: rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.05);
 }
-.ww-btn-dialog-delete {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  border: none;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 11px 24px;
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.42);
-  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+.ww-dialog-actions .ww-btn-danger {
+  background: #e50914; color: #ffffff; border: none;
+  padding: 9px 22px; border-radius: 6px; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer; transition: all 0.15s ease;
 }
-.ww-btn-dialog-delete:hover {
-  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
-  box-shadow: 0 8px 26px rgba(239, 68, 68, 0.65);
-  transform: translateY(-2px);
-}
-.ww-btn-dialog-delete:active {
-  transform: translateY(0);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+.ww-dialog-actions .ww-btn-danger:hover {
+  background: #f40612;
 }
 
 /* In-place Center PIN Prompt (seamless floating under hero, NO boxed card) */

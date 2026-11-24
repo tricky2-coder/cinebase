@@ -1740,7 +1740,7 @@
     const isAnimePlayer = Boolean(cfg.anime && animeMount);
 
     let animeAudio = localStorage.getItem('cinebase.animeAudio') === 'dub' ? 'dub' : 'sub';
-    let animeProvider = localStorage.getItem('cinebase.animeServer') || 'anizone';
+    let animeProvider = localStorage.getItem('cinebase.animeServer') || 'auto';
     let artInstance = null;
     let animeAbort = null;
 
@@ -1837,21 +1837,23 @@
         }
 
         if (animeServerSel && Array.isArray(data.providers)) {
+          const keepAuto = animeProvider === 'auto';
           animeServerSel.replaceChildren();
+          const autoOpt = document.createElement('option');
+          autoOpt.value = 'auto';
+          autoOpt.textContent = 'Auto (Best)';
+          animeServerSel.append(autoOpt);
           data.providers.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
-            opt.textContent = p.label;
+            opt.textContent = p.id === data.provider ? `${p.label} ★` : p.label;
             animeServerSel.append(opt);
           });
           const vidyOpt = document.createElement('option');
           vidyOpt.value = 'vidy';
           vidyOpt.textContent = 'Vidy (Backup)';
           animeServerSel.append(vidyOpt);
-          if (data.provider) {
-            animeProvider = data.provider;
-            animeServerSel.value = data.provider;
-          }
+          animeServerSel.value = keepAuto ? 'auto' : (data.provider || 'auto');
         }
 
         const sources = data.sources;
@@ -1867,15 +1869,16 @@
         hideAnimeMsg();
 
         const resumeTime = resumeAt();
+        const startUrl = (primary.directUrl && !primary.hasReferer) ? primary.directUrl : primary.url;
         const qualityList = sources.map(s => ({
           default: s === primary,
           html: String(s.quality || 'Auto'),
-          url: s.url
+          url: (s.directUrl && !s.hasReferer) ? s.directUrl : s.url
         }));
 
         const artOpts = {
           container: animeMount,
-          url: primary.url,
+          url: startUrl,
           type: primary.isM3U8 ? 'm3u8' : '',
           theme: '#f5b301',
           volume: 0.9,
@@ -1897,6 +1900,21 @@
               if (window.Hls && window.Hls.isSupported()) {
                 if (art.hls) art.hls.destroy();
                 const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
+                let triedFallbackUrl = false;
+                hls.on(window.Hls.Events.ERROR, (_, errData) => {
+                  if (!errData?.fatal) return;
+                  if (!triedFallbackUrl) {
+                    triedFallbackUrl = true;
+                    const altUrl = (m3u8Url === primary.url && primary.directUrl) ? primary.directUrl : (m3u8Url === primary.directUrl ? primary.url : null);
+                    if (altUrl) {
+                      hls.loadSource(altUrl);
+                      return;
+                    }
+                  }
+                  try { hls.destroy(); } catch {}
+                  destroyArtplayer();
+                  showAnimeMsg('Stream could not be loaded on this server. Try another server or Vidy.', true);
+                });
                 hls.loadSource(m3u8Url);
                 hls.attachMedia(video);
                 art.hls = hls;
@@ -1948,6 +1966,11 @@
         }
 
         artInstance = new window.Artplayer(artOpts);
+
+        artInstance.on('video:error', () => {
+          destroyArtplayer();
+          showAnimeMsg('Video playback failed on this server. Try Auto, another server, or Vidy.', true);
+        });
 
         artInstance.on('ready', () => {
           if (resumeTime && resumeTime > 0 && artInstance) {

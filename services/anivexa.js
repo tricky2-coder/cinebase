@@ -39,7 +39,7 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
   const url = `${base}/watch/${encodeURIComponent(prov.id)}/${encodeURIComponent(anilistId)}/${cleanAudio}/${encodeURIComponent(prov.id)}-${encodeURIComponent(ep)}`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(8500) // stays safely inside Vercel's 10s serverless limit
   });
 
   const text = await res.text();
@@ -60,10 +60,15 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
     : Array.isArray(data.data?.sources) ? data.data.sources
     : (data.url ? [{ url: data.url, isM3U8: String(data.url).includes('.m3u8'), quality: data.quality || 'auto' }] : []);
 
-  // Filter to directly playable HLS/MP4/DASH streams (skip raw iframe-only entries if HLS exists)
-  const playable = rawList.filter(s => s && s.url && s.type !== 'embed');
+  // Filter to Artplayer-compatible HLS/MP4 streams (exclude iframe embeds and DASH .mpd streams)
+  const playable = rawList.filter(s =>
+    s && s.url &&
+    s.type !== 'embed' &&
+    s.type !== 'dash' &&
+    !String(s.url).toLowerCase().includes('.mpd')
+  );
   if (!playable.length) {
-    throw new Error(`${prov.label} returned no playable streams`);
+    throw new Error(`${prov.label} returned no HLS/MP4 streams`);
   }
 
   const topHeaders = data.headers || data.data?.headers || {};
@@ -89,6 +94,7 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
     return {
       url: proxiedUrl,
       directUrl: s.url,
+      hasReferer: Boolean(referer),
       isM3U8,
       quality: s.quality || 'Auto'
     };
@@ -121,7 +127,7 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
 
 /**
  * Fetch stream sources for an anime episode from Anivexa-API.
- * Uses parallel race on default auto-selection for fast loading within serverless timeouts.
+ * Uses parallel race on Auto mode for fast loading within serverless timeouts.
  */
 async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider = null) {
   const base = baseUrl();
@@ -131,25 +137,15 @@ async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider =
 
   const cleanAudio = audio === 'dub' ? 'dub' : 'sub';
 
-  // If user explicitly picked a specific server, try it first
-  if (preferredProvider && preferredProvider !== 'vidy') {
+  if (preferredProvider && preferredProvider !== 'auto' && preferredProvider !== 'vidy') {
     const picked = DEFAULT_PROVIDERS.find(p => p.id === preferredProvider);
     if (picked) {
-      try {
-        return await fetchProviderWatch(base, picked, anilistId, cleanAudio, ep);
-      } catch (e) {
-        console.warn(`Preferred ${picked.label} failed:`, e.message);
-      }
+      return await fetchProviderWatch(base, picked, anilistId, cleanAudio, ep);
     }
   }
 
-  // Try remaining providers in parallel so we finish well inside Vercel's timeout
-  const candidates = preferredProvider && preferredProvider !== 'vidy'
-    ? DEFAULT_PROVIDERS.filter(p => p.id !== preferredProvider)
-    : DEFAULT_PROVIDERS;
-
   try {
-    return await Promise.any(candidates.map(p => fetchProviderWatch(base, p, anilistId, cleanAudio, ep)));
+    return await Promise.any(DEFAULT_PROVIDERS.map(p => fetchProviderWatch(base, p, anilistId, cleanAudio, ep)));
   } catch (aggErr) {
     const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'All servers failed'];
     console.error('All Anivexa providers failed:', errors);

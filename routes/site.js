@@ -478,6 +478,9 @@ router.get('/api/anime/proxy', async (req, res) => {
     const isM3u8 = targetUrl.includes('.m3u8') || /mpegurl/i.test(contentType);
     if (isM3u8) {
       const text = await upstream.text();
+      if (!text.trimStart().startsWith('#EXTM3U')) {
+        return res.status(502).send('Upstream did not return a valid M3U8 playlist');
+      }
       const base = new URL(targetUrl);
       const wrap = u => {
         const abs = new URL(u, base).href;

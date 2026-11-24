@@ -39,7 +39,7 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'https:', 'http:'],
       // Any https frame: VidSrc mirrors change domains and redirect, so pinning them would break the player
       frameSrc: ["'self'", 'https:'],
-      connectSrc: ["'self'", 'blob:'],
+      connectSrc: ["'self'", 'blob:', 'https:'],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],

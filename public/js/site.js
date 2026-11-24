@@ -1,14 +1,5 @@
 // Public site behaviour. Wrapped in a function: a global `const top` would clash with window.top.
 (() => {
-  // Smooth Netflix-style site entrance transition if landing from profile selection
-  try {
-    if (sessionStorage.getItem('cinebase.profileEntered') === '1') {
-      sessionStorage.removeItem('cinebase.profileEntered');
-      document.body.classList.add('site-enter-active');
-      setTimeout(() => document.body.classList.remove('site-enter-active'), 600);
-    }
-  } catch {}
-
   // Header turns solid on scroll
   const header = document.getElementById('s-top');
   if (header) {
@@ -342,17 +333,12 @@
             isSwitchingProfile = false;
 
             if (!isAlreadyActive) {
-              // Different profile selected: navigate cleanly to refresh watchlist, history & preferences
-              try { sessionStorage.setItem('cinebase.profileEntered', '1'); } catch {}
+              // Different profile selected: navigate cleanly to load their watchlist, history & settings
               const cleanUrl = window.location.pathname;
               window.location.href = cleanUrl;
             } else {
-              // Same profile: play smooth entrance animation without full reload
+              // Same profile: modal smoothly fades out revealing the page
               resetProfileSelectionAnimations();
-              document.body.classList.remove('site-enter-active');
-              void document.body.offsetWidth;
-              document.body.classList.add('site-enter-active');
-              setTimeout(() => document.body.classList.remove('site-enter-active'), 600);
             }
           }, 350);
         }, 420);

@@ -58,18 +58,35 @@ function localBackend() {
   };
 }
 
+function isTransientFetchError(err) {
+  const msg = String(err?.message || '') + ' ' + String(err?.cause?.code || '');
+  return /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|UND_ERR_SOCKET|socket/i.test(msg);
+}
+
+async function withTursoRetry(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isTransientFetchError(err)) throw err;
+    await new Promise(r => setTimeout(r, 150));
+    return fn();
+  }
+}
+
 function tursoBackend() {
   const { createClient } = require('@libsql/client/web'); // HTTP client, no native module
   const client = createClient({ url: TURSO_URL, authToken: (process.env.TURSO_AUTH_TOKEN || '').trim() || undefined });
   const rows = rs => rs.rows.map(r => Object.fromEntries(rs.columns.map((c, i) => [c, r[i]])));
   const on = target => ({
-    async get(sql, ...a) { return rows(await target.execute(bind(sql, a)))[0]; },
-    async all(sql, ...a) { return rows(await target.execute(bind(sql, a))); },
+    async get(sql, ...a) { return withTursoRetry(async () => rows(await target.execute(bind(sql, a)))[0]); },
+    async all(sql, ...a) { return withTursoRetry(async () => rows(await target.execute(bind(sql, a)))); },
     async run(sql, ...a) {
-      const rs = await target.execute(bind(sql, a));
-      return { changes: rs.rowsAffected, lastInsertRowid: rs.lastInsertRowid == null ? null : Number(rs.lastInsertRowid) };
+      return withTursoRetry(async () => {
+        const rs = await target.execute(bind(sql, a));
+        return { changes: rs.rowsAffected, lastInsertRowid: rs.lastInsertRowid == null ? null : Number(rs.lastInsertRowid) };
+      });
     },
-    async exec(sql) { await target.executeMultiple(sql); }
+    async exec(sql) { return withTursoRetry(() => target.executeMultiple(sql)); }
   });
   return {
     ...on(client),
@@ -262,7 +279,19 @@ async function init() {
   }
 }
 
-db.ready = init();
+let readyPromise = null;
+function ensureReady() {
+  if (!readyPromise) {
+    readyPromise = init().catch(err => {
+      readyPromise = null; // allow next request to retry on transient serverless cold-start failure
+      throw err;
+    });
+  }
+  return readyPromise;
+}
+
+db.ready = ensureReady();
+db.ensureReady = ensureReady;
 db.ready.catch(() => {}); // surfaced by whoever awaits it (server start-up / request middleware)
 if (db.kind === 'turso') console.log('Database: Turso', TURSO_URL.replace(/^libsql:\/\//, ''));
 

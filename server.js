@@ -71,7 +71,7 @@ app.use((req, res, next) => {
 });
 
 // Everything below needs the database schema in place (matters on serverless cold starts)
-app.use((req, res, next) => db.ready.then(() => next(), next));
+app.use((req, res, next) => (db.ensureReady ? db.ensureReady() : db.ready).then(() => next(), next));
 
 app.use(session({
   store: new SqlStore(db),

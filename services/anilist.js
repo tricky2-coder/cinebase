@@ -22,12 +22,21 @@ async function cached(key, ttlMs, fn) {
 }
 
 async function gql(query, variables) {
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ query, variables }),
-    signal: AbortSignal.timeout(12000)
-  });
+  let res;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(12000)
+      });
+      break;
+    } catch (e) {
+      if (attempt === 1) throw e;
+      await new Promise(r => setTimeout(r, 150));
+    }
+  }
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.errors) {
     const status = res.status === 200 ? (json.errors?.[0]?.status || 500) : res.status;

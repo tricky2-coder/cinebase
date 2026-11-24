@@ -58,27 +58,28 @@ button { font: inherit; }
 .s-admin { font-size: .85rem; font-weight: 600; padding: .45rem .9rem; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); }
 .s-admin:hover { color: var(--ink); border-color: var(--dim); }
 
-/* Avatar button: displays profile's chosen avatar with smooth subtle hover */
+/* Avatar button: pops up smoothly on hover without altering size or adding colored ring */
 .s-avatar-btn {
   background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px;
-  transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
   display: flex; align-items: center; justify-content: center;
 }
 .s-avatar-btn:hover {
-  transform: scale(1.06);
+  transform: translateY(-2px);
 }
-.s-avatar-btn:focus-visible { outline: 2px solid var(--gold, #f5b301); outline-offset: 2px; }
+.s-avatar-btn:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 2px; }
 .s-avatar-img-wrap {
   width: 36px; height: 36px; border-radius: 8px; overflow: hidden;
-  background: #181822; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  transition: box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  background: transparent; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1), filter 0.25s ease;
 }
 .s-avatar-btn:hover .s-avatar-img-wrap {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 0 1.5px rgba(245, 179, 1, 0.7);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+  filter: brightness(1.08);
 }
 .s-avatar-img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
+  width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit;
 }
 
 /* Settings button on right of avatar */
@@ -599,8 +600,8 @@ body.ww-active .ww-overlay {
   will-change: transform;
 }
 .ww-avatar-wrap {
-  width: 100%; aspect-ratio: 1; border-radius: 8px;
-  overflow: hidden; position: relative; background: #12121a;
+  width: 100%; aspect-ratio: 1; border-radius: 10px;
+  overflow: hidden; position: relative; background: transparent;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1);
   transform: translate3d(0, 0, 0);
@@ -608,19 +609,7 @@ body.ww-active .ww-overlay {
   backface-visibility: hidden;
   will-change: transform;
 }
-.ww-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-/* Edge overlay border: zero gap, zero squaring, hugs 8px rounded corners seamlessly */
-.ww-avatar-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 3px solid transparent;
-  pointer-events: none;
-  box-sizing: border-box;
-  transition: border-color 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1);
-}
+.ww-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 
 .ww-profile-name {
   margin-top: 14px; font-size: clamp(1rem, 2vw, 1.2rem);
@@ -629,38 +618,41 @@ body.ww-active .ww-overlay {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 
-/* Hover: smooth scale & warm gold border glow matching site theme */
+/* Hover: smooth scale & warm elevation glow without clipping inner corners */
 .ww-profile-item:hover .ww-avatar-wrap,
 .ww-profile-item:focus-visible .ww-avatar-wrap {
   transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 179, 1, 0.35);
-}
-.ww-profile-item:hover .ww-avatar-wrap::after,
-.ww-profile-item:focus-visible .ww-avatar-wrap::after {
-  border-color: var(--gold, #f5b301);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 24px rgba(245, 179, 1, 0.3);
 }
 .ww-profile-item:hover .ww-profile-name {
   color: var(--gold, #f5b301);
 }
 
-/* Active Profile: distinct, glowing gold accent */
-.ww-profile-item.active .ww-avatar-wrap::after {
-  border-color: var(--gold, #f5b301);
-  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 0 20px rgba(245, 179, 1, 0.4);
+/* Active Profile: distinct glowing gold accent via external box-shadow (zero corner clipping) */
+.ww-profile-item.active .ww-avatar-wrap {
+  box-shadow: 0 0 0 2px var(--gold, #f5b301), 0 0 22px rgba(245, 179, 1, 0.45);
 }
 .ww-profile-item.active .ww-profile-name {
   color: var(--gold, #f5b301);
   font-weight: 600;
 }
-.ww-profile-item.active:hover .ww-avatar-wrap::after {
-  border-color: #ffd24d;
-  box-shadow: 0 0 0 1.5px #ffd24d, 0 0 32px rgba(245, 179, 1, 0.7);
-}
 .ww-profile-item.active:hover .ww-avatar-wrap {
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 28px rgba(245, 179, 1, 0.45);
+  box-shadow: 0 0 0 2.5px #ffd24d, 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 32px rgba(245, 179, 1, 0.7);
 }
 .ww-profile-item.active:hover .ww-profile-name {
   color: #ffd24d;
+}
+
+/* In Manage Profiles mode: smooth unhighlighted avatars like Image 2 */
+.ww-grid.manage-mode .ww-profile-item.active .ww-avatar-wrap,
+.ww-grid.manage-mode .ww-profile-item:hover .ww-avatar-wrap {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+}
+.ww-grid.manage-mode .ww-profile-item.active .ww-profile-name {
+  color: var(--dim, #808080);
+}
+.ww-grid.manage-mode .ww-profile-item:hover .ww-profile-name {
+  color: #ffffff;
 }
 
 /* Active profile top badge */
@@ -805,22 +797,15 @@ body.ww-active .ww-overlay {
   display: flex; flex-direction: column; align-items: center;
 }
 .ww-avatar-preview-box {
-  width: 140px; height: 140px; border-radius: 8px; overflow: hidden;
+  width: 140px; height: 140px; border-radius: 11px; overflow: hidden;
   position: relative;
-  background: #12121a;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  background: transparent;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
   transform: translate3d(0, 0, 0);
+  transition: transform 0.48s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.48s ease, opacity 0.25s ease;
 }
-.ww-avatar-preview-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ww-avatar-preview-box::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 3px solid var(--gold, #f5b301);
-  box-shadow: 0 0 16px rgba(245, 179, 1, 0.3);
-  pointer-events: none;
-  box-sizing: border-box;
+.ww-avatar-preview-box img {
+  width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit;
 }
 .ww-avatar-preview-name {
   margin-top: 10px; font-size: 0.85rem; color: var(--dim, #808080); text-align: center;
@@ -1060,51 +1045,56 @@ body.ww-active .ww-overlay {
   to { opacity: 1; }
 }
 .ww-dialog-card {
-  background: rgba(18, 18, 26, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 0, 0, 0.5);
-  border-radius: 12px;
-  max-width: 420px; width: 100%;
-  padding: 32px 28px; text-align: center;
-  animation: wwCardPop 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  background: rgba(18, 18, 26, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  max-width: 380px; width: 100%;
+  padding: 30px 24px 26px; text-align: center;
+  animation: wwCardPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 @keyframes wwCardPop {
-  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .ww-dialog-avatar-preview {
-  width: 68px; height: 68px; border-radius: 8px; overflow: hidden;
-  margin: 0 auto 18px; position: relative;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-  background: #12121a;
+  width: 64px; height: 64px; border-radius: 10px; overflow: hidden;
+  margin: 0 auto 16px; position: relative;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.65);
+  background: transparent;
 }
 .ww-dialog-avatar-preview img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
-}
-.ww-dialog-avatar-preview::after {
-  content: ''; position: absolute; inset: 0;
-  border-radius: inherit; border: 2px solid rgba(255, 255, 255, 0.16);
-  pointer-events: none; box-sizing: border-box;
+  width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit;
 }
 .ww-dialog-title {
-  font-size: 1.35rem; font-weight: 600; color: #ffffff; margin: 0 0 10px;
+  font-size: 1.3rem; font-weight: 600; color: #ffffff; margin: 0 0 8px; letter-spacing: -0.01em;
 }
 .ww-dialog-text {
-  font-size: 0.9rem; color: #a3a3a3; line-height: 1.5; margin: 0 0 24px;
+  font-size: 0.88rem; color: #9ca3af; line-height: 1.45; margin: 0 auto 22px; max-width: 300px;
 }
 .ww-dialog-actions {
-  display: flex; gap: 12px; justify-content: center;
+  display: flex; gap: 10px; justify-content: center;
 }
-.ww-btn-danger {
-  background: #dc2626; color: #ffffff;
-  border: none; font-size: 0.88rem; font-weight: 600;
-  letter-spacing: 0.04em; padding: 11px 24px; cursor: pointer;
-  border-radius: 6px; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.35);
+.ww-dialog-actions .ww-btn-cancel {
+  background: rgba(255, 255, 255, 0.07); color: #e5e5e5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 10px 22px; border-radius: 8px; font-weight: 500; font-size: 0.9rem;
+  cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.ww-btn-danger:hover {
-  background: #ef4444;
-  box-shadow: 0 6px 22px rgba(239, 68, 68, 0.55);
+.ww-dialog-actions .ww-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.25); color: #ffffff;
+}
+.ww-dialog-actions .ww-btn-danger {
+  background: #e50914; color: #ffffff; border: none;
+  padding: 10px 22px; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+  letter-spacing: 0.02em; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(229, 9, 20, 0.35);
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.ww-dialog-actions .ww-btn-danger:hover {
+  background: #f40612;
+  box-shadow: 0 6px 20px rgba(229, 9, 20, 0.55);
   transform: translateY(-1px);
 }
 

@@ -670,6 +670,23 @@
   }
 
   function openAddProfileForm() {
+    const previewBox = document.querySelector('.ww-avatar-preview-box');
+    const formMain = document.querySelector('.ww-form-main');
+    if (previewBox) {
+      previewBox.style.transform = '';
+      previewBox.style.transition = '';
+      previewBox.style.zIndex = '';
+      previewBox.style.boxShadow = '';
+    }
+    if (formMain) {
+      formMain.style.opacity = '';
+      formMain.style.transition = '';
+    }
+    if (wwFormPreviewName) {
+      wwFormPreviewName.style.opacity = '';
+      wwFormPreviewName.style.transition = '';
+    }
+
     if (wwFormHeading) wwFormHeading.textContent = 'Add Profile';
     if (wwEditId) wwEditId.value = '';
     if (wwProfileName) {
@@ -707,6 +724,23 @@
   }
 
   function openEditProfileForm(profile) {
+    const previewBox = document.querySelector('.ww-avatar-preview-box');
+    const formMain = document.querySelector('.ww-form-main');
+    if (previewBox) {
+      previewBox.style.transform = '';
+      previewBox.style.transition = '';
+      previewBox.style.zIndex = '';
+      previewBox.style.boxShadow = '';
+    }
+    if (formMain) {
+      formMain.style.opacity = '';
+      formMain.style.transition = '';
+    }
+    if (wwFormPreviewName) {
+      wwFormPreviewName.style.opacity = '';
+      wwFormPreviewName.style.transition = '';
+    }
+
     if (wwFormHeading) wwFormHeading.textContent = 'Edit Profile';
     if (wwEditId) wwEditId.value = profile.id;
     if (wwProfileName) {
@@ -1082,7 +1116,62 @@
         if (res.ok) {
           const savedData = await res.json();
           if (!editId && savedData && savedData.id) {
-            await switchProfile(savedData.id, pinVal || null);
+            // Activate newly created profile in session
+            const switchPromise = fetch(`/api/profiles/${savedData.id}/switch`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pin: pinVal || '' })
+            });
+
+            // Smooth center hero transition for the new profile
+            const previewBox = document.querySelector('.ww-avatar-preview-box');
+            const formMain = document.querySelector('.ww-form-main');
+            const previewName = document.getElementById('ww-form-preview-name');
+
+            if (formMain) {
+              formMain.style.transition = 'opacity 0.25s ease';
+              formMain.style.opacity = '0';
+            }
+            if (previewName) {
+              previewName.style.transition = 'opacity 0.25s ease';
+              previewName.style.opacity = '0';
+            }
+
+            if (previewBox) {
+              const rect = previewBox.getBoundingClientRect();
+              const currentCenterX = rect.left + rect.width / 2;
+              const currentCenterY = rect.top + rect.height / 2;
+              const viewportCenterX = window.innerWidth / 2;
+              const viewportCenterY = window.innerHeight / 2;
+              const deltaX = Math.round(viewportCenterX - currentCenterX);
+              const deltaY = Math.round(viewportCenterY - currentCenterY);
+
+              previewBox.style.zIndex = '9999';
+              previewBox.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.44s ease';
+              previewBox.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.25)`;
+              previewBox.style.boxShadow = '0 24px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(245, 179, 1, 0.45)';
+            }
+
+            const navImg = document.getElementById('nav-profile-avatar-img');
+            if (navImg && savedData.avatar) {
+              navImg.src = savedData.avatar;
+            }
+            const settingsName = document.querySelector('.s-settings-user-name');
+            if (settingsName && savedData.name) {
+              settingsName.textContent = savedData.name;
+            }
+
+            await switchPromise;
+
+            setTimeout(() => {
+              if (wwModal) wwModal.classList.add('ww-modal-exiting');
+              setTimeout(() => {
+                closeWhosWatching();
+                delete document.body.dataset.showWhosWatching;
+                document.body.classList.remove('ww-active');
+                window.location.href = window.location.pathname;
+              }, 350);
+            }, 420);
             return;
           }
           await loadProfiles();

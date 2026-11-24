@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { requireUser } = require('../middleware/auth');
 
@@ -41,7 +42,7 @@ router.get('/whos-watching', (req, res) => {
 // List profiles
 router.get('/api/profiles', async (req, res) => {
   try {
-    const profiles = await db.all('SELECT * FROM profiles WHERE user_id = ? ORDER BY id ASC', req.session.user.id);
+    const profiles = await db.all('SELECT id, user_id, name, avatar, is_kids, (pin IS NOT NULL) AS has_pin, created_at FROM profiles WHERE user_id = ? ORDER BY id ASC', req.session.user.id);
     res.json({
       profiles,
       activeProfileId: req.session.activeProfileId,
@@ -60,30 +61,55 @@ router.post('/api/profiles', async (req, res) => {
     const validPaths = AVATAR_PRESETS.map(p => p.path);
     const avatar = validPaths.includes(req.body.avatar) ? req.body.avatar : AVATAR_PRESETS[1].path; // default blue classic icon
     const isKids = req.body.is_kids ? 1 : 0;
+
+    let pin = null;
+    if (req.body.pin && /^\d{4}$/.test(String(req.body.pin).trim())) {
+      pin = bcrypt.hashSync(String(req.body.pin).trim(), 10);
+    }
     
     // Check limit (e.g. max 6 profiles)
     const count = (await db.get('SELECT COUNT(*) as c FROM profiles WHERE user_id = ?', req.session.user.id)).c;
     if (count >= 6) return res.status(400).json({ error: 'Maximum 6 profiles allowed' });
 
     const r = await db.run(
-      'INSERT INTO profiles (user_id, name, avatar, is_kids) VALUES (?, ?, ?, ?)',
-      req.session.user.id, name, avatar, isKids
+      'INSERT INTO profiles (user_id, name, avatar, is_kids, pin) VALUES (?, ?, ?, ?, ?)',
+      req.session.user.id, name, avatar, isKids, pin
     );
-    const newProfile = { id: r.lastInsertRowid, user_id: req.session.user.id, name, avatar, is_kids: isKids };
+    const newProfile = { id: r.lastInsertRowid, user_id: req.session.user.id, name, avatar, is_kids: isKids, has_pin: Boolean(pin) };
     res.status(201).json(newProfile);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Switch active profile
+// Switch active profile (with PIN validation if locked)
 router.post('/api/profiles/:id/switch', async (req, res) => {
   try {
     const profile = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+    // If profile has a PIN lock, verify PIN
+    if (profile.pin) {
+      const inputPin = (req.body.pin || '').toString().trim();
+      if (!inputPin) {
+        return res.status(403).json({ error: 'PIN required', pinRequired: true });
+      }
+      const ok = bcrypt.compareSync(inputPin, profile.pin);
+      if (!ok) {
+        return res.status(401).json({ error: 'Incorrect PIN', incorrectPin: true });
+      }
+    }
+
     req.session.activeProfileId = profile.id;
-    req.session.activeProfile = profile;
-    res.json({ success: true, profile });
+    req.session.activeProfile = {
+      id: profile.id,
+      user_id: profile.user_id,
+      name: profile.name,
+      avatar: profile.avatar,
+      is_kids: profile.is_kids,
+      has_pin: Boolean(profile.pin)
+    };
+    res.json({ success: true, profile: req.session.activeProfile });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -96,12 +122,21 @@ router.put('/api/profiles/:id', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'Name is required' });
     const avatar = req.body.avatar || AVATAR_PRESETS[0].path;
     const isKids = req.body.is_kids ? 1 : 0;
+    const current = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
+    if (!current) return res.status(404).json({ error: 'Profile not found' });
+
+    let pin = current.pin;
+    if (req.body.remove_pin === true || req.body.remove_pin === 'true' || req.body.lock_pin === false) {
+      pin = null;
+    } else if (req.body.pin && /^\d{4}$/.test(String(req.body.pin).trim())) {
+      pin = bcrypt.hashSync(String(req.body.pin).trim(), 10);
+    }
 
     await db.run(
-      'UPDATE profiles SET name = ?, avatar = ?, is_kids = ? WHERE id = ? AND user_id = ?',
-      name, avatar, isKids, req.params.id, req.session.user.id
+      'UPDATE profiles SET name = ?, avatar = ?, is_kids = ?, pin = ? WHERE id = ? AND user_id = ?',
+      name, avatar, isKids, pin, req.params.id, req.session.user.id
     );
-    const updated = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
+    const updated = await db.get('SELECT id, user_id, name, avatar, is_kids, (pin IS NOT NULL) AS has_pin, created_at FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
     if (req.session.activeProfileId === Number(req.params.id)) {
       req.session.activeProfile = updated;
     }

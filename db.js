@@ -133,6 +133,7 @@ async function init() {
       name       TEXT NOT NULL,
       avatar     TEXT NOT NULL DEFAULT '/profiles/avatars/purple-superhero.svg',
       is_kids    INTEGER NOT NULL DEFAULT 0,
+      pin        TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -183,6 +184,10 @@ async function init() {
   };
   for (const [col, type] of Object.entries(newCols)) {
     if (!existingCols.includes(col)) await db.exec(`ALTER TABLE titles ADD COLUMN ${col} ${type}`).catch(ignoreRace(/duplicate column/i));
+  }
+  const profileCols = (await db.all(`PRAGMA table_info(profiles)`)).map(c => c.name);
+  if (!profileCols.includes('pin')) {
+    await db.exec(`ALTER TABLE profiles ADD COLUMN pin TEXT DEFAULT NULL`).catch(ignoreRace(/duplicate column/i));
   }
   await db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_titles_plex ON titles(plex_rating_key) WHERE plex_rating_key IS NOT NULL;

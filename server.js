@@ -92,7 +92,7 @@ app.use(async (req, res, next) => {
         req.session.activeProfileId = profile.id;
       }
       req.session.activeProfile = profile;
-      res.locals.userProfiles = await db.all('SELECT * FROM profiles WHERE user_id = ? ORDER BY id ASC', fresh.id);
+      res.locals.userProfiles = await db.all('SELECT id, user_id, name, avatar, is_kids, (pin IS NOT NULL) AS has_pin, created_at FROM profiles WHERE user_id = ? ORDER BY id ASC', fresh.id);
     } else {
       delete req.session.user;
       delete req.session.activeProfileId;

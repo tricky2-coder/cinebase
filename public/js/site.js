@@ -124,6 +124,15 @@
   const wwManageBtn = document.getElementById('btn-ww-manage');
   const wwCancelBtn = document.getElementById('btn-ww-cancel');
 
+  // View 3: Profile PIN challenge elements
+  const wwViewPin = document.getElementById('ww-view-pin');
+  const wwPinAvatarImg = document.getElementById('ww-pin-avatar-img');
+  const wwPinProfileName = document.getElementById('ww-pin-profile-name');
+  const wwPinBoxes = document.getElementById('ww-pin-boxes');
+  const wwPinDigits = document.querySelectorAll('.ww-pin-digit');
+  const wwPinError = document.getElementById('ww-pin-error');
+  const wwPinCancelBtn = document.getElementById('btn-ww-pin-cancel');
+
   // Form View elements
   const wwFormHeading = document.getElementById('ww-form-heading');
   const wwFormPreviewImg = document.getElementById('ww-form-preview-img');
@@ -136,6 +145,11 @@
   const wwAvatarGrid = document.getElementById('ww-avatar-grid');
   const wwIsKids = document.getElementById('ww-is-kids');
   const wwLockPin = document.getElementById('ww-lock-pin');
+  const wwPinFormGroup = document.getElementById('ww-pin-form-group');
+  const wwPinInput = document.getElementById('ww-pin-input');
+  const wwPinStatusText = document.getElementById('ww-pin-status-text');
+  const wwPinFormError = document.getElementById('ww-pin-form-error');
+  const wwPinChangeBtn = document.getElementById('btn-ww-pin-change');
   const wwFormCancel = document.getElementById('btn-ww-form-cancel');
   const wwDeleteBtn = document.getElementById('btn-ww-delete');
 
@@ -171,6 +185,7 @@
   let isSwitchingProfile = false;
   let selectedAvatar = '/profiles/avatars/blue-classic-icon.svg';
   let presetsList = AVATAR_PRESETS;
+  let pendingPinProfile = null;
 
   // Pre-populate profiles data from server-rendered JSON if available
   const initDataEl = document.getElementById('ww-init-data');
@@ -226,6 +241,25 @@
       img.alt = p.name;
       wrap.appendChild(img);
 
+      if (p.is_kids) {
+        const kidsBadge = document.createElement('span');
+        kidsBadge.className = 'ww-kids-badge';
+        kidsBadge.textContent = 'KIDS';
+        wrap.appendChild(kidsBadge);
+      }
+
+      if (p.has_pin) {
+        const lockBadge = document.createElement('div');
+        lockBadge.className = 'ww-lock-badge';
+        lockBadge.title = 'Profile Locked';
+        lockBadge.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+          </svg>
+        `;
+        wrap.appendChild(lockBadge);
+      }
+
       const overlay = document.createElement('div');
       overlay.className = 'ww-edit-overlay';
       overlay.innerHTML = `
@@ -247,7 +281,11 @@
         if (isManageMode) {
           openEditProfileForm(p);
         } else {
-          switchProfile(p.id);
+          if (p.has_pin) {
+            openPinChallenge(p);
+          } else {
+            switchProfile(p.id);
+          }
         }
       });
 
@@ -271,6 +309,33 @@
     }
   }
 
+  function openPinChallenge(profile) {
+    pendingPinProfile = profile;
+    if (wwPinAvatarImg) wwPinAvatarImg.src = profile.avatar;
+    if (wwPinProfileName) wwPinProfileName.textContent = profile.name;
+    if (wwPinError) {
+      wwPinError.style.display = 'none';
+      wwPinError.textContent = '';
+    }
+    if (wwPinBoxes) wwPinBoxes.classList.remove('pin-shake');
+    if (wwPinDigits) {
+      wwPinDigits.forEach(i => { i.value = ''; });
+    }
+    if (wwViewSelect) wwViewSelect.hidden = true;
+    if (wwViewForm) wwViewForm.hidden = true;
+    if (wwViewPin) wwViewPin.hidden = false;
+    setTimeout(() => {
+      if (wwPinDigits && wwPinDigits[0]) wwPinDigits[0].focus();
+    }, 60);
+  }
+
+  function closePinChallenge() {
+    pendingPinProfile = null;
+    if (wwViewPin) wwViewPin.hidden = true;
+    if (wwViewSelect) wwViewSelect.hidden = false;
+    resetProfileSelectionAnimations();
+  }
+
   function resetProfileSelectionAnimations() {
     document.querySelectorAll('.ww-profile-item').forEach(el => {
       el.classList.remove('selected-hero', 'ww-dim-item');
@@ -285,11 +350,23 @@
     if (wwModal) wwModal.classList.remove('ww-modal-exiting');
   }
 
-  async function switchProfile(id) {
+  async function switchProfile(id, pin = null) {
     if (isSwitchingProfile) return;
+    const targetProfile = profilesData.find(p => p.id === Number(id));
+    if (!pin && targetProfile && targetProfile.has_pin) {
+      openPinChallenge(targetProfile);
+      return;
+    }
+
     try {
       isSwitchingProfile = true;
       const isAlreadyActive = Number(id) === Number(currentActiveId);
+
+      // If user is inside PIN challenge view, close it back to select view for smooth transition
+      if (wwViewPin && !wwViewPin.hidden) {
+        wwViewPin.hidden = true;
+        if (wwViewSelect) wwViewSelect.hidden = false;
+      }
 
       // Trigger Netflix-style hero highlight animation immediately
       const clickedItem = document.querySelector(`.ww-profile-item[data-id="${id}"]`);
@@ -316,10 +393,19 @@
         if (wwManageBtn && wwManageBtn.parentElement) wwManageBtn.parentElement.classList.add('ww-fade-element');
       }
 
-      const res = await fetch(`/api/profiles/${id}/switch`, { method: 'POST' });
+      const fetchOpts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      };
+      if (pin) {
+        fetchOpts.body = JSON.stringify({ pin });
+      }
+
+      const res = await fetch(`/api/profiles/${id}/switch`, fetchOpts);
       if (res.ok) {
         const data = await res.json();
         currentActiveId = id;
+        pendingPinProfile = null;
 
         // Inside website modal:
         const navImg = document.getElementById('nav-profile-avatar-img');
@@ -350,8 +436,30 @@
           }, 350);
         }, 420);
       } else {
+        const errData = await res.json().catch(() => ({}));
         isSwitchingProfile = false;
         resetProfileSelectionAnimations();
+
+        if (res.status === 401 || res.status === 403) {
+          if (targetProfile) {
+            openPinChallenge(targetProfile);
+            if (wwPinBoxes) {
+              wwPinBoxes.classList.remove('pin-shake');
+              void wwPinBoxes.offsetWidth;
+              wwPinBoxes.classList.add('pin-shake');
+            }
+            if (wwPinError) {
+              wwPinError.textContent = errData.error || 'Incorrect PIN. Try again.';
+              wwPinError.style.display = 'block';
+            }
+            if (wwPinDigits) {
+              wwPinDigits.forEach(i => { i.value = ''; });
+              setTimeout(() => {
+                if (wwPinDigits[0]) wwPinDigits[0].focus();
+              }, 300);
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('Error switching profile:', e);
@@ -397,6 +505,11 @@
     }
     if (wwIsKids) wwIsKids.checked = false;
     if (wwLockPin) wwLockPin.checked = false;
+    if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+    if (wwPinInput) wwPinInput.value = '';
+    if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+    if (wwPinStatusText) wwPinStatusText.textContent = '';
+    if (wwPinFormError) wwPinFormError.style.display = 'none';
 
     // Default avatar
     const defaultPreset = presetsList[1] || presetsList[0];
@@ -409,6 +522,7 @@
 
     if (wwDeleteBtn) wwDeleteBtn.hidden = true;
     if (wwViewSelect) wwViewSelect.hidden = true;
+    if (wwViewPin) wwViewPin.hidden = true;
     if (wwViewForm) wwViewForm.hidden = false;
     if (wwProfileName) wwProfileName.focus();
   }
@@ -421,7 +535,19 @@
       if (wwCharCount) wwCharCount.textContent = `${profile.name.length}/20`;
     }
     if (wwIsKids) wwIsKids.checked = !!profile.is_kids;
-    if (wwLockPin) wwLockPin.checked = false;
+    const hasPin = Boolean(profile.has_pin);
+    if (wwLockPin) wwLockPin.checked = hasPin;
+    if (wwPinInput) wwPinInput.value = '';
+    if (wwPinFormError) wwPinFormError.style.display = 'none';
+    if (hasPin) {
+      if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+      if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'inline-block';
+      if (wwPinStatusText) wwPinStatusText.textContent = 'Profile is locked with a PIN.';
+    } else {
+      if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+      if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+      if (wwPinStatusText) wwPinStatusText.textContent = '';
+    }
 
     selectedAvatar = profile.avatar;
     const preset = getPresetByPath(selectedAvatar);
@@ -433,6 +559,7 @@
 
     if (wwDeleteBtn) wwDeleteBtn.hidden = profilesData.length <= 1;
     if (wwViewSelect) wwViewSelect.hidden = true;
+    if (wwViewPin) wwViewPin.hidden = true;
     if (wwViewForm) wwViewForm.hidden = false;
     if (wwProfileName) wwProfileName.focus();
   }
@@ -441,6 +568,7 @@
     if (!wwModal) return;
     isManageMode = false;
     isSwitchingProfile = false;
+    pendingPinProfile = null;
     resetProfileSelectionAnimations();
     if (wwSelectTitle) wwSelectTitle.textContent = "Who's watching?";
     if (wwSelectSub) wwSelectSub.textContent = 'Each profile keeps its own watchlist, progress and settings.';
@@ -452,6 +580,7 @@
     }
     if (wwViewSelect) wwViewSelect.hidden = false;
     if (wwViewForm) wwViewForm.hidden = true;
+    if (wwViewPin) wwViewPin.hidden = true;
     wwModal.hidden = false;
     document.body.style.overflow = 'hidden';
     loadProfiles();
@@ -468,6 +597,8 @@
     document.body.style.overflow = '';
     isManageMode = false;
     isSwitchingProfile = false;
+    pendingPinProfile = null;
+    if (wwViewPin) wwViewPin.hidden = true;
     delete document.body.dataset.showWhosWatching;
     resetProfileSelectionAnimations();
 
@@ -515,13 +646,148 @@
       renderAvatarGrid(e.target.value.trim());
     });
   }
+
+  // Lock PIN Toggle & Change PIN button
+  if (wwLockPin) {
+    wwLockPin.addEventListener('change', () => {
+      if (wwLockPin.checked) {
+        if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+        if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+        if (wwPinStatusText) wwPinStatusText.textContent = '';
+        if (wwPinInput) {
+          wwPinInput.value = '';
+          wwPinInput.focus();
+        }
+      } else {
+        if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+        if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+        if (wwPinInput) wwPinInput.value = '';
+        if (wwPinStatusText) wwPinStatusText.textContent = '';
+        if (wwPinFormError) wwPinFormError.style.display = 'none';
+      }
+    });
+  }
+  if (wwPinChangeBtn) {
+    wwPinChangeBtn.addEventListener('click', () => {
+      if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+      if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+      if (wwPinStatusText) wwPinStatusText.textContent = '';
+      if (wwPinInput) {
+        wwPinInput.value = '';
+        wwPinInput.focus();
+      }
+    });
+  }
+
+  // View 3 PIN digits inputs (auto-focus, paste, auto-submit)
+  if (wwPinDigits && wwPinDigits.length) {
+    wwPinDigits.forEach((digitInput, idx) => {
+      digitInput.addEventListener('input', () => {
+        const val = digitInput.value.replace(/\D/g, '');
+        digitInput.value = val ? val[val.length - 1] : '';
+        if (digitInput.value && idx < wwPinDigits.length - 1) {
+          wwPinDigits[idx + 1].focus();
+        }
+        const enteredPin = Array.from(wwPinDigits).map(i => i.value).join('');
+        if (enteredPin.length === 4 && pendingPinProfile) {
+          switchProfile(pendingPinProfile.id, enteredPin);
+        }
+      });
+
+      digitInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !digitInput.value && idx > 0) {
+          wwPinDigits[idx - 1].focus();
+        } else if (e.key === 'ArrowLeft' && idx > 0) {
+          wwPinDigits[idx - 1].focus();
+        } else if (e.key === 'ArrowRight' && idx < wwPinDigits.length - 1) {
+          wwPinDigits[idx + 1].focus();
+        }
+      });
+
+      digitInput.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4);
+        if (!pasted) return;
+        pasted.split('').forEach((char, i) => {
+          if (wwPinDigits[i]) wwPinDigits[i].value = char;
+        });
+        if (pasted.length === 4 && pendingPinProfile) {
+          switchProfile(pendingPinProfile.id, pasted);
+        } else if (wwPinDigits[pasted.length]) {
+          wwPinDigits[pasted.length].focus();
+        }
+      });
+    });
+  }
+
+  if (wwPinCancelBtn) {
+    wwPinCancelBtn.addEventListener('click', closePinChallenge);
+  }
+
   if (wwProfileForm) {
     wwProfileForm.addEventListener('submit', async e => {
       e.preventDefault();
       const name = (wwProfileName ? wwProfileName.value : '').trim();
       if (!name) return;
-      const isKids = wwIsKids ? wwIsKids.checked : false;
+      const isKids = wwIsKids ? (wwIsKids.checked ? 1 : 0) : 0;
       const editId = wwEditId ? wwEditId.value : '';
+      const lockPinChecked = wwLockPin ? wwLockPin.checked : false;
+      const enteredPin = wwPinInput ? wwPinInput.value.trim() : '';
+
+      if (wwPinFormError) wwPinFormError.style.display = 'none';
+
+      let pinVal = undefined;
+      let removePin = false;
+
+      if (lockPinChecked) {
+        if (enteredPin) {
+          if (!/^\d{4}$/.test(enteredPin)) {
+            if (wwPinFormError) {
+              wwPinFormError.textContent = 'PIN must be exactly 4 digits (0-9).';
+              wwPinFormError.style.display = 'block';
+            }
+            if (wwPinInput) wwPinInput.focus();
+            return;
+          }
+          pinVal = enteredPin;
+        } else {
+          // If creating new profile, PIN is required if lock is checked
+          if (!editId) {
+            if (wwPinFormError) {
+              wwPinFormError.textContent = 'Please enter a 4-digit PIN for the profile.';
+              wwPinFormError.style.display = 'block';
+            }
+            if (wwPinInput) {
+              if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+              wwPinInput.focus();
+            }
+            return;
+          }
+          // If editing existing profile that did not have PIN previously
+          const existing = profilesData.find(p => p.id === Number(editId));
+          if (existing && !existing.has_pin) {
+            if (wwPinFormError) {
+              wwPinFormError.textContent = 'Please enter a 4-digit PIN for the profile.';
+              wwPinFormError.style.display = 'block';
+            }
+            if (wwPinInput) {
+              if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+              wwPinInput.focus();
+            }
+            return;
+          }
+        }
+      } else {
+        removePin = true;
+      }
+
+      const payload = {
+        name,
+        avatar: selectedAvatar,
+        is_kids: isKids
+      };
+      if (pinVal) payload.pin = pinVal;
+      if (removePin) payload.remove_pin = true;
 
       try {
         let res;
@@ -529,24 +795,30 @@
           res = await fetch(`/api/profiles/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, avatar: selectedAvatar, is_kids: isKids })
+            body: JSON.stringify(payload)
           });
         } else {
           res = await fetch('/api/profiles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, avatar: selectedAvatar, is_kids: isKids })
+            body: JSON.stringify(payload)
           });
         }
         if (res.ok) {
           const savedData = await res.json();
           if (!editId && savedData && savedData.id) {
-            await switchProfile(savedData.id);
+            await switchProfile(savedData.id, pinVal || null);
             return;
           }
           await loadProfiles();
           if (wwViewForm) wwViewForm.hidden = true;
           if (wwViewSelect) wwViewSelect.hidden = false;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (wwPinFormError) {
+            wwPinFormError.textContent = errData.error || 'Failed to save profile.';
+            wwPinFormError.style.display = 'block';
+          }
         }
       } catch (err) {
         console.error('Error saving profile:', err);
@@ -614,7 +886,11 @@
           settingsMenu.hidden = true;
           settingsBtn.setAttribute('aria-expanded', 'false');
         } else if (wwModal && !wwModal.hidden && document.body.dataset.showWhosWatching !== 'true') {
-          if (wwViewForm && !wwViewForm.hidden) {
+          if (wwViewPin && !wwViewPin.hidden) {
+            wwViewPin.hidden = true;
+            if (wwViewSelect) wwViewSelect.hidden = false;
+            pendingPinProfile = null;
+          } else if (wwViewForm && !wwViewForm.hidden) {
             wwViewForm.hidden = true;
             if (wwViewSelect) wwViewSelect.hidden = false;
           } else {

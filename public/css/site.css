@@ -799,3 +799,133 @@ body.ww-active .ww-overlay {
   .ww-avatar-preview-box { width: 80px; height: 80px; }
   .ww-avatar-grid { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* Badges for profiles (Kids & Lock PIN) */
+.ww-lock-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5e5e5;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.ww-kids-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(18, 18, 18, 0.85);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* View 3: Profile PIN Lock Screen */
+.ww-pin-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 460px;
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+}
+.ww-pin-title {
+  font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+.ww-pin-sub {
+  font-size: 0.95rem;
+  color: #a3a3a3;
+  margin: 0 0 24px;
+}
+.ww-pin-profile-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.ww-pin-avatar-wrap {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 12px;
+  pointer-events: none;
+}
+.ww-pin-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.ww-pin-profile-name {
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: #ffffff;
+}
+.ww-pin-boxes {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin: 10px 0 20px;
+}
+.ww-pin-digit {
+  width: 52px;
+  height: 60px;
+  background: #1c1c1c;
+  border: 2px solid #404040;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 1.8rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.ww-pin-digit:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+  background: #242424;
+}
+.ww-pin-error {
+  color: #ef4444;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+.ww-pin-actions {
+  margin-top: 10px;
+}
+@keyframes pinShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+.pin-shake {
+  animation: pinShake 0.4s ease-in-out;
+}
+
+/* PIN input group in profile edit form */
+.ww-pin-form-group {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+

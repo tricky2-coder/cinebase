@@ -17,6 +17,16 @@
           <div class="ww-profile-item <%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) ? 'active' : '' %>" data-id="<%= p.id %>">
             <div class="ww-avatar-wrap">
               <img src="<%= p.avatar %>" alt="<%= p.name %>">
+              <% if (p.is_kids) { %>
+                <span class="ww-kids-badge">KIDS</span>
+              <% } %>
+              <% if (p.has_pin) { %>
+                <div class="ww-lock-badge" title="Profile Locked">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                  </svg>
+                </div>
+              <% } %>
               <div class="ww-edit-overlay">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -31,6 +41,16 @@
         <div class="ww-profile-item active" data-id="<%= activeProfile.id %>">
           <div class="ww-avatar-wrap">
             <img src="<%= activeProfile.avatar %>" alt="<%= activeProfile.name %>">
+            <% if (activeProfile.is_kids) { %>
+              <span class="ww-kids-badge">KIDS</span>
+            <% } %>
+            <% if (activeProfile.has_pin) { %>
+              <div class="ww-lock-badge" title="Profile Locked">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                </svg>
+              </div>
+            <% } %>
             <div class="ww-edit-overlay">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -112,7 +132,7 @@
               <div class="ww-toggle-row">
                 <div class="ww-toggle-info">
                   <div class="ww-toggle-title">Kids profile</div>
-                  <div class="ww-toggle-sub">Give an adult profile a PIN first; it is what stops a child switching out.</div>
+                  <div class="ww-toggle-sub">Only shows family and age-appropriate content with a dedicated kids badge.</div>
                 </div>
                 <label class="ww-switch">
                   <input type="checkbox" id="ww-is-kids">
@@ -124,8 +144,16 @@
               <div class="ww-toggle-row">
                 <div class="ww-toggle-info">
                   <div class="ww-toggle-title">Lock with a PIN</div>
-                  <div class="ww-toggle-sub">Encrypts this profile's data with AES-256. A forgotten PIN can't be reset, only recovered with the recovery code.</div>
-                  <button type="button" class="ww-pin-link" id="btn-ww-pin">Change PIN</button>
+                  <div class="ww-toggle-sub">Require a 4-digit PIN to access this profile.</div>
+                  <div class="ww-pin-form-group" id="ww-pin-form-group" style="display:none; margin-top: 10px;">
+                    <label class="ww-field-label" for="ww-pin-input">Enter 4-Digit PIN</label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+                      <input type="password" id="ww-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="4 digits" pattern="\d{4}" inputmode="numeric" style="max-width: 140px; text-align: center; letter-spacing: 0.3em; font-size: 1.1rem;" autocomplete="new-password">
+                      <span class="ww-pin-status-text" id="ww-pin-status-text" style="font-size: 0.8rem; color: #888;"></span>
+                    </div>
+                    <div class="ww-form-error" id="ww-pin-form-error" style="display:none; color: #f87171; font-size: 0.8rem; margin-top: 4px;"></div>
+                  </div>
+                  <button type="button" class="ww-pin-link" id="btn-ww-pin-change" style="display:none;">Change PIN</button>
                 </div>
                 <label class="ww-switch">
                   <input type="checkbox" id="ww-lock-pin">
@@ -141,6 +169,34 @@
               <button type="button" class="ww-btn-delete" id="btn-ww-delete" hidden>Delete Profile</button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- View 3: Profile PIN Lock Challenge Screen -->
+    <div class="ww-view" id="ww-view-pin" hidden>
+      <div class="ww-pin-container">
+        <h2 class="ww-pin-title">Profile Lock is on.</h2>
+        <p class="ww-pin-sub">Enter your 4-digit PIN to access this profile.</p>
+
+        <div class="ww-pin-profile-preview">
+          <div class="ww-avatar-wrap ww-pin-avatar-wrap">
+            <img id="ww-pin-avatar-img" src="/profiles/avatars/blue-classic-icon.svg" alt="Profile">
+          </div>
+          <span class="ww-pin-profile-name" id="ww-pin-profile-name"></span>
+        </div>
+
+        <div class="ww-pin-boxes" id="ww-pin-boxes">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="0" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="1" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="2" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="3" autocomplete="off">
+        </div>
+
+        <div class="ww-pin-error" id="ww-pin-error" style="display:none;"></div>
+
+        <div class="ww-pin-actions">
+          <button type="button" class="ww-btn-outline" id="btn-ww-pin-cancel">CANCEL</button>
         </div>
       </div>
     </div>

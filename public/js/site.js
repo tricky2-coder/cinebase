@@ -1392,39 +1392,31 @@
     });
   }
 
-  // 4. Universal beforeunload trap:
+  // 4. Universal beforeunload & navigation defense:
   // When an embedded iframe tries to navigate top.location without user clicking an internal CineBase page link
-  window.addEventListener('beforeunload', (e) => {
+  function blockUnwantedUnload(e) {
     const showAds = localStorage.getItem('cinebase.showAds') === 'true';
     if (showAds) return;
 
     const playerEl = document.getElementById('player');
     if (playerEl && !allowInternalUnload) {
-      e.preventDefault();
-      e.returnValue = '';
+      if (e) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
       return '';
     }
-  });
+  }
+  window.addEventListener('beforeunload', blockUnwantedUnload);
+  window.onbeforeunload = blockUnwantedUnload;
 
-  // "Show ads" Toggle & Video Player Ad-Sandbox Enforcer
+  // Video Player Ad Shield & Anti-Sandbox Protection:
+  // Vidy engine has strict anti-sandbox detection that blocks playback with "Iframe Sandbox Detected".
+  // Under NO circumstance should the player iframe have an HTML sandbox attribute.
+  // Ads and redirects are shielded cleanly via top-level Navigation API & beforeunload traps.
   function applyAdSandbox(iframeEl) {
     if (!iframeEl) return;
-    // Vidy has strict anti-sandbox detection that blocks playback with "Iframe Sandbox Detected".
-    // Vidy must NEVER have the HTML sandbox attribute applied to it.
-    const playerCfg = document.getElementById('player')?.dataset?.cfg;
-    const isVidy = (iframeEl.src && iframeEl.src.includes('vidy')) ||
-                   (playerCfg && playerCfg.includes('vidy'));
-    if (isVidy) {
-      iframeEl.removeAttribute('sandbox');
-      return;
-    }
-    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
-    if (!showAds) {
-      // Non-Vidy mirrors (like standard vidsrc) that support sandboxing:
-      iframeEl.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
-    } else {
-      iframeEl.removeAttribute('sandbox');
-    }
+    iframeEl.removeAttribute('sandbox');
   }
 
   const adsToggle = document.getElementById('toggle-show-ads');

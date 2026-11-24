@@ -97,7 +97,7 @@ button { font: inherit; }
 /* Settings Dropdown Menu (Images 1 & 2) */
 .s-settings-menu {
   position: absolute; right: 0; top: calc(100% + 10px); z-index: 100;
-  width: 230px; padding: 10px;
+  width: 230px; max-width: calc(100vw - 20px); padding: 10px;
   background: #18181b; border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7);
   display: flex; flex-direction: column; gap: 2px;
@@ -429,6 +429,20 @@ button { font: inherit; }
   max-width: 175px; text-overflow: ellipsis;
 }
 .ep-quick-select:focus { outline: 2px solid var(--gold); }
+.ep-fs-btn {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ep-fs-btn.active {
+  background: var(--gold);
+  color: var(--gold-ink);
+  border-color: var(--gold);
+}
 .pop-btn { white-space: nowrap; }
 /* Phones/tablets: no Document PiP and pop-ups open as tabs; their OS picture-in-picture works from fullscreen instead */
 @media (hover: none), (pointer: coarse) { .pop-btn { display: none; } }
@@ -502,10 +516,11 @@ button { font: inherit; }
 @media (max-width: 860px) {
   .s-top { gap: .75rem; flex-wrap: wrap; row-gap: .5rem; padding-top: 10px; padding-bottom: 10px; }
   .s-brand { font-size: 1.6rem; }
-  .s-nav { order: 3; width: 100%; gap: 1.1rem; overflow-x: auto; scrollbar-width: none; }
+  .s-nav { order: 3; width: 100%; gap: 1.1rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .s-nav::-webkit-scrollbar { display: none; }
   .s-search { flex: 1; min-width: 0; }
   .s-search input, .s-search input:focus { width: 100%; }
+  .s-suggest { left: 0; right: 0; width: 100%; max-width: none; }
   .s-page { padding-top: 116px; }
   .hero { height: 72vh; min-height: 460px; }
   .rows { margin-top: 0; padding-top: 1.2rem; }
@@ -517,21 +532,97 @@ button { font: inherit; }
   .d-wrap { grid-template-columns: 1fr; }
   .d-poster { width: 160px; }
   .ep-head { flex-wrap: wrap; }
-  .season-tabs { width: 100%; }
+  .season-tabs { width: 100%; -webkit-overflow-scrolling: touch; }
   .ep-nav { margin-left: auto; }
   .arrow { display: none; }
+  .track, .ep-list, .cast-track { -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; }
 }
+
+@media (max-width: 560px) {
+  .player-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .65rem;
+  }
+  .player-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .player-tools {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+  .player-quick-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ep-quick-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+  .ep-fs-btn {
+    flex-shrink: 0;
+    padding: .45rem .8rem;
+  }
+  .cta {
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .cta .sbtn {
+    padding: .52rem .9rem;
+    font-size: .88rem;
+  }
+  .season-tabs {
+    padding: 4px 0 8px;
+  }
+}
+
 @media (max-width: 480px) {
   .s-brand { font-size: 1.45rem; }
-  .slide-body h1 { font-size: 2.6rem; }
-  .lede { -webkit-line-clamp: 2; font-size: .95rem; }
-  .ep-list { grid-auto-columns: 72vw; }
+  .slide-body { bottom: 2.6rem; max-width: 100%; }
+  .slide-body h1 { font-size: clamp(2rem, 8vw, 2.8rem); line-height: 1.05; }
+  .lede { -webkit-line-clamp: 2; font-size: .92rem; }
+  .ep-list { grid-auto-columns: clamp(190px, 70vw, 240px); gap: 10px; }
   .player { border-radius: 8px; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 16px 10px; }
+  .d-hero { padding-top: 110px; }
+  .d-poster { width: 130px; }
+  .d-info h1 { font-size: clamp(2.2rem, 7.5vw, 3.2rem); }
+  .chips { gap: .35rem; }
+  .chip { font-size: .78rem; padding: 2px 7px; }
+  .d-syn { font-size: .95rem; -webkit-line-clamp: 5; margin: 1rem 0; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 14px 10px; }
   .cat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .cat-tile { min-height: 74px; }
-  .track { grid-auto-columns: 118px; gap: 10px; }
+  .track { grid-auto-columns: 122px; gap: 10px; }
+  .cast-track { grid-auto-columns: 96px; gap: 12px; }
   .d-facts div { grid-template-columns: 1fr; gap: 0; }
+  .filterbar { gap: .4rem; }
+  .filterbar select { flex: 1 1 calc(50% - .4rem); font-size: .82rem; padding: .42rem .6rem; min-width: 110px; }
+
+  /* Who's watching responsive */
+  .ww-main-title { font-size: clamp(1.8rem, 6vw, 2.6rem); margin-bottom: 1.8rem; }
+  .ww-grid { gap: 1rem; margin-bottom: 2rem; }
+  .ww-profile-item { width: clamp(82px, 26vw, 105px); }
+  .ww-profile-name { margin-top: 8px; font-size: .88rem; }
+  .ww-pin-prompt .ww-pin-boxes { gap: 8px; }
+  .ww-pin-prompt .ww-pin-digit { width: 44px; height: 52px; font-size: 1.6rem; }
+}
+
+@media (max-width: 360px) {
+  .track { grid-auto-columns: 105px; gap: 8px; }
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 10px 8px; }
+  .cta .sbtn { padding: .45rem .75rem; font-size: .8rem; }
+  .ww-profile-item { width: clamp(72px, 25vw, 86px); }
+  .ww-pin-prompt .ww-pin-digit { width: 38px; height: 46px; font-size: 1.35rem; }
+  .ep-quick-btn { padding: .4rem .55rem; min-width: 28px; }
+  .ep-autonext-btn { padding: .4rem .5rem; font-size: .75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .slide.on .slide-bg { animation: none; }

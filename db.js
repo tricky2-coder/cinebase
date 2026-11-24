@@ -196,6 +196,8 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_titles_rating ON titles(rating);
     CREATE INDEX IF NOT EXISTS idx_titles_anilist ON titles(anilist_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);
+    CREATE INDEX IF NOT EXISTS idx_watch_history_profile_updated ON watch_history(profile_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_watchlists_profile_id ON watchlists(profile_id, id DESC);
   `);
 
   // One record per IMDb ID. Existing duplicates must be merged by hand before the index can be created.

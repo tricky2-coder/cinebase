@@ -286,6 +286,21 @@ router.get('/api/watchlist', async (req, res) => {
   }
 });
 
+// Check if a specific title is in the active profile's watchlist
+router.get('/api/watchlist/status/:mediaType/:mediaId', async (req, res) => {
+  try {
+    const profileId = req.session.activeProfileId;
+    if (!profileId) return res.json({ inWatchlist: false });
+    const row = await db.get(
+      'SELECT id FROM watchlists WHERE profile_id = ? AND media_type = ? AND media_id = ?',
+      profileId, req.params.mediaType, String(req.params.mediaId)
+    );
+    res.json({ inWatchlist: Boolean(row) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post('/api/watchlist', async (req, res) => {
   try {
     const profileId = req.session.activeProfileId;
@@ -293,21 +308,21 @@ router.post('/api/watchlist', async (req, res) => {
     if (!media_type || !media_id || !title || !href) {
       return res.status(400).json({ error: 'Missing required media fields' });
     }
-    // Check if exists
+    // Check if exists -> toggle delete/insert
     const exists = await db.get(
       'SELECT id FROM watchlists WHERE profile_id = ? AND media_type = ? AND media_id = ?',
       profileId, media_type, String(media_id)
     );
     if (exists) {
       await db.run('DELETE FROM watchlists WHERE id = ?', exists.id);
-      return res.json({ saved: false });
+      return res.json({ saved: false, inWatchlist: false });
     }
     await db.run(
       `INSERT INTO watchlists (profile_id, user_id, media_type, media_id, title, poster_url, release_year, rating, href)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       profileId, req.session.user.id, media_type, String(media_id), title, poster_url, release_year, rating, href
     );
-    res.json({ saved: true });
+    res.json({ saved: true, inWatchlist: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -316,7 +331,20 @@ router.post('/api/watchlist', async (req, res) => {
 router.delete('/api/watchlist/:id', async (req, res) => {
   try {
     await db.run('DELETE FROM watchlists WHERE id = ? AND profile_id = ?', req.params.id, req.session.activeProfileId);
-    res.json({ success: true });
+    res.json({ success: true, inWatchlist: false });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete('/api/watchlist/:mediaType/:mediaId', async (req, res) => {
+  try {
+    const profileId = req.session.activeProfileId;
+    await db.run(
+      'DELETE FROM watchlists WHERE profile_id = ? AND media_type = ? AND media_id = ?',
+      profileId, req.params.mediaType, String(req.params.mediaId)
+    );
+    res.json({ success: true, inWatchlist: false });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -353,9 +381,25 @@ router.get('/api/history', async (req, res) => {
   }
 });
 
+// Get watch progress for a specific title
+router.get('/api/history/progress/:mediaType/:mediaId', async (req, res) => {
+  try {
+    const profileId = req.session.activeProfileId;
+    if (!profileId) return res.json({ progress: null });
+    const row = await db.get(
+      'SELECT season, episode, progress_seconds, duration_seconds, updated_at FROM watch_history WHERE profile_id = ? AND media_type = ? AND media_id = ?',
+      profileId, req.params.mediaType, String(req.params.mediaId)
+    );
+    res.json({ progress: row || null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post('/api/history', async (req, res) => {
   try {
     const profileId = req.session.activeProfileId;
+    if (!profileId) return res.status(401).json({ error: 'No active profile' });
     const { media_type, media_id, title, poster_url, href, season, episode, progress_seconds, duration_seconds } = req.body;
     if (!media_type || !media_id || !title || !href) {
       return res.status(400).json({ error: 'Missing required media fields' });
@@ -366,17 +410,30 @@ router.post('/api/history', async (req, res) => {
     );
     if (exists) {
       await db.run(
-        `UPDATE watch_history SET season = ?, episode = ?, progress_seconds = ?, duration_seconds = ?, updated_at = datetime('now')
+        `UPDATE watch_history SET title = ?, poster_url = ?, href = ?, season = ?, episode = ?, progress_seconds = ?, duration_seconds = ?, updated_at = datetime('now')
          WHERE id = ?`,
-        season || null, episode || null, progress_seconds || 0, duration_seconds || 0, exists.id
+        title, poster_url || '', href, season || null, episode || null, progress_seconds || 0, duration_seconds || 0, exists.id
       );
     } else {
       await db.run(
         `INSERT INTO watch_history (profile_id, user_id, media_type, media_id, title, poster_url, href, season, episode, progress_seconds, duration_seconds)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        profileId, req.session.user.id, media_type, String(media_id), title, poster_url, href, season || null, episode || null, progress_seconds || 0, duration_seconds || 0
+        profileId, req.session.user.id, media_type, String(media_id), title, poster_url || '', href, season || null, episode || null, progress_seconds || 0, duration_seconds || 0
       );
     }
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete('/api/history/:mediaType/:mediaId', async (req, res) => {
+  try {
+    const profileId = req.session.activeProfileId;
+    await db.run(
+      'DELETE FROM watch_history WHERE profile_id = ? AND media_type = ? AND media_id = ?',
+      profileId, req.params.mediaType, String(req.params.mediaId)
+    );
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

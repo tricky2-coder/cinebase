@@ -207,6 +207,25 @@ button { font: inherit; }
 .sbtn-play:hover { background: #ffc629; }
 .sbtn-glass { background: rgba(255,255,255,.14); color: var(--ink); backdrop-filter: blur(6px); }
 .sbtn-glass:hover { background: rgba(255,255,255,.24); }
+.btn-watchlist-toggle {
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-watchlist-toggle.in-watchlist {
+  background: rgba(245, 179, 1, 0.15) !important;
+  color: var(--gold, #f5b301) !important;
+  border: 1px solid rgba(245, 179, 1, 0.5) !important;
+  box-shadow: 0 0 14px rgba(245, 179, 1, 0.22);
+}
+.btn-watchlist-toggle.in-watchlist svg {
+  fill: currentColor;
+}
+.btn-watchlist-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .chips { display: flex; flex-wrap: wrap; gap: .45rem; margin: .8rem 0; }
 .chip { font-size: .8rem; font-weight: 500; padding: .2rem .65rem; border-radius: 6px; background: rgba(255,255,255,.1); color: var(--ink); }
 .chip.gold { background: rgba(245,179,1,.16); color: var(--gold); font-weight: 700; }

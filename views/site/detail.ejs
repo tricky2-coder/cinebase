@@ -24,6 +24,21 @@
       <div class="cta">
         <% if (typeof animeHref !== 'undefined' && animeHref) { %><a class="sbtn sbtn-play" href="<%= animeHref %>">▶ Watch as anime</a><% } %>
         <% if (player) { %><a class="sbtn <%= typeof animeHref !== 'undefined' && animeHref ? 'sbtn-glass' : 'sbtn-play' %>" href="#watch">▶ Watch</a><% } %>
+        <% if (user) { %>
+        <button type="button" class="sbtn sbtn-glass btn-watchlist-toggle" id="btn-watchlist-toggle"
+          data-media-type="<%= (item.type === 'Movie' ? 'movie' : (item.type === 'Series' && (item.genre === 'Anime' || item.anilist_id) ? 'anime' : 'series')) %>"
+          data-media-id="<%= item.id || item.tmdb_id || item.anilist_id %>"
+          data-title="<%= item.title %>"
+          data-poster="<%= item.poster_url || '' %>"
+          data-year="<%= item.release_year || '' %>"
+          data-rating="<%= item.rating || '' %>"
+          data-href="<%= (item.anilist_id ? `/a/${item.anilist_id}` : (item.type === 'Movie' ? `/m/${item.tmdb_id || item.id}` : `/t/${item.id}`)) %>">
+          <svg class="sbtn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="btn-watchlist-text">+ Watchlist</span>
+        </button>
+        <% } %>
         <% if (item.plex_rating_key && plexEnabled) { %><a class="sbtn <%= player ? 'sbtn-glass' : 'sbtn-play' %>" href="/t/<%= item.id %>/plex" target="_blank" rel="noopener">▶ Play on Plex</a><% } %>
         <% if (item.trailer_key) { %><button class="sbtn sbtn-glass" data-trailer="<%= item.trailer_key %>">Trailer</button><% } %>
         <% if (user && user.role === 'admin') { %>

@@ -1312,12 +1312,81 @@
     });
   }
 
-  // "Show ads" Toggle
+  // "Show ads" Toggle & Video Player Ad-Sandbox Enforcer
+  function applyAdSandbox(iframeEl) {
+    if (!iframeEl) return;
+    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
+    if (!showAds) {
+      // Sandbox restricts popups, popunders, and top-navigation redirects while allowing media playback
+      iframeEl.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+    } else {
+      iframeEl.removeAttribute('sandbox');
+    }
+  }
+
   const adsToggle = document.getElementById('toggle-show-ads');
   if (adsToggle) {
     adsToggle.checked = localStorage.getItem('cinebase.showAds') === 'true';
     adsToggle.addEventListener('change', () => {
-      localStorage.setItem('cinebase.showAds', adsToggle.checked);
+      localStorage.setItem('cinebase.showAds', adsToggle.checked ? 'true' : 'false');
+      const activeIframe = document.querySelector('#player iframe');
+      applyAdSandbox(activeIframe);
+    });
+  }
+
+  // Interactive "+ Watchlist" Toggle Button on Detail Pages
+  const watchlistBtn = document.getElementById('btn-watchlist-toggle');
+  if (watchlistBtn) {
+    const mediaType = watchlistBtn.dataset.mediaType || 'movie';
+    const mediaId = watchlistBtn.dataset.mediaId || '';
+    const btnText = watchlistBtn.querySelector('.btn-watchlist-text');
+
+    function updateWatchlistBtnUI(isIn) {
+      watchlistBtn.classList.toggle('in-watchlist', isIn);
+      if (btnText) {
+        btnText.textContent = isIn ? '✓ In Watchlist' : '+ Watchlist';
+      }
+    }
+
+    // Check if title is already in watchlist for current active profile
+    if (mediaType && mediaId) {
+      fetch(`/api/watchlist/status/${encodeURIComponent(mediaType)}/${encodeURIComponent(mediaId)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && typeof data.inWatchlist === 'boolean') {
+            updateWatchlistBtnUI(data.inWatchlist);
+          }
+        })
+        .catch(() => {});
+    }
+
+    watchlistBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      watchlistBtn.disabled = true;
+      try {
+        const payload = {
+          media_type: mediaType,
+          media_id: mediaId,
+          title: watchlistBtn.dataset.title || '',
+          poster_url: watchlistBtn.dataset.poster || '',
+          release_year: watchlistBtn.dataset.year || '',
+          rating: watchlistBtn.dataset.rating ? parseFloat(watchlistBtn.dataset.rating) : null,
+          href: watchlistBtn.dataset.href || window.location.pathname
+        };
+        const res = await fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          updateWatchlistBtnUI(Boolean(data.saved || data.inWatchlist));
+        }
+      } catch (err) {
+        console.error('Watchlist toggle error:', err);
+      } finally {
+        watchlistBtn.disabled = false;
+      }
     });
   }
 
@@ -1510,6 +1579,7 @@
   if (player) {
     const cfg = JSON.parse(player.dataset.cfg);
     const iframe = player.querySelector('iframe');
+    applyAdSandbox(iframe);
     const EP_KEY = `cinebase.ep.${cfg.key}`;
     const AUTONEXT_KEY = 'cinebase.autonext';
     let autoNext = localStorage.getItem(AUTONEXT_KEY) !== 'false';
@@ -1573,11 +1643,43 @@
       if (pipWin && !pipFrame) { try { pipWin.location.href = u; } catch {} return; } // plain pop-up
       const f = frame();
       if (!f) return;
+      applyAdSandbox(f);
       if (force || f.src !== u) f.src = u;
     };
 
     // Playback events posted by Vidy player (JSON strings). Only trust our own iframe.
     let lastSaved = 0;
+    let lastServerSync = 0;
+
+    // Synchronize playback progress to active profile's watch history on backend
+    function syncHistoryToServer(time, dur) {
+      if (!Number.isFinite(time)) return;
+      const now = Date.now();
+      if (now - lastServerSync < 10000 && time > 0) return; // throttle 10s
+      lastServerSync = now;
+      const titleEl = document.querySelector('.d-info h1');
+      const posterImg = document.querySelector('.d-poster img');
+      const mediaType = cfg.anime ? 'anime' : (cfg.isSeries ? 'series' : 'movie');
+      const payload = {
+        media_type: mediaType,
+        media_id: String(cfg.id || cfg.key),
+        title: titleEl ? titleEl.childNodes[0].textContent.trim() : (cfg.title || 'Untitled'),
+        poster_url: posterImg ? posterImg.src : '',
+        href: window.location.pathname,
+        season: cfg.isSeries ? state.s : null,
+        episode: cfg.isSeries ? state.e : null,
+        progress_seconds: Math.floor(time || 0),
+        duration_seconds: Math.floor(dur || 0)
+      };
+      try {
+        fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }).catch(() => {});
+      } catch {}
+    }
 
     function onPlayerMessage(e) {
       if (e.source !== frame().contentWindow || typeof e.data !== 'string') return;
@@ -1663,6 +1765,7 @@
           // If within credits / end, clear saved position so future visits start from 0:00
           try { localStorage.removeItem(posKey(snNum || state.s, epNum || state.e)); } catch {}
           lastSaved = 0;
+          syncHistoryToServer(duration || currentTime, duration);
         } else if (Math.abs(currentTime - lastSaved) >= 5) {
           lastSaved = currentTime;
           try {
@@ -1671,6 +1774,7 @@
               d: Number.isFinite(duration) && duration > 0 ? duration : null
             }));
           } catch {}
+          syncHistoryToServer(currentTime, duration);
         }
       }
 
@@ -1678,6 +1782,7 @@
       if (event === 'ended') {
         try { localStorage.removeItem(posKey(snNum || state.s, epNum || state.e)); } catch {}
         lastSaved = 0;
+        syncHistoryToServer(duration || 0, duration || 0);
         if (cfg.isSeries && autoNext && !pendingNav) {
           const nxt = step(1);
           if (nxt) play(nxt.s, nxt.e);
@@ -1685,6 +1790,9 @@
       }
     }
     addEventListener('message', onPlayerMessage);
+    window.addEventListener('beforeunload', () => {
+      if (lastSaved > 0) syncHistoryToServer(lastSaved, 0);
+    });
 
     const popBtn = document.getElementById('p-popout');
     const popped = document.getElementById('p-popped');
@@ -1721,6 +1829,7 @@
         for (const a of ['allow', 'referrerpolicy', 'allowfullscreen', 'title']) {
           if (iframe.hasAttribute(a)) pipFrame.setAttribute(a, iframe.getAttribute(a));
         }
+        applyAdSandbox(pipFrame);
         pipFrame.src = u;
         d.body.append(pipFrame);
         pipWin.addEventListener('message', onPlayerMessage); // the player now reports to the pop-out window

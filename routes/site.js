@@ -115,6 +115,54 @@ router.get('/', async (req, res) => {
       rows.push({ name: g.genre, link: `/browse?genre=${encodeURIComponent(g.genre)}`, items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? ORDER BY rating DESC LIMIT 20`, g.genre) });
     }
   }
+
+  // Prepend personal profile rows: Continue Watching & My Watchlist
+  if (req.session.user && req.session.activeProfileId) {
+    try {
+      const historyRows = await db.all(
+        'SELECT * FROM watch_history WHERE profile_id = ? ORDER BY updated_at DESC LIMIT 20',
+        req.session.activeProfileId
+      );
+      if (historyRows && historyRows.length) {
+        rows.unshift({
+          name: 'Continue Watching',
+          link: '/history',
+          items: historyRows.map(h => ({
+            id: h.media_id,
+            title: h.title,
+            poster_url: h.poster_url,
+            href: h.href,
+            type: h.media_type === 'movie' ? 'Movie' : (h.media_type === 'anime' ? 'Anime' : 'Series'),
+            progress_seconds: h.progress_seconds,
+            duration_seconds: h.duration_seconds
+          }))
+        });
+      }
+
+      const watchlistRows = await db.all(
+        'SELECT * FROM watchlists WHERE profile_id = ? ORDER BY id DESC LIMIT 20',
+        req.session.activeProfileId
+      );
+      if (watchlistRows && watchlistRows.length) {
+        rows.unshift({
+          name: 'My Watchlist',
+          link: '/watchlist',
+          items: watchlistRows.map(w => ({
+            id: w.media_id,
+            title: w.title,
+            poster_url: w.poster_url,
+            href: w.href,
+            type: w.media_type === 'movie' ? 'Movie' : (w.media_type === 'anime' ? 'Anime' : 'Series'),
+            rating: w.rating,
+            release_year: w.release_year
+          }))
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching profile rows for home:', err.message);
+    }
+  }
+
   res.render('site/home', { title: 'Home', hero, rows: rows.filter(r => r.items.length) });
 });
 

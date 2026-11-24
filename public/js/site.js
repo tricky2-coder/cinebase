@@ -1812,6 +1812,28 @@
       if (animeMount) animeMount.replaceChildren();
     }
 
+    function fallbackToVidy(reason) {
+      if (!iframe) {
+        showAnimeMsg(reason || 'Unable to load this episode right now.', true);
+        return;
+      }
+      console.warn('[CineBase Anime] Auto-switching to Vidy:', reason);
+      if (animeAbort) animeAbort.abort();
+      destroyArtplayer();
+      hideAnimeMsg();
+      if (animeMount) animeMount.hidden = true;
+      iframe.hidden = false;
+      const pBtn = document.getElementById('p-popout');
+      if (pBtn) pBtn.hidden = false;
+      if (animeServerSel) animeServerSel.value = 'vidy';
+      const f = frame();
+      const u = url();
+      if (f) {
+        applyAdSandbox(f);
+        f.src = u;
+      }
+    }
+
     async function loadAnimeEpisode(epNum) {
       if (!isAnimePlayer) return;
       if (animeAbort) animeAbort.abort();
@@ -1917,8 +1939,7 @@
                   }
                   const detail = [data.providerLabel, errData.type, errData.details, errData.response?.code].filter(Boolean).join(' · ');
                   try { hls.destroy(); } catch {}
-                  destroyArtplayer();
-                  showAnimeMsg(`Stream failed (${detail || 'playback error'}). Try another server or Vidy.`, true);
+                  fallbackToVidy(`Stream failed (${detail || 'playback error'})`);
                 });
                 hls.loadSource(m3u8Url);
                 hls.attachMedia(video);
@@ -1973,8 +1994,7 @@
         artInstance = new window.Artplayer(artOpts);
 
         artInstance.on('video:error', () => {
-          destroyArtplayer();
-          showAnimeMsg('Video playback failed on this server. Try Auto, another server, or Vidy.', true);
+          fallbackToVidy('Video playback error');
         });
 
         artInstance.on('ready', () => {
@@ -2016,8 +2036,7 @@
         });
       } catch (err) {
         if (err && err.name === 'AbortError') return;
-        destroyArtplayer();
-        showAnimeMsg(err?.message || 'Unable to load this episode right now.', true);
+        fallbackToVidy(err?.message || 'Anivexa unavailable');
       }
     }
 

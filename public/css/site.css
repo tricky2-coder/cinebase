@@ -600,10 +600,8 @@ body.ww-active .ww-overlay {
   will-change: transform;
 }
 .ww-avatar-wrap {
-  width: 100%; aspect-ratio: 1; border-radius: 10px;
-  overflow: hidden; position: relative; background: transparent;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  mask-image: radial-gradient(white, black);
+  width: 100%; aspect-ratio: 1; border-radius: 8px;
+  overflow: hidden; position: relative; background: #12121a;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1);
   transform: translate3d(0, 0, 0);
@@ -613,6 +611,19 @@ body.ww-active .ww-overlay {
 }
 .ww-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 
+/* Edge overlay border: zero gap, zero squaring, hugs 8px rounded corners seamlessly */
+.ww-avatar-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 3px solid transparent;
+  pointer-events: none;
+  box-sizing: border-box;
+  transition: border-color 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  z-index: 1;
+}
+
 .ww-profile-name {
   margin-top: 14px; font-size: clamp(1rem, 2vw, 1.2rem);
   font-weight: 500; color: var(--dim, #808080);
@@ -620,36 +631,51 @@ body.ww-active .ww-overlay {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 
-/* Hover: smooth scale & rich golden outline and glow matching the site theme */
+/* Hover: smooth scale & warm gold border glow matching site theme */
 .ww-profile-item:hover .ww-avatar-wrap,
 .ww-profile-item:focus-visible .ww-avatar-wrap {
   transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 0 0 2px var(--gold, #f5b301), 0 0 28px rgba(245, 179, 1, 0.65), 0 16px 36px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 179, 1, 0.35);
+}
+.ww-profile-item:hover .ww-avatar-wrap::after,
+.ww-profile-item:focus-visible .ww-avatar-wrap::after {
+  border-color: var(--gold, #f5b301);
+  box-shadow: 0 0 18px rgba(245, 179, 1, 0.4);
 }
 .ww-profile-item:hover .ww-profile-name {
   color: var(--gold, #f5b301);
   text-shadow: 0 0 12px rgba(245, 179, 1, 0.45);
 }
 
-/* Active Profile: distinct glowing gold outline & radiant halo (as shown in media_1795529104935_9590746b.jpg) */
-.ww-profile-item.active .ww-avatar-wrap {
-  box-shadow: 0 0 0 2.5px var(--gold, #f5b301), 0 0 35px rgba(245, 179, 1, 0.75), 0 10px 28px rgba(0, 0, 0, 0.7);
+/* Active Profile: distinct glowing gold accent */
+.ww-profile-item.active .ww-avatar-wrap::after {
+  border-color: var(--gold, #f5b301);
+  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 0 24px rgba(245, 179, 1, 0.55);
 }
 .ww-profile-item.active .ww-profile-name {
   color: var(--gold, #f5b301);
   font-weight: 600;
   text-shadow: 0 0 14px rgba(245, 179, 1, 0.55);
 }
+.ww-profile-item.active:hover .ww-avatar-wrap::after {
+  border-color: #ffd24d;
+  box-shadow: 0 0 0 1.5px #ffd24d, 0 0 32px rgba(245, 179, 1, 0.75);
+}
 .ww-profile-item.active:hover .ww-avatar-wrap {
   transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 0 0 3px #ffd24d, 0 0 45px rgba(245, 179, 1, 0.9), 0 18px 40px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 26px rgba(245, 179, 1, 0.35);
 }
 .ww-profile-item.active:hover .ww-profile-name {
   color: #ffd24d;
   text-shadow: 0 0 18px rgba(245, 179, 1, 0.75);
 }
 
-/* In Manage Profiles mode: smooth unhighlighted avatars like Image 2 */
+/* In Manage Profiles mode: smooth unhighlighted avatars */
+.ww-grid.manage-mode .ww-profile-item.active .ww-avatar-wrap::after,
+.ww-grid.manage-mode .ww-profile-item:hover .ww-avatar-wrap::after {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
 .ww-grid.manage-mode .ww-profile-item.active .ww-avatar-wrap,
 .ww-grid.manage-mode .ww-profile-item:hover .ww-avatar-wrap {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
@@ -754,6 +780,9 @@ body.ww-active .ww-overlay {
   transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
   transform: translate3d(0, 0, 0);
   will-change: transform;
+}
+.ww-add-wrap::after {
+  display: none !important;
 }
 .ww-add-plus {
   font-size: 3.2rem;

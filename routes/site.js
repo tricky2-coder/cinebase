@@ -305,7 +305,7 @@ router.get('/a/:id', async (req, res, next) => {
   let data;
   try { data = await anilist.titlePage(req.params.id); }
   catch (e) { return e.status === 404 ? next() : aniDown(res, e); }
-  const player = vidsrc.player(data.item, { seasons: data.seasons });
+  const player = vidsrc.player(data.item, { seasons: data.seasons, initialEpisodes: data.initialEpisodes });
   res.render('site/detail', {
     title: data.item.title, item: data.item, player, similar: data.similar, cast: data.cast, castTitle: 'Characters',
     related: data.related, source: { media: 'anime', localId: null }
@@ -330,12 +330,13 @@ router.get('/t/:id', async (req, res, next) => {
   if (!item) return next();
   const similar = (await db.all(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`, item.genre, item.id));
   // Titles linked to AniList or TMDB get the cast row and, for series, the full season/episode picker
-  let seasons = null, cast = [];
+  let seasons = null, cast = [], initialEpisodes = null;
   if (item.anilist_id) {
     try {
       const extra = await anilist.titlePage(item.anilist_id);
       seasons = extra.seasons;
       cast = extra.cast;
+      initialEpisodes = extra.initialEpisodes;
       if (!item.poster_url && extra.item.poster_url) item.poster_url = extra.item.poster_url;
       if (!item.backdrop_url && extra.item.backdrop_url) item.backdrop_url = extra.item.backdrop_url;
       if (!item.episode_count && extra.item.episode_count) item.episode_count = extra.item.episode_count;
@@ -347,7 +348,7 @@ router.get('/t/:id', async (req, res, next) => {
       cast = extra.cast;
     } catch (e) { console.error('TMDB extras failed:', e.message); }
   }
-  const player = vidsrc.player(item, { seasons, tvId: item.anilist_id ? null : (seasons ? item.tmdb_id : null) });
+  const player = vidsrc.player(item, { seasons, tvId: item.anilist_id ? null : (seasons ? item.tmdb_id : null), initialEpisodes });
   res.render('site/detail', { title: item.title, item, player, similar, cast, source: null });
 });
 

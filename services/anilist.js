@@ -154,9 +154,22 @@ async function titlePage(id) {
     const start = i * EPISODE_CHUNK + 1, end = Math.min(effectiveCount, start + EPISODE_CHUNK - 1);
     return { n: i + 1, name: effectiveCount <= EPISODE_CHUNK ? 'Episodes' : `${start}–${end}`, episodes: end - start + 1, start };
   });
+
+  const named = new Map();
+  for (const e of m.streamingEpisodes || []) {
+    const [, num, name] = e.title.match(/Episode\s+(\d+)\s*-\s*(.*)/i) || [];
+    if (num) named.set(Number(num), { name: name.trim(), still: e.thumbnail });
+  }
+  const firstChunkCount = Math.min(effectiveCount, EPISODE_CHUNK);
+  const initialEpisodes = isMovie ? null : Array.from({ length: firstChunkCount }, (_, i) => {
+    const n = i + 1;
+    return { n, name: named.get(n)?.name || `Episode ${n}`, still: named.get(n)?.still || null, runtime: m.duration || null, air_date: null, aired: true };
+  });
+
   return {
     item,
     seasons,
+    initialEpisodes,
     cast: (m.characters?.edges || []).map(e => ({
       name: e.node.name.full,
       character: e.voiceActors?.[0]?.name.full ? `CV: ${e.voiceActors[0].name.full}` : (e.role === 'MAIN' ? 'Main' : ''),

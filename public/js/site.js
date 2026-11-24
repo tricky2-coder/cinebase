@@ -845,10 +845,10 @@
     let pipFrame = null; // player iframe inside a Document PiP window (null for a plain pop-up)
     const frame = () => pipFrame || iframe;
 
-    const url = () => {
+    const url = (sn = state.s, ep = state.e) => {
       const u = new URL(`https://${cfg.domain || 'www.vidy.st'}` + cfg.path
-        .replace('{id}', encodeURIComponent(cfg.id)).replace('{s}', state.s).replace('{e}', state.e));
-      const t = resumeAt();
+        .replace('{id}', encodeURIComponent(cfg.id)).replace('{s}', sn).replace('{e}', ep));
+      const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
       // Explicitly set progress=0 when starting from the beginning.
       // Vidy requires ?progress=0 in query params to override its internal localStorage history;
       // otherwise, Vidy resumes completed episodes at their end time (e.g. 40:00) and immediately skips to the next episode!
@@ -1037,6 +1037,9 @@
       const quickPrev = document.getElementById('p-quick-prev'), quickNext = document.getElementById('p-quick-next');
       const quickSelect = document.getElementById('p-quick-select');
       const cache = {}; // season number -> episodes from TMDB / AniList (or null if unavailable)
+      if (cfg.initialEpisodes && Array.isArray(cfg.initialEpisodes) && cfg.initialEpisodes.length) {
+        cache[1] = cfg.initialEpisodes;
+      }
       let shown = null; // season whose episodes are listed
 
       const sIdx = s => seasons.findIndex(x => x.n === s);
@@ -1175,6 +1178,28 @@
         }
       }
 
+      let prefetchTimer = null;
+      function schedulePrefetch() {
+        if (!cfg.isSeries) return;
+        clearTimeout(prefetchTimer);
+        prefetchTimer = setTimeout(() => {
+          const nxt = step(1);
+          if (!nxt) return;
+          try {
+            const nextHref = url(nxt.s, nxt.e);
+            let link = document.getElementById('p-prefetch-next');
+            if (!link) {
+              link = document.createElement('link');
+              link.id = 'p-prefetch-next';
+              link.rel = 'prefetch';
+              link.as = 'document';
+              document.head.appendChild(link);
+            }
+            link.href = nextHref;
+          } catch {}
+        }, 3500);
+      }
+
       function play(s, e) {
         s = Number(s); e = Number(e);
         if (cfg.anime) {
@@ -1187,6 +1212,7 @@
         pendingNav = { s, e, deadline: Date.now() + 15000 };
         load(true);
         if (shown !== s) showSeason(s); else mark();
+        schedulePrefetch();
       }
 
       tabs.forEach(t => t.addEventListener('click', () => showSeason(+t.dataset.season)));
@@ -1224,6 +1250,7 @@
         pendingNav = { s: state.s, e: state.e, deadline: Date.now() + 15000 };
       }
       showSeason(state.s);
+      schedulePrefetch();
     }
 
     load();

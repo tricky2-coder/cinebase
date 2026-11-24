@@ -4,7 +4,7 @@
   <div class="d-wrap">
     <div class="d-poster">
       <% if (item.poster_url) { %>
-        <img src="<%= item.poster_url %>" alt="<%= item.title %> poster">
+        <img src="<%= item.poster_url %>" alt="<%= item.title %> poster" fetchpriority="high">
       <% } else { %>
         <div class="poster-fb" style="--h:<%= (item.id * 47) % 360 %>"><span><%= item.title %></span></div>
       <% } %>
@@ -75,6 +75,8 @@
       <iframe
         src="<%= player.src %>"
         title="<%= item.title %> player"
+        loading="eager"
+        fetchpriority="high"
         allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
         referrerpolicy="no-referrer"
         allowfullscreen></iframe>

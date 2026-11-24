@@ -8,7 +8,7 @@
 
 const VIDY = 'www.vidy.st';
 
-function player(item, { seasons = null, tvId = null } = {}) {
+function player(item, { seasons = null, tvId = null, initialEpisodes = null } = {}) {
   const isSeries = item.type === 'Series';
   const isAnime = Boolean(item.anilist_id);
   const id = isAnime ? String(item.anilist_id) : String(item.tmdb_id || item.imdb_id);
@@ -43,7 +43,8 @@ function player(item, { seasons = null, tvId = null } = {}) {
       path,
       id,
       domain: VIDY,
-      seasons: seasonList
+      seasons: seasonList,
+      initialEpisodes: initialEpisodes || null
     }
   };
 }

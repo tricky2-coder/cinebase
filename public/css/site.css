@@ -292,6 +292,8 @@ button { font: inherit; }
 .poster-fb span { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; line-height: 1; letter-spacing: .02em; word-break: break-word; }
 .p-rate { position: absolute; top: 8px; left: 8px; font-size: .72rem; font-weight: 700; background: rgba(0,0,0,.72); color: var(--gold); padding: 2px 6px; border-radius: 5px; }
 .p-plex { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; display: grid; place-items: center; font-size: .65rem; border-radius: 50%; background: var(--gold); color: var(--gold-ink); }
+.card-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(0,0,0,.7); overflow: hidden; z-index: 2; }
+.card-progress-bar { height: 100%; background: var(--gold); box-shadow: 0 0 8px rgba(245,179,1,.6); border-radius: 0 2px 2px 0; }
 .p-meta { padding: .5rem .1rem 0; }
 .p-meta b { display: block; font-size: .88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-meta small { color: var(--dim); font-size: .78rem; }

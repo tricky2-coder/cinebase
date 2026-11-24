@@ -17,6 +17,8 @@ if (!process.env.SESSION_SECRET) {
 const db = require('./db');
 const SqlStore = require('./services/session-store');
 const { requireUser, requireAdmin } = require('./middleware/auth');
+const tmdb = require('./services/tmdb');
+const plex = require('./services/plex');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -110,6 +112,10 @@ app.use((req, res, next) => {
   res.locals.flash = req.session.flash || null;
   res.locals.path = req.path;
   res.locals.showWhosWatching = !!(req.session.justLoggedIn || req.query.whosWatching);
+  res.locals.tmdbEnabled = tmdb.enabled();
+  res.locals.plexEnabled = plex.enabled();
+  res.locals.q = '';
+  res.locals.query = req.query || {};
   delete req.session.justLoggedIn;
   delete req.session.flash;
   next();

@@ -330,6 +330,78 @@ router.get('/browse', async (req, res) => {
   res.render('site/browse', { title: heading, heading, items, total, page, pages, qs: qs.toString(), genres, languages, query: req.query, sort, q });
 });
 
+// WATCHLIST — active profile's saved titles
+router.get('/watchlist', async (req, res) => {
+  const profileId = req.session.activeProfileId;
+  const items = profileId
+    ? await db.all('SELECT * FROM watchlists WHERE profile_id = ? ORDER BY id DESC', profileId)
+    : [];
+
+  const mapped = items.map(w => ({
+    id: w.media_id,
+    title: w.title,
+    poster_url: w.poster_url,
+    href: w.href,
+    release_year: w.release_year,
+    rating: w.rating,
+    type: w.media_type === 'movie' ? 'Movie' : (w.media_type === 'anime' ? 'Anime' : 'Series')
+  }));
+
+  res.render('site/browse', {
+    title: 'My Watchlist',
+    heading: 'My Watchlist',
+    items: mapped,
+    total: mapped.length,
+    page: 1,
+    pages: 1,
+    qs: '',
+    genres: [],
+    languages: [],
+    query: {},
+    sort: 'new',
+    q: '',
+    showFilterbar: false,
+    emptyMsg: 'Your watchlist is empty. Add titles to watch them later!'
+  });
+});
+
+// WATCH HISTORY — active profile's playback progress
+router.get('/history', async (req, res) => {
+  const profileId = req.session.activeProfileId;
+  const items = profileId
+    ? await db.all('SELECT * FROM watch_history WHERE profile_id = ? ORDER BY updated_at DESC', profileId)
+    : [];
+
+  const mapped = items.map(h => ({
+    id: h.media_id,
+    title: h.title,
+    poster_url: h.poster_url,
+    href: h.href,
+    season: h.season,
+    episode: h.episode,
+    progress_seconds: h.progress_seconds,
+    duration_seconds: h.duration_seconds,
+    type: h.media_type === 'movie' ? 'Movie' : (h.media_type === 'anime' ? 'Anime' : 'Series')
+  }));
+
+  res.render('site/browse', {
+    title: 'Watch History',
+    heading: 'Continue Watching',
+    items: mapped,
+    total: mapped.length,
+    page: 1,
+    pages: 1,
+    qs: '',
+    genres: [],
+    languages: [],
+    query: {},
+    sort: 'new',
+    q: '',
+    showFilterbar: false,
+    emptyMsg: 'Your watch history is empty. Start streaming to track your progress!'
+  });
+});
+
 // Trailer for the hover preview on poster cards (JSON)
 router.get('/preview/:media/:id', async (req, res) => {
   const { media, id } = req.params;

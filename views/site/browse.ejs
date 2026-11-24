@@ -4,6 +4,7 @@
     <h1><%= heading %></h1>
     <p class="muted-s"><%= total %> title<%= total === 1 ? '' : 's' %></p>
   </div>
+  <% if (typeof showFilterbar === 'undefined' || showFilterbar) { %>
   <form class="filterbar" method="GET" action="/browse">
     <% if (q) { %><input type="hidden" name="q" value="<%= q %>"><% } %>
     <% if (query.source) { %><input type="hidden" name="source" value="<%= query.source %>"><% } %>
@@ -29,10 +30,11 @@
     <noscript><button class="sbtn sbtn-glass" type="submit">Apply</button></noscript>
     <% if (Object.keys(query).length) { %><a href="/browse" class="clear">Clear</a><% } %>
   </form>
+  <% } %>
   <div class="grid">
     <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>
   </div>
-  <% if (!items.length) { %><p class="empty-s">Nothing matches. <a href="/browse">Browse everything</a></p><% } %>
+  <% if (!items.length) { %><p class="empty-s"><%= typeof emptyMsg !== 'undefined' && emptyMsg ? emptyMsg : 'Nothing matches.' %> <a href="/discover">Discover titles</a></p><% } %>
   <% if (pages > 1) { %>
   <nav class="s-pager" aria-label="Pagination">
     <% if (page > 1) { %><a class="sbtn sbtn-glass" href="?<%= qs %>&page=<%= page - 1 %>">‹ Prev</a><% } %>

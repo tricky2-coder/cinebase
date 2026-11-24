@@ -350,27 +350,7 @@ router.delete('/api/watchlist/:mediaType/:mediaId', async (req, res) => {
   }
 });
 
-// WATCHLIST PAGE
-router.get('/watchlist', async (req, res) => {
-  const profileId = req.session.activeProfileId;
-  const items = await db.all('SELECT * FROM watchlists WHERE profile_id = ? ORDER BY id DESC', profileId);
-  res.render('site/browse', {
-    title: 'Watchlist',
-    heading: 'Your Watchlist',
-    items: items.map(i => ({ ...i, type: i.media_type === 'movie' ? 'Movie' : (i.media_type === 'anime' ? 'Anime' : 'Series') })),
-    total: items.length,
-    page: 1,
-    pages: 1,
-    qs: '',
-    genres: [],
-    languages: [],
-    query: {},
-    sort: 'new',
-    q: ''
-  });
-});
-
-// WATCH HISTORY API & PAGE
+// WATCH HISTORY API
 router.get('/api/history', async (req, res) => {
   try {
     const profileId = req.session.activeProfileId;
@@ -438,25 +418,6 @@ router.delete('/api/history/:mediaType/:mediaId', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
-
-router.get('/history', async (req, res) => {
-  const profileId = req.session.activeProfileId;
-  const items = await db.all('SELECT * FROM watch_history WHERE profile_id = ? ORDER BY updated_at DESC', profileId);
-  res.render('site/browse', {
-    title: 'Watch History',
-    heading: 'Watch History',
-    items: items.map(i => ({ ...i, type: i.media_type === 'movie' ? 'Movie' : (i.media_type === 'anime' ? 'Anime' : 'Series') })),
-    total: items.length,
-    page: 1,
-    pages: 1,
-    qs: '',
-    genres: [],
-    languages: [],
-    query: {},
-    sort: 'new',
-    q: ''
-  });
 });
 
 module.exports = router;

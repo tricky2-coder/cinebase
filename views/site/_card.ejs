@@ -17,6 +17,11 @@
     <% } %>
     <% if (c.rating != null) { %><span class="p-rate">★ <%= c.rating %></span><% } %>
     <% if (c.plex_rating_key) { %><span class="p-plex" title="On your Plex">▶</span><% } %>
+    <% if (c.progress_seconds && c.duration_seconds && c.duration_seconds > 0) { %>
+      <div class="card-progress">
+        <div class="card-progress-bar" style="width: <%= Math.min(100, Math.max(5, Math.round((c.progress_seconds / c.duration_seconds) * 100))) %>%"></div>
+      </div>
+    <% } %>
   </div>
-  <div class="p-meta"><b><%= c.title %></b><small><%= [c.release_year, c.type].filter(Boolean).join(' · ') %></small></div>
+  <div class="p-meta"><b><%= c.title %></b><small><%= [c.season && c.episode ? (c.type === 'Anime' ? `Ep ${c.episode}` : `S${c.season} E${c.episode}`) : null, c.release_year, c.type].filter(Boolean).join(' · ') %></small></div>
 </a>

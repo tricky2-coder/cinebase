@@ -24,11 +24,13 @@
     <% } else { %>
     <a href="/browse?type=Movie" class="<%= query && query.type === 'Movie' ? 'on' : '' %>">Movies</a>
     <a href="/browse?type=Series" class="<%= query && query.type === 'Series' ? 'on' : '' %>">Series</a>
+    <a href="/discover?type=anime" class="<%= (path === '/discover' && ['anime', 'anime-movie'].includes(query.type)) || path.startsWith('/a/') ? 'on' : '' %>">Anime</a>
+    <a href="/browse" class="<%= (path === '/browse' && query.source !== 'plex') || path.startsWith('/t/') ? 'on' : '' %>">My CineBase</a>
     <% } %>
     <% if (plexEnabled) { %><a href="/browse?source=plex" class="<%= query && query.source === 'plex' ? 'on' : '' %>">My Plex</a><% } %>
   </nav>
   <div class="s-right-actions">
-    <form class="s-search" action="<%= tmdbEnabled ? '/search' : '/browse' %>" method="GET" role="search" <%- tmdbEnabled ? 'data-suggest="/suggest"' : '' %>>
+    <form class="s-search" action="/search" method="GET" role="search" data-suggest="/suggest">
       <input type="search" name="q" value="<%= q %>" placeholder="Search movies & series…" aria-label="Search" autocomplete="off"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="s-suggest">
       <ul class="s-suggest" id="s-suggest" role="listbox" hidden></ul>

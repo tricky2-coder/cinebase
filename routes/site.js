@@ -7,7 +7,7 @@ const vidsrc = require('../services/vidsrc');
 const anilist = require('../services/anilist');
 
 const router = express.Router();
-const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,backdrop_url,trailer_key,tmdb_id,plex_rating_key';
+const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,backdrop_url,trailer_key,tmdb_id,anilist_id,plex_rating_key';
 const BROWSE_PAGE_SIZE = 24;
 const DISCOVER_SORTS = { popular: 'Most popular', rating: 'Top rated', newest: 'Newest' };
 const ANIME_SORTS = { popular: 'Most popular', trending: 'Trending now', rating: 'Top rated', newest: 'Newest' };
@@ -95,6 +95,21 @@ router.get('/', async (req, res) => {
       { name: 'Movies', link: '/browse?type=Movie', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE type='Movie' ORDER BY release_year DESC LIMIT 20`) },
       { name: 'Series', link: '/browse?type=Series', items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE type='Series' ORDER BY release_year DESC LIMIT 20`) }
     ];
+    // Include live Anime from AniList (free public GraphQL, no API key required) for local anime browsing & testing
+    try {
+      const [trendingAnime, animeMovies] = await Promise.allSettled([
+        anilist.list({ sort: 'trending', format: 'series' }),
+        anilist.list({ format: 'MOVIE' })
+      ]);
+      if (trendingAnime.status === 'fulfilled' && trendingAnime.value?.items?.length) {
+        rows.splice(1, 0, { name: 'Trending Anime', link: '/discover?type=anime&sort=trending', items: trendingAnime.value.items });
+      }
+      if (animeMovies.status === 'fulfilled' && animeMovies.value?.items?.length) {
+        rows.push({ name: 'Anime Movies', link: '/discover?type=anime-movie', items: animeMovies.value.items });
+      }
+    } catch (e) {
+      console.error('AniList local rows failed:', e.message);
+    }
     const genres = (await db.all('SELECT genre, COUNT(*) c FROM titles GROUP BY genre HAVING c >= 2 ORDER BY c DESC LIMIT 6'));
     for (const g of genres) {
       rows.push({ name: g.genre, link: `/browse?genre=${encodeURIComponent(g.genre)}`, items: await localCards(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? ORDER BY rating DESC LIMIT 20`, g.genre) });
@@ -165,12 +180,24 @@ router.get('/categories', async (req, res) => {
   } catch (e) { tmdbDown(res, e); }
 });
 
-// SEARCH — your CineBase titles first, then all of TMDB
+// SEARCH — your CineBase titles first, then all of TMDB and AniList
 router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.redirect('/');
-  if (!tmdb.enabled()) return res.redirect(`/browse?q=${encodeURIComponent(q)}`);
   const page = pageParam(req.query.page);
+  if (!tmdb.enabled()) {
+    // When TMDB is not enabled (local development without TMDB key), search local titles + live AniList
+    const like = `%${q}%`;
+    const local = page === 1
+      ? await localCards(`SELECT ${CARD_COLS} FROM titles WHERE title LIKE ? OR director LIKE ? OR cast_members LIKE ? ORDER BY rating DESC LIMIT 24`, like, like, like)
+      : [];
+    const animeRes = await anilist.list({ search: q, perPage: 24, page }).catch(() => ({ items: [], page: 1, pages: 1, total: 0 }));
+    return res.render('site/discover', {
+      title: `Search: ${q}`, heading: `Results for "${q}"`, isSearch: true, local, anime: animeRes.items || [],
+      items: [], page: animeRes.page || 1, pages: animeRes.pages || 1, total: (local.length + (animeRes.total || 0)),
+      q, qs: new URLSearchParams({ q }).toString()
+    });
+  }
   try {
     const animePromise = page === 1
       ? Promise.race([
@@ -197,7 +224,19 @@ router.get('/search', async (req, res) => {
 router.get('/suggest', async (req, res) => {
   const q = (req.query.q || '').trim();
   res.set('Cache-Control', 'private, max-age=300');
-  if (!tmdb.enabled() || q.length < 2) return res.json([]);
+  if (q.length < 2) return res.json([]);
+  if (!tmdb.enabled()) {
+    try {
+      const list = await anilist.list({ search: q, perPage: 6 });
+      return res.json((list.items || []).map(i => ({
+        title: i.title,
+        year: i.release_year,
+        type: i.type,
+        poster: i.poster_url,
+        href: `${i.href}#watch`
+      })));
+    } catch { return res.json([]); }
+  }
   try {
     const { items } = await tmdb.searchAll(q.slice(0, 100), 1);
     res.json(items.slice(0, 8).map(i => ({
@@ -290,16 +329,25 @@ router.get('/t/:id', async (req, res, next) => {
   const item = (await db.get('SELECT * FROM titles WHERE id = ?', req.params.id));
   if (!item) return next();
   const similar = (await db.all(`SELECT ${CARD_COLS} FROM titles WHERE genre = ? AND id != ? ORDER BY rating DESC LIMIT 12`, item.genre, item.id));
-  // Titles linked to TMDB get the cast row and, for series, the full season/episode picker
+  // Titles linked to AniList or TMDB get the cast row and, for series, the full season/episode picker
   let seasons = null, cast = [];
-  if (item.tmdb_id && tmdb.enabled()) {
+  if (item.anilist_id) {
+    try {
+      const extra = await anilist.titlePage(item.anilist_id);
+      seasons = extra.seasons;
+      cast = extra.cast;
+      if (!item.poster_url && extra.item.poster_url) item.poster_url = extra.item.poster_url;
+      if (!item.backdrop_url && extra.item.backdrop_url) item.backdrop_url = extra.item.backdrop_url;
+      if (!item.episode_count && extra.item.episode_count) item.episode_count = extra.item.episode_count;
+    } catch (e) { console.error('AniList extras failed:', e.message); }
+  } else if (item.tmdb_id && tmdb.enabled()) {
     try {
       const extra = await tmdb.titlePage(item.type === 'Series' ? 'tv' : 'movie', item.tmdb_id);
       seasons = extra.seasons;
       cast = extra.cast;
     } catch (e) { console.error('TMDB extras failed:', e.message); }
   }
-  const player = vidsrc.player(item, { seasons, tvId: seasons ? item.tmdb_id : null });
+  const player = vidsrc.player(item, { seasons, tvId: item.anilist_id ? null : (seasons ? item.tmdb_id : null) });
   res.render('site/detail', { title: item.title, item, player, similar, cast, source: null });
 });
 

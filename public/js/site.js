@@ -872,38 +872,31 @@
       try { msg = JSON.parse(e.data); } catch { return; }
       if (!msg || typeof msg !== 'object') return;
 
-      let epNum = null;
-      let snNum = null;
-      let data = msg;
+      // Vidy sends PLAYER_EVENT during playback.
+      // Do NOT process MEDIA_DATA for episode navigation — MEDIA_DATA is just a 1-second interval dump
+      // of localStorage where last_episode_watched is often stale, which falsely reverts state.e to 1.
+      if (msg.type !== 'PLAYER_EVENT') return;
 
-      // Vidy sends PLAYER_EVENT during playback and MEDIA_DATA every second via _app
-      if (msg.type === 'PLAYER_EVENT') {
-        data = (msg.data && typeof msg.data === 'object') ? msg.data : msg;
+      const data = (msg.data && typeof msg.data === 'object') ? msg.data : msg;
+      const isAnime = Boolean(cfg.anime || data.type === 'anime');
+      let epNum;
+      let snNum;
+
+      if (isAnime) {
+        // Vidy's anime URL structure is /anime/:id/:episode (there is no season param).
+        // Inside Vidy's video player (chunk 5114), param 1 (episode) is assigned to `season`, while `episode` defaults to 1.
+        // Therefore, for anime events from Vidy, `data.season` is the real episode number, whereas `data.episode` is always 1!
+        const parsedSeason = Number(data.season != null ? data.season : msg.season);
+        const parsedEpisode = Number(data.episode != null ? data.episode : msg.episode);
+        epNum = Number.isFinite(parsedSeason) && parsedSeason > 0
+          ? parsedSeason
+          : (Number.isFinite(parsedEpisode) && parsedEpisode > 0 ? parsedEpisode : state.e);
+
+        const tab = cfg.seasons?.find(x => epNum >= (x.start || 1) && (!x.episodes || epNum <= (x.start || 1) + x.episodes - 1));
+        snNum = tab ? tab.n : 1;
+      } else {
         epNum = Number(data.episode != null ? data.episode : msg.episode);
         snNum = Number(data.season != null ? data.season : msg.season);
-      } else if (msg.type === 'MEDIA_DATA' && msg.data) {
-        try {
-          const raw = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-          if (raw && typeof raw === 'object') {
-            const itemKey = `${cfg.anime ? 'anime' : 'tv'}-${cfg.id}`;
-            const item = raw[itemKey] || raw[cfg.id] || Object.values(raw).find(v => v && (v.id == cfg.id || v.tmdbId == cfg.id));
-            if (item) {
-              epNum = Number(item.last_episode_watched || item.episode || item.e);
-              snNum = Number(item.last_season_watched || item.season || item.s);
-            }
-          }
-        } catch {}
-      }
-
-      // Vidy's anime embed has no season parameter; Vidy's events either omit season or mirror the episode number.
-      // Map the anime episode number to CineBase's season chunk (1 for 1–100, 2 for 101–200, etc.)
-      if (cfg.anime) {
-        if (Number.isFinite(epNum) && epNum > 0) {
-          const tab = cfg.seasons?.find(x => epNum >= (x.start || 1) && (!x.episodes || epNum <= (x.start || 1) + x.episodes - 1));
-          snNum = tab ? tab.n : 1;
-        } else {
-          snNum = 1;
-        }
       }
 
       // 1. If we commanded a manual navigation, ignore any stale messages from old episodes until target loads
@@ -912,10 +905,12 @@
           if (Number.isFinite(epNum) && epNum === pendingNav.e && (!snNum || snNum === pendingNav.s)) {
             pendingNav = null; // Target episode arrived!
           } else {
-            return; // Drop stale messages from old episode
+            return; // Drop stale messages from old episode while target is loading
           }
         } else {
           pendingNav = null;
+          // Deadline expired: do not let an event from an old episode revert state.e
+          if (Number.isFinite(epNum) && epNum !== state.e) return;
         }
       }
 
@@ -1189,7 +1184,7 @@
         state.s = s; state.e = e;
         lastSaved = 0;
         try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
-        pendingNav = { s, e, deadline: Date.now() + 5000 };
+        pendingNav = { s, e, deadline: Date.now() + 15000 };
         load(true);
         if (shown !== s) showSeason(s); else mark();
       }
@@ -1224,6 +1219,9 @@
       } else {
         if (sIdx(state.s) < 0 && seasons.length) state.s = seasons[0].n;
         if (state.e < first(state.s)) state.e = first(state.s);
+      }
+      if (state.s !== 1 || state.e !== 1) {
+        pendingNav = { s: state.s, e: state.e, deadline: Date.now() + 15000 };
       }
       showSeason(state.s);
     }

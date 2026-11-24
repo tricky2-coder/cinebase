@@ -177,6 +177,7 @@ async function init() {
     trailer_key: 'TEXT',          // YouTube video id
     imdb_id: 'TEXT',              // IMDb ID (e.g. tt1375666) for VidSrc playback
     tmdb_id: 'INTEGER',           // TMDB ID for VidSrc playback
+    anilist_id: 'INTEGER',        // AniList ID for Vidy anime playback
     plex_rating_key: 'TEXT',      // links the record to an item on your Plex server
     tmdb_checked_at: 'TEXT'       // last TMDB enrich attempt, so unmatched titles aren't retried every run
   };
@@ -188,6 +189,7 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_titles_genre ON titles(genre);
     CREATE INDEX IF NOT EXISTS idx_titles_type ON titles(type);
     CREATE INDEX IF NOT EXISTS idx_titles_rating ON titles(rating);
+    CREATE INDEX IF NOT EXISTS idx_titles_anilist ON titles(anilist_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);
   `);
 
@@ -234,6 +236,22 @@ async function init() {
           VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@imdb_id,@tmdb_id)`, r);
       }
     }).then(() => console.log(`Seeded ${samples.length} sample titles`)).catch(ignoreRace(/UNIQUE constraint/i));
+  }
+
+  // Ensure anime sample titles exist in the local catalogue for offline/local testing
+  const animeSamples = [
+    { title: 'Attack on Titan', type: 'Series', genre: 'Anime', language: 'Japanese', release_year: 2013, director: 'Tetsuro Araki', cast_members: 'Yuki Kaji, Yui Ishikawa', seasons: 4, duration_min: 24, rating: 9.1, platform: 'Crunchyroll', status: 'Ended', synopsis: 'Humanity fights against giant humanoid Titans.', anilist_id: 16498, imdb_id: 'tt2560140', tmdb_id: 1429 },
+    { title: 'Death Note', type: 'Series', genre: 'Anime', language: 'Japanese', release_year: 2006, director: 'Tetsuro Araki', cast_members: 'Mamoru Miyano, Kappei Yamaguchi', seasons: 1, duration_min: 23, rating: 9.0, platform: 'Netflix', status: 'Ended', synopsis: 'A high school student discovers a supernatural notebook.', anilist_id: 1535, imdb_id: 'tt0877057', tmdb_id: 13916 },
+    { title: 'One Piece', type: 'Series', genre: 'Anime', language: 'Japanese', release_year: 1999, director: 'Konosuke Uda', cast_members: 'Mayumi Tanaka, Kazuya Nakai', seasons: 1, duration_min: 24, rating: 9.0, platform: 'Crunchyroll', status: 'Ongoing', synopsis: 'Monkey D. Luffy searches for the legendary treasure.', anilist_id: 21, imdb_id: 'tt0388629', tmdb_id: 37854 }
+  ];
+  for (const a of animeSamples) {
+    const exists = await db.get('SELECT id FROM titles WHERE anilist_id = ? OR imdb_id = ?', a.anilist_id, a.imdb_id);
+    if (!exists) {
+      await db.run(`INSERT INTO titles
+        (title, type, genre, language, release_year, director, cast_members, seasons, duration_min, rating, platform, status, synopsis, anilist_id, imdb_id, tmdb_id)
+        VALUES (@title,@type,@genre,@language,@release_year,@director,@cast_members,@seasons,@duration_min,@rating,@platform,@status,@synopsis,@anilist_id,@imdb_id,@tmdb_id)`, a)
+        .catch(ignoreRace(/UNIQUE constraint/i));
+    }
   }
 }
 

@@ -54,7 +54,7 @@
   <div class="player-bar">
     <div class="player-title">
       <h2>Watch</h2>
-      <% if (player && player.isSeries) { %><span class="now-playing" id="ep-now">Season 1 · Episode 1</span><% } %>
+      <% if (player && player.isSeries) { %><span class="now-playing" id="ep-now"><%= player.cfg.anime ? 'Episode 1' : 'Season 1 · Episode 1' %></span><% } %>
     </div>
     <% if (player) { %>
     <div class="player-tools">

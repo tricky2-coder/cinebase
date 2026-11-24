@@ -2,7 +2,7 @@
 <main class="s-page">
   <div class="browse-head">
     <h1><%= heading %></h1>
-    <p class="muted-s"><%= pages >= 500 ? '10,000+' : total.toLocaleString('en-IN') %> title<%= total === 1 ? '' : 's' %><%= isSearch ? ' on TMDB' : '' %></p>
+    <p class="muted-s"><%= pages >= 500 ? '10,000+' : total.toLocaleString('en-IN') %> title<%= total === 1 ? '' : 's' %><%= isSearch ? (tmdbEnabled ? ' on TMDB' : '') : '' %></p>
   </div>
 
   <% if (!isSearch) { %>
@@ -42,12 +42,15 @@
   <h2 class="sub-h">Anime</h2>
   <div class="grid grid-gap"><% anime.forEach(c => { %><%- include('_card', { c }) %><% }) %></div>
   <% } %>
-  <% if (local.length || anime.length) { %><h2 class="sub-h">Movies &amp; series</h2><% } %>
 
-  <div class="grid">
-    <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>
-  </div>
-  <% if (!items.length) { %><p class="empty-s">Nothing found. <a href="/discover">Discover popular titles</a></p><% } %>
+  <% if (items.length) { %>
+    <% if (local.length || anime.length) { %><h2 class="sub-h">Movies &amp; series</h2><% } %>
+    <div class="grid">
+      <% items.forEach(c => { %><%- include('_card', { c }) %><% }) %>
+    </div>
+  <% } else if (!local.length && !anime.length) { %>
+    <p class="empty-s">Nothing found. <a href="/discover">Discover popular titles</a></p>
+  <% } %>
 
   <% if (pages > 1) { %>
   <nav class="s-pager" aria-label="Pagination">

@@ -17,7 +17,7 @@ function player(item, { seasons = null, tvId = null } = {}) {
   const fallbackSeasons = Array.from({ length: item.seasons || 1 }, (_, i) => ({ n: i + 1, name: `Season ${i + 1}`, episodes: null }));
   const seasonList = isSeries ? (seasons?.length ? seasons : fallbackSeasons) : null;
 
-  const seriesFlags = 'color=F5B301&autoplay=true&nextEpisode=true&episodeSelector=true&progress=0';
+  const seriesFlags = 'color=F5B301&autoplay=true&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&progress=0';
   const movieFlags = 'color=F5B301&autoplay=true&progress=0';
 
   const path = isAnime

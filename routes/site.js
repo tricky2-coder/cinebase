@@ -450,10 +450,45 @@ router.get('/api/anime/watch/:anilistId/:ep', async (req, res) => {
   }
 });
 
-// Lightweight HLS / subtitle proxy to attach Referer headers and bypass CORS
+const FLIX_SEG_XOR = Uint8Array.from([157, 42, 241, 71, 179, 142, 92, 112, 166, 25, 228, 59, 216, 98, 15, 197]);
+
+function decryptFlixManifest(buf, playlistKey) {
+  const trimmed = buf.toString('utf8').trim();
+  if (trimmed.startsWith('#EXTM3U')) return trimmed;
+  if (!playlistKey) return null;
+  const key = Buffer.from(playlistKey, 'base64');
+  const payload = Buffer.from(trimmed, 'base64');
+  const out = Buffer.alloc(payload.length);
+  for (let i = 0; i < payload.length; i++) out[i] = payload[i] ^ key[i % key.length];
+  const text = out.toString('utf8').trim();
+  return text.startsWith('#EXTM3U') ? text : null;
+}
+
+function unwrapFlixSegment(body) {
+  let offset = 0;
+  let needsXor = false;
+  if (body.length > 12 && body[0] === 0x52 && body[1] === 0x49 && body[2] === 0x46 && body[3] === 0x46 &&
+      body[8] === 0x57 && body[9] === 0x45 && body[10] === 0x42 && body[11] === 0x50) {
+    offset = 12;
+    needsXor = body[offset] !== 0x47;
+  } else if (body.length > 8 && body[0] === 0x89 && body[1] === 0x50 && body[2] === 0x4e && body[3] === 0x47 &&
+             body[4] === 0x0d && body[5] === 0x0a && body[6] === 0x1a && body[7] === 0x0a) {
+    offset = 8;
+    needsXor = body[offset] !== 0x47;
+  }
+  if (!offset) return { body, unwrapped: false };
+  const out = Buffer.from(body.subarray(offset));
+  if (needsXor) {
+    for (let i = 0; i < out.length; i++) out[i] ^= FLIX_SEG_XOR[i % FLIX_SEG_XOR.length];
+  }
+  return { body: out, unwrapped: true };
+}
+
+// Lightweight HLS / subtitle proxy to attach Referer headers, decrypt FlixCloud manifests, and bypass CORS
 router.get('/api/anime/proxy', async (req, res) => {
   const targetUrl = typeof req.query.url === 'string' ? req.query.url.trim() : '';
   const referer = typeof req.query.referer === 'string' ? req.query.referer.trim() : '';
+  const playlistKey = typeof req.query.key === 'string' ? req.query.key.trim() : '';
   if (!/^https?:\/\//i.test(targetUrl)) {
     return res.status(400).send('Invalid URL');
   }
@@ -475,18 +510,17 @@ router.get('/api/anime/proxy', async (req, res) => {
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
     res.set('Access-Control-Allow-Origin', '*');
 
-    const isM3u8 = targetUrl.includes('.m3u8') || /mpegurl/i.test(contentType);
-    if (isM3u8) {
-      const text = await upstream.text();
-      if (!text.trimStart().startsWith('#EXTM3U')) {
-        return res.status(502).send('Upstream did not return a valid M3U8 playlist');
-      }
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    const looksM3u8 = targetUrl.includes('.m3u8') || /mpegurl/i.test(contentType) || buf.subarray(0, 16).toString('utf8').trimStart().startsWith('#EXTM3U');
+    const decryptedText = (looksM3u8 || playlistKey) ? decryptFlixManifest(buf, playlistKey) : null;
+
+    if (decryptedText) {
       const base = new URL(targetUrl);
       const wrap = u => {
         const abs = new URL(u, base).href;
-        return `/api/anime/proxy?url=${encodeURIComponent(abs)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+        return `/api/anime/proxy?url=${encodeURIComponent(abs)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}${playlistKey ? `&key=${encodeURIComponent(playlistKey)}` : ''}`;
       };
-      const rewritten = text
+      const rewritten = decryptedText
         .split(/\r?\n/)
         .map(line => {
           const trimmed = line.trim();
@@ -501,9 +535,13 @@ router.get('/api/anime/proxy', async (req, res) => {
       return res.send(rewritten);
     }
 
-    res.set('Content-Type', contentType);
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    return res.send(buf);
+    if (looksM3u8) {
+      return res.status(502).send('Upstream did not return a valid M3U8 playlist');
+    }
+
+    const seg = unwrapFlixSegment(buf);
+    res.set('Content-Type', seg.unwrapped ? 'video/mp2t' : contentType);
+    return res.send(seg.body);
   } catch (e) {
     console.error('Anime proxy error:', e.message);
     return res.status(502).send('Proxy error');

@@ -1869,7 +1869,14 @@
         hideAnimeMsg();
 
         const resumeTime = resumeAt();
-        const startUrl = (primary.directUrl && !primary.hasReferer) ? primary.directUrl : primary.url;
+        // Build ordered candidate list across all returned sources (proxy + direct fallback if no referer/key required)
+        const candidateUrls = [];
+        sources.forEach(s => {
+          if (s.directUrl && !s.hasReferer) candidateUrls.push(s.directUrl);
+          if (s.url) candidateUrls.push(s.url);
+          if (s.directUrl && s.hasReferer) candidateUrls.push(s.directUrl);
+        });
+        const startUrl = candidateUrls[0] || primary.url;
         const qualityList = sources.map(s => ({
           default: s === primary,
           html: String(s.quality || 'Auto'),
@@ -1900,20 +1907,18 @@
               if (window.Hls && window.Hls.isSupported()) {
                 if (art.hls) art.hls.destroy();
                 const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
-                let triedFallbackUrl = false;
+                let attemptIdx = Math.max(0, candidateUrls.indexOf(m3u8Url));
                 hls.on(window.Hls.Events.ERROR, (_, errData) => {
                   if (!errData?.fatal) return;
-                  if (!triedFallbackUrl) {
-                    triedFallbackUrl = true;
-                    const altUrl = (m3u8Url === primary.url && primary.directUrl) ? primary.directUrl : (m3u8Url === primary.directUrl ? primary.url : null);
-                    if (altUrl) {
-                      hls.loadSource(altUrl);
-                      return;
-                    }
+                  attemptIdx++;
+                  if (attemptIdx < candidateUrls.length) {
+                    hls.loadSource(candidateUrls[attemptIdx]);
+                    return;
                   }
+                  const detail = [data.providerLabel, errData.type, errData.details, errData.response?.code].filter(Boolean).join(' · ');
                   try { hls.destroy(); } catch {}
                   destroyArtplayer();
-                  showAnimeMsg('Stream could not be loaded on this server. Try another server or Vidy.', true);
+                  showAnimeMsg(`Stream failed (${detail || 'playback error'}). Try another server or Vidy.`, true);
                 });
                 hls.loadSource(m3u8Url);
                 hls.attachMedia(video);

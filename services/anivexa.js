@@ -76,8 +76,9 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
 
   const sources = playable.map(s => {
     const referer = s.referer || topHeaders.Referer || topHeaders.referer || '';
-    const isM3U8 = Boolean(s.type === 'hls' || s.isM3U8 || String(s.url).includes('.m3u8'));
-    const proxiedUrl = `/api/anime/proxy?url=${encodeURIComponent(s.url)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+    const playlistKey = s.playlist_key || s.key || data.playlist_key || data.key || '';
+    const isM3U8 = Boolean(s.type === 'hls' || s.isM3U8 || String(s.url).includes('.m3u8') || playlistKey);
+    const proxiedUrl = `/api/anime/proxy?url=${encodeURIComponent(s.url)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}${playlistKey ? `&key=${encodeURIComponent(playlistKey)}` : ''}`;
 
     if (Array.isArray(s.subtitles)) {
       for (const t of s.subtitles) {
@@ -94,9 +95,9 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
     return {
       url: proxiedUrl,
       directUrl: s.url,
-      hasReferer: Boolean(referer),
+      hasReferer: Boolean(referer || playlistKey),
       isM3U8,
-      quality: s.quality || 'Auto'
+      quality: s.quality || s.server || 'Auto'
     };
   });
 

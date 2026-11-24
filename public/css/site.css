@@ -1001,25 +1001,25 @@ body.ww-active .ww-overlay {
 .ww-btn-delete {
   background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.22);
   font-size: 0.9rem; font-weight: 500; padding: 10px 22px; border-radius: 6px; cursor: pointer;
-  margin-left: auto; transition: all .22s cubic-bezier(0.25, 1, 0.5, 1);
+  margin-left: auto; transition: all .2s cubic-bezier(0.25, 1, 0.5, 1);
   display: inline-flex; align-items: center; justify-content: center;
   user-select: none;
 }
 .ww-btn-delete:hover {
-  background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.45);
-  color: #ef4444; transform: translateY(-1px);
+  background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171; transform: translateY(-1px);
 }
 .ww-btn-delete.confirming {
-  background: #e50914 !important;
+  background: #8e1c21 !important;
   color: #ffffff !important;
-  border-color: #ff3838 !important;
-  font-weight: 600 !important;
-  box-shadow: 0 4px 18px rgba(229, 9, 20, 0.55), 0 0 16px rgba(255, 56, 56, 0.4) !important;
-  animation: wwDeletePulse 1.2s infinite ease-in-out;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 10px rgba(185, 28, 28, 0.25) !important;
 }
-@keyframes wwDeletePulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(229, 9, 20, 0.5); }
-  50% { transform: scale(1.025); box-shadow: 0 6px 22px rgba(229, 9, 20, 0.75); }
+.ww-btn-delete.confirming:hover {
+  background: #9d2026 !important;
+  border-color: rgba(239, 68, 68, 0.7) !important;
+  transform: translateY(-1px);
 }
 .ww-btn-delete:disabled {
   opacity: 0.6; cursor: not-allowed; transform: none !important;

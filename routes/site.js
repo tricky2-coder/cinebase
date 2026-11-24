@@ -116,15 +116,16 @@ router.get('/', async (req, res) => {
     }
   }
 
-  // Prepend personal profile rows: Continue Watching & My Watchlist
+  // Prepend personal profile rows: Continue Watching above My Watchlist
   if (req.session.user && req.session.activeProfileId) {
     try {
+      const personalRows = [];
       const historyRows = await db.all(
         'SELECT * FROM watch_history WHERE profile_id = ? ORDER BY updated_at DESC LIMIT 20',
         req.session.activeProfileId
       );
       if (historyRows && historyRows.length) {
-        rows.unshift({
+        personalRows.push({
           name: 'Continue Watching',
           link: '/history',
           items: historyRows.map(h => ({
@@ -144,7 +145,7 @@ router.get('/', async (req, res) => {
         req.session.activeProfileId
       );
       if (watchlistRows && watchlistRows.length) {
-        rows.unshift({
+        personalRows.push({
           name: 'My Watchlist',
           link: '/watchlist',
           items: watchlistRows.map(w => ({
@@ -157,6 +158,10 @@ router.get('/', async (req, res) => {
             release_year: w.release_year
           }))
         });
+      }
+
+      if (personalRows.length) {
+        rows.unshift(...personalRows);
       }
     } catch (err) {
       console.error('Error fetching profile rows for home:', err.message);

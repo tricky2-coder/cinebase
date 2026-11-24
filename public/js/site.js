@@ -106,7 +106,7 @@
       if (list.hidden) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); highlight((active + 1) % items.length); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); highlight((active - 1 + items.length) % items.length); }
-      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); permitNavigation(); location.href = items[active].href; }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); permitInternalNavigation(); location.href = items[active].href; }
       else if (e.key === 'Escape') closeList();
     });
     input.addEventListener('focus', () => { if (list.children.length && input.value.trim().length >= 2) { list.hidden = false; input.setAttribute('aria-expanded', 'true'); } });
@@ -471,19 +471,9 @@
         }
 
         setTimeout(() => {
-          if (wwModal) wwModal.classList.add('ww-modal-exiting');
-          setTimeout(() => {
-            closeWhosWatching();
-            delete document.body.dataset.showWhosWatching;
-            document.body.classList.remove('ww-active');
-            isSwitchingProfile = false;
-            isHeroPinActive = false;
-            pendingPinProfile = null;
-            pendingPinHeroItem = null;
-            permitNavigation();
-            window.location.href = window.location.pathname;
-          }, 350);
-        }, 420);
+          permitInternalNavigation();
+          window.location.href = '/';
+        }, 500);
       } else {
         const errData = await res.json().catch(() => ({}));
         if (wwPinBoxes) {
@@ -596,22 +586,24 @@
           settingsName.textContent = data.profile.name;
         }
 
-        setTimeout(() => {
-          if (wwModal) wwModal.classList.add('ww-modal-exiting');
+        if (!isAlreadyActive || window.location.pathname !== '/') {
           setTimeout(() => {
-            closeWhosWatching();
-            delete document.body.dataset.showWhosWatching;
-            document.body.classList.remove('ww-active');
-            isSwitchingProfile = false;
-
-            if (!isAlreadyActive) {
-              permitNavigation();
-              window.location.href = window.location.pathname;
-            } else {
+            permitInternalNavigation();
+            window.location.href = '/';
+          }, 500);
+        } else {
+          // Same profile clicked while already on home page: modal smoothly fades out
+          setTimeout(() => {
+            if (wwModal) wwModal.classList.add('ww-modal-exiting');
+            setTimeout(() => {
+              closeWhosWatching();
+              delete document.body.dataset.showWhosWatching;
+              document.body.classList.remove('ww-active');
+              isSwitchingProfile = false;
               resetProfileSelectionAnimations();
-            }
+            }, 300);
           }, 350);
-        }, 420);
+        }
       } else {
         isSwitchingProfile = false;
         resetProfileSelectionAnimations();
@@ -825,9 +817,8 @@
 
   function closeWhosWatching() {
     if (window.location.pathname === '/whos-watching') {
-      const params = new URLSearchParams(window.location.search);
-      permitNavigation();
-      window.location.href = params.get('next') || '/';
+      permitInternalNavigation();
+      window.location.href = '/';
       return;
     }
     if (!wwModal) return;
@@ -1178,15 +1169,9 @@
             await switchPromise;
 
             setTimeout(() => {
-              if (wwModal) wwModal.classList.add('ww-modal-exiting');
-              setTimeout(() => {
-                closeWhosWatching();
-                delete document.body.dataset.showWhosWatching;
-                document.body.classList.remove('ww-active');
-                permitNavigation();
-                window.location.href = window.location.pathname;
-              }, 350);
-            }, 420);
+              permitInternalNavigation();
+              window.location.href = '/';
+            }, 500);
             return;
           }
           await loadProfiles();
@@ -1324,77 +1309,83 @@
   // Because Vidy has internal anti-sandbox detection that halts playback under HTML `sandbox`,
   // we keep HTML sandbox off Vidy and shield the top window using proactive client-side navigation traps.
 
-  let allowTopNavigation = false;
-  let navClearTimer = null;
+  let allowInternalUnload = false;
+  let unloadTimer = null;
 
-  function permitNavigation(durationMs = 4000) {
-    allowTopNavigation = true;
-    clearTimeout(navClearTimer);
-    navClearTimer = setTimeout(() => {
-      allowTopNavigation = false;
+  function permitInternalNavigation(durationMs = 1500) {
+    allowInternalUnload = true;
+    clearTimeout(unloadTimer);
+    unloadTimer = setTimeout(() => {
+      allowInternalUnload = false;
     }, durationMs);
   }
 
-  // 1. Authorize legitimate user interactions on CineBase elements
+  // 1. Authorize legitimate user interactions on CineBase links ONLY
+  // Hash links (like #watch or #) and internal action buttons must NEVER permit page unloads!
   document.addEventListener('click', (e) => {
-    const interactive = e.target.closest('a, button, input, select, form, [role="button"], [role="tab"]');
-    if (interactive) {
-      permitNavigation();
+    const link = e.target.closest('a');
+    if (link && link.href) {
+      const hrefAttr = link.getAttribute('href') || '';
+      if (!hrefAttr.startsWith('#') && !hrefAttr.startsWith('javascript:')) {
+        try {
+          const targetUrl = new URL(link.href, window.location.href);
+          if (targetUrl.origin === window.location.origin) {
+            permitInternalNavigation();
+          }
+        } catch {}
+      }
     }
   }, true);
 
-  document.addEventListener('submit', () => permitNavigation(), true);
+  document.addEventListener('submit', (e) => {
+    const form = e.target.closest('form');
+    if (form) {
+      const action = form.getAttribute('action') || '';
+      if (!action.startsWith('http') || action.startsWith(window.location.origin)) {
+        permitInternalNavigation();
+      }
+    }
+  }, true);
 
-  // Keyboard navigation & reload (F5, Ctrl+R, Enter)
+  // Keyboard navigation & reload (F5, Ctrl+R)
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R')) || e.key === 'Enter') {
-      permitNavigation();
+    if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R'))) {
+      permitInternalNavigation();
     }
   }, true);
 
   // History back/forward
-  window.addEventListener('popstate', () => permitNavigation());
+  window.addEventListener('popstate', () => permitInternalNavigation());
 
   // 2. Intercept window.open popups targeted at top or parent
   const nativeWindowOpen = window.open;
   window.open = function(url, target, features) {
-    // Allow CineBase's own Picture-in-Picture window or user-permitted actions
-    if (target === 'cinebase-player' || allowTopNavigation) {
+    // Allow CineBase's own Picture-in-Picture window
+    if (target === 'cinebase-player') {
       return nativeWindowOpen.call(window, url, target, features);
     }
-    try {
-      if (url) {
-        const parsed = new URL(url, window.location.href);
-        if (parsed.origin === window.location.origin && allowTopNavigation) {
-          return nativeWindowOpen.call(window, url, target, features);
-        }
-      }
-    } catch {}
-
     const showAds = localStorage.getItem('cinebase.showAds') === 'true';
     if (!showAds) {
-      console.warn('[CineBase Shield] Blocked unauthorized window.open redirect to:', url);
+      console.warn('[CineBase Shield] Blocked popup window:', url);
       return null;
     }
     return nativeWindowOpen.call(window, url, target, features);
   };
 
   // 3. Navigation API trap (Chromium: Chrome, Edge, Brave, Opera)
+  // Cross-origin navigations from the top window are ALWAYS blocked when showAds is off
   if (typeof window.navigation !== 'undefined' && window.navigation.addEventListener) {
     window.navigation.addEventListener('navigate', (e) => {
       const showAds = localStorage.getItem('cinebase.showAds') === 'true';
       if (showAds) return;
 
-      const playerEl = document.getElementById('player');
-      if (!playerEl) return;
-
       try {
         const dest = new URL(e.destination.url);
         const isExternal = dest.origin !== window.location.origin;
-        if (isExternal && !allowTopNavigation) {
+        if (isExternal) {
           if (e.cancelable) {
             e.preventDefault();
-            console.warn('[CineBase Shield] Blocked unauthorized external redirect to:', e.destination.url);
+            console.warn('[CineBase Shield] Blocked external redirect to:', e.destination.url);
           }
         }
       } catch {}
@@ -1402,13 +1393,13 @@
   }
 
   // 4. Universal beforeunload trap:
-  // When an embedded iframe tries to navigate top.location without user clicking a CineBase element
+  // When an embedded iframe tries to navigate top.location without user clicking an internal CineBase page link
   window.addEventListener('beforeunload', (e) => {
     const showAds = localStorage.getItem('cinebase.showAds') === 'true';
     if (showAds) return;
 
     const playerEl = document.getElementById('player');
-    if (playerEl && !allowTopNavigation) {
+    if (playerEl && !allowInternalUnload) {
       e.preventDefault();
       e.returnValue = '';
       return '';
@@ -1907,6 +1898,36 @@
     });
 
     const popBtn = document.getElementById('p-popout');
+    const fsBtn = document.getElementById('p-fullscreen');
+    if (fsBtn) {
+      fsBtn.addEventListener('click', () => {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          player.requestFullscreen().catch(() => {});
+        }
+      });
+      document.addEventListener('fullscreenchange', () => {
+        const isFs = Boolean(document.fullscreenElement);
+        fsBtn.textContent = isFs ? '⛶ Exit' : '⛶ Fullscreen';
+        fsBtn.classList.toggle('active', isFs);
+      });
+    }
+
+    // Keyboard 'F' shortcut for full screen
+    window.addEventListener('keydown', (e) => {
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = document.activeElement?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+          e.preventDefault();
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          } else {
+            player.requestFullscreen().catch(() => {});
+          }
+        }
+      }
+    });
     const popped = document.getElementById('p-popped');
     let pollClosed;
 

@@ -106,7 +106,7 @@
       if (list.hidden) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); highlight((active + 1) % items.length); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); highlight((active - 1 + items.length) % items.length); }
-      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.href = items[active].href; }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); permitNavigation(); location.href = items[active].href; }
       else if (e.key === 'Escape') closeList();
     });
     input.addEventListener('focus', () => { if (list.children.length && input.value.trim().length >= 2) { list.hidden = false; input.setAttribute('aria-expanded', 'true'); } });
@@ -480,6 +480,7 @@
             isHeroPinActive = false;
             pendingPinProfile = null;
             pendingPinHeroItem = null;
+            permitNavigation();
             window.location.href = window.location.pathname;
           }, 350);
         }, 420);
@@ -604,6 +605,7 @@
             isSwitchingProfile = false;
 
             if (!isAlreadyActive) {
+              permitNavigation();
               window.location.href = window.location.pathname;
             } else {
               resetProfileSelectionAnimations();
@@ -824,6 +826,7 @@
   function closeWhosWatching() {
     if (window.location.pathname === '/whos-watching') {
       const params = new URLSearchParams(window.location.search);
+      permitNavigation();
       window.location.href = params.get('next') || '/';
       return;
     }
@@ -1180,6 +1183,7 @@
                 closeWhosWatching();
                 delete document.body.dataset.showWhosWatching;
                 document.body.classList.remove('ww-active');
+                permitNavigation();
                 window.location.href = window.location.pathname;
               }, 350);
             }, 420);
@@ -1312,12 +1316,120 @@
     });
   }
 
+  // -------------------------------------------------------------
+  // Anti-Redirect & Ad-Shield Protection (for Vidy & Embedded Players)
+  // -------------------------------------------------------------
+  // Vidy player embeds contain third-party ad scripts that attempt to hijack
+  // the top window via top.location, parent.location, <a target="_top">, or window.open.
+  // Because Vidy has internal anti-sandbox detection that halts playback under HTML `sandbox`,
+  // we keep HTML sandbox off Vidy and shield the top window using proactive client-side navigation traps.
+
+  let allowTopNavigation = false;
+  let navClearTimer = null;
+
+  function permitNavigation(durationMs = 4000) {
+    allowTopNavigation = true;
+    clearTimeout(navClearTimer);
+    navClearTimer = setTimeout(() => {
+      allowTopNavigation = false;
+    }, durationMs);
+  }
+
+  // 1. Authorize legitimate user interactions on CineBase elements
+  document.addEventListener('click', (e) => {
+    const interactive = e.target.closest('a, button, input, select, form, [role="button"], [role="tab"]');
+    if (interactive) {
+      permitNavigation();
+    }
+  }, true);
+
+  document.addEventListener('submit', () => permitNavigation(), true);
+
+  // Keyboard navigation & reload (F5, Ctrl+R, Enter)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R')) || e.key === 'Enter') {
+      permitNavigation();
+    }
+  }, true);
+
+  // History back/forward
+  window.addEventListener('popstate', () => permitNavigation());
+
+  // 2. Intercept window.open popups targeted at top or parent
+  const nativeWindowOpen = window.open;
+  window.open = function(url, target, features) {
+    // Allow CineBase's own Picture-in-Picture window or user-permitted actions
+    if (target === 'cinebase-player' || allowTopNavigation) {
+      return nativeWindowOpen.call(window, url, target, features);
+    }
+    try {
+      if (url) {
+        const parsed = new URL(url, window.location.href);
+        if (parsed.origin === window.location.origin && allowTopNavigation) {
+          return nativeWindowOpen.call(window, url, target, features);
+        }
+      }
+    } catch {}
+
+    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
+    if (!showAds) {
+      console.warn('[CineBase Shield] Blocked unauthorized window.open redirect to:', url);
+      return null;
+    }
+    return nativeWindowOpen.call(window, url, target, features);
+  };
+
+  // 3. Navigation API trap (Chromium: Chrome, Edge, Brave, Opera)
+  if (typeof window.navigation !== 'undefined' && window.navigation.addEventListener) {
+    window.navigation.addEventListener('navigate', (e) => {
+      const showAds = localStorage.getItem('cinebase.showAds') === 'true';
+      if (showAds) return;
+
+      const playerEl = document.getElementById('player');
+      if (!playerEl) return;
+
+      try {
+        const dest = new URL(e.destination.url);
+        const isExternal = dest.origin !== window.location.origin;
+        if (isExternal && !allowTopNavigation) {
+          if (e.cancelable) {
+            e.preventDefault();
+            console.warn('[CineBase Shield] Blocked unauthorized external redirect to:', e.destination.url);
+          }
+        }
+      } catch {}
+    });
+  }
+
+  // 4. Universal beforeunload trap:
+  // When an embedded iframe tries to navigate top.location without user clicking a CineBase element
+  window.addEventListener('beforeunload', (e) => {
+    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
+    if (showAds) return;
+
+    const playerEl = document.getElementById('player');
+    if (playerEl && !allowTopNavigation) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
   // "Show ads" Toggle & Video Player Ad-Sandbox Enforcer
   function applyAdSandbox(iframeEl) {
     if (!iframeEl) return;
+    // Vidy has strict anti-sandbox detection that blocks playback with "Iframe Sandbox Detected".
+    // Vidy must NEVER have the HTML sandbox attribute applied to it.
+    const playerCfg = document.getElementById('player')?.dataset?.cfg;
+    const isVidy = (iframeEl.src && iframeEl.src.includes('vidy')) ||
+                   (playerCfg && playerCfg.includes('vidy'));
+    if (isVidy) {
+      iframeEl.removeAttribute('sandbox');
+      return;
+    }
     const showAds = localStorage.getItem('cinebase.showAds') === 'true';
     if (!showAds) {
-      // Sandbox restricts popups, popunders, and top-navigation redirects while allowing media playback
+      // Non-Vidy mirrors (like standard vidsrc) that support sandboxing:
       iframeEl.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
     } else {
       iframeEl.removeAttribute('sandbox');

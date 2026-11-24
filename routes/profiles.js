@@ -56,6 +56,9 @@ router.get('/api/profiles', async (req, res) => {
 // Create profile
 router.post('/api/profiles', async (req, res) => {
   try {
+    if (req.session.activeProfile && req.session.activeProfile.is_kids) {
+      return res.status(403).json({ error: 'Kids profiles cannot manage or create profiles.' });
+    }
     const name = (req.body.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Name is required' });
     const validPaths = AVATAR_PRESETS.map(p => p.path);
@@ -71,6 +74,17 @@ router.post('/api/profiles', async (req, res) => {
     const count = (await db.get('SELECT COUNT(*) as c FROM profiles WHERE user_id = ?', req.session.user.id)).c;
     if (count >= 6) return res.status(400).json({ error: 'Maximum 6 profiles allowed' });
 
+    // If creating a kids profile, require at least one locked adult profile
+    if (isKids) {
+      const hasLockedAdult = await db.get(
+        'SELECT id FROM profiles WHERE user_id = ? AND is_kids = 0 AND pin IS NOT NULL LIMIT 1',
+        req.session.user.id
+      );
+      if (!hasLockedAdult) {
+        return res.status(400).json({ error: 'An adult profile must have a PIN lock first before creating a Kids profile.' });
+      }
+    }
+
     const r = await db.run(
       'INSERT INTO profiles (user_id, name, avatar, is_kids, pin) VALUES (?, ?, ?, ?, ?)',
       req.session.user.id, name, avatar, isKids, pin
@@ -82,11 +96,14 @@ router.post('/api/profiles', async (req, res) => {
   }
 });
 
-// Switch active profile (with PIN validation if locked)
+// Switch active profile (with PIN validation if locked or when exiting kids)
 router.post('/api/profiles/:id/switch', async (req, res) => {
   try {
     const profile = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+    const currentActive = req.session.activeProfile;
+    const isExitingKids = currentActive && currentActive.is_kids && !profile.is_kids;
 
     // If profile has a PIN lock, verify PIN
     if (profile.pin) {
@@ -97,6 +114,25 @@ router.post('/api/profiles/:id/switch', async (req, res) => {
       const ok = bcrypt.compareSync(inputPin, profile.pin);
       if (!ok) {
         return res.status(401).json({ error: 'Incorrect PIN', incorrectPin: true });
+      }
+    } else if (isExitingKids) {
+      // Switching out of a Kids profile to an adult profile requires adult PIN
+      const inputPin = (req.body.pin || '').toString().trim();
+      if (!inputPin) {
+        return res.status(403).json({ error: 'Adult PIN required to exit Kids profile', pinRequired: true });
+      }
+      let adultWithPin = null;
+      if (req.body.authProfileId) {
+        adultWithPin = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ? AND pin IS NOT NULL', req.body.authProfileId, req.session.user.id);
+      }
+      if (!adultWithPin) {
+        adultWithPin = await db.get('SELECT * FROM profiles WHERE user_id = ? AND is_kids = 0 AND pin IS NOT NULL LIMIT 1', req.session.user.id);
+      }
+      if (adultWithPin && adultWithPin.pin) {
+        const ok = bcrypt.compareSync(inputPin, adultWithPin.pin);
+        if (!ok) {
+          return res.status(401).json({ error: 'Incorrect PIN', incorrectPin: true });
+        }
       }
     }
 
@@ -118,6 +154,9 @@ router.post('/api/profiles/:id/switch', async (req, res) => {
 // Update profile
 router.put('/api/profiles/:id', async (req, res) => {
   try {
+    if (req.session.activeProfile && req.session.activeProfile.is_kids) {
+      return res.status(403).json({ error: 'Kids profiles cannot manage or edit profiles.' });
+    }
     const name = (req.body.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Name is required' });
     const avatar = req.body.avatar || AVATAR_PRESETS[0].path;
@@ -125,11 +164,37 @@ router.put('/api/profiles/:id', async (req, res) => {
     const current = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
     if (!current) return res.status(404).json({ error: 'Profile not found' });
 
+    // If enabling a kids profile, require at least one locked adult profile
+    if (isKids) {
+      const hasLockedAdult = await db.get(
+        'SELECT id FROM profiles WHERE user_id = ? AND id != ? AND is_kids = 0 AND pin IS NOT NULL LIMIT 1',
+        req.session.user.id, req.params.id
+      );
+      if (!hasLockedAdult) {
+        return res.status(400).json({ error: 'An adult profile must have a PIN lock first before enabling a Kids profile.' });
+      }
+    }
+
     let pin = current.pin;
     if (req.body.remove_pin === true || req.body.remove_pin === 'true' || req.body.lock_pin === false) {
       pin = null;
     } else if (req.body.pin && /^\d{4}$/.test(String(req.body.pin).trim())) {
       pin = bcrypt.hashSync(String(req.body.pin).trim(), 10);
+    }
+
+    // If this profile was a locked adult, check if changes would leave kids profile unprotected
+    const willBeLockedAdult = (!isKids && Boolean(pin));
+    if (current.pin && !current.is_kids && !willBeLockedAdult) {
+      const hasKids = await db.get('SELECT id FROM profiles WHERE user_id = ? AND is_kids = 1 LIMIT 1', req.session.user.id);
+      if (hasKids) {
+        const otherLockedAdult = await db.get(
+          'SELECT id FROM profiles WHERE user_id = ? AND id != ? AND is_kids = 0 AND pin IS NOT NULL LIMIT 1',
+          req.session.user.id, req.params.id
+        );
+        if (!otherLockedAdult) {
+          return res.status(400).json({ error: 'Cannot remove PIN lock: at least one adult profile must remain locked with a PIN while a Kids profile exists.' });
+        }
+      }
     }
 
     await db.run(
@@ -149,8 +214,27 @@ router.put('/api/profiles/:id', async (req, res) => {
 // Delete profile
 router.delete('/api/profiles/:id', async (req, res) => {
   try {
+    if (req.session.activeProfile && req.session.activeProfile.is_kids) {
+      return res.status(403).json({ error: 'Kids profiles cannot delete profiles.' });
+    }
     const count = (await db.get('SELECT COUNT(*) as c FROM profiles WHERE user_id = ?', req.session.user.id)).c;
     if (count <= 1) return res.status(400).json({ error: 'Cannot delete the only profile' });
+
+    const current = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
+    if (!current) return res.status(404).json({ error: 'Profile not found' });
+
+    if (current.pin && !current.is_kids) {
+      const hasKids = await db.get('SELECT id FROM profiles WHERE user_id = ? AND is_kids = 1 LIMIT 1', req.session.user.id);
+      if (hasKids) {
+        const otherLockedAdult = await db.get(
+          'SELECT id FROM profiles WHERE user_id = ? AND id != ? AND is_kids = 0 AND pin IS NOT NULL LIMIT 1',
+          req.session.user.id, req.params.id
+        );
+        if (!otherLockedAdult) {
+          return res.status(400).json({ error: 'Cannot delete this profile: at least one locked adult profile is required while a Kids profile exists.' });
+        }
+      }
+    }
 
     await db.run('DELETE FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
     if (req.session.activeProfileId === Number(req.params.id)) {

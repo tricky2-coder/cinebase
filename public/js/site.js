@@ -123,11 +123,10 @@
   const wwGrid = document.getElementById('ww-profiles-grid');
   const wwManageBtn = document.getElementById('btn-ww-manage');
   const wwCancelBtn = document.getElementById('btn-ww-cancel');
+  const wwMainActions = document.getElementById('ww-main-actions');
 
-  // View 3: Profile PIN challenge elements
-  const wwViewPin = document.getElementById('ww-view-pin');
-  const wwPinAvatarImg = document.getElementById('ww-pin-avatar-img');
-  const wwPinProfileName = document.getElementById('ww-pin-profile-name');
+  // Integrated Center PIN Prompt elements (NO boxed card)
+  const wwPinPrompt = document.getElementById('ww-pin-prompt');
   const wwPinBoxes = document.getElementById('ww-pin-boxes');
   const wwPinDigits = document.querySelectorAll('.ww-pin-digit');
   const wwPinError = document.getElementById('ww-pin-error');
@@ -144,6 +143,7 @@
   const wwAvatarSearchInput = document.getElementById('ww-avatar-search-input');
   const wwAvatarGrid = document.getElementById('ww-avatar-grid');
   const wwIsKids = document.getElementById('ww-is-kids');
+  const wwKidsLockNotice = document.getElementById('ww-kids-lock-notice');
   const wwLockPin = document.getElementById('ww-lock-pin');
   const wwPinFormGroup = document.getElementById('ww-pin-form-group');
   const wwPinInput = document.getElementById('ww-pin-input');
@@ -186,6 +186,12 @@
   let selectedAvatar = '/profiles/avatars/blue-classic-icon.svg';
   let presetsList = AVATAR_PRESETS;
   let pendingPinProfile = null;
+  let isHeroPinActive = false;
+  let pendingPinHeroItem = null;
+
+  function hasLockedAdultProfile(excludeId = null) {
+    return profilesData.some(p => p.id !== Number(excludeId) && !p.is_kids && p.has_pin);
+  }
 
   // Pre-populate profiles data from server-rendered JSON if available
   const initDataEl = document.getElementById('ww-init-data');
@@ -227,6 +233,14 @@
     if (!wwGrid || isSwitchingProfile) return;
     wwGrid.innerHTML = '';
     wwGrid.classList.toggle('manage-mode', isManageMode);
+
+    const activeP = profilesData.find(p => p.id === currentActiveId);
+    if (activeP && activeP.is_kids) {
+      if (wwManageBtn) wwManageBtn.style.display = 'none';
+      isManageMode = false;
+    } else {
+      if (wwManageBtn) wwManageBtn.style.display = '';
+    }
 
     profilesData.forEach(p => {
       const item = document.createElement('div');
@@ -281,10 +295,13 @@
         if (isManageMode) {
           openEditProfileForm(p);
         } else {
-          if (p.has_pin) {
-            openPinChallenge(p);
+          if (activeP && activeP.is_kids && !p.is_kids) {
+            // Child attempting to switch to an adult profile requires adult PIN
+            startHeroPinChallenge(p, item, true);
+          } else if (p.has_pin) {
+            startHeroPinChallenge(p, item, false);
           } else {
-            switchProfile(p.id);
+            switchProfile(p.id, item);
           }
         }
       });
@@ -292,8 +309,8 @@
       wwGrid.appendChild(item);
     });
 
-    // Add Profile button (if < 6 profiles and not in manage mode)
-    if (profilesData.length < 6 && !isManageMode) {
+    // Add Profile button (if < 6 profiles and not in manage mode and not a kids profile)
+    if (profilesData.length < 6 && !isManageMode && !(activeP && activeP.is_kids)) {
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'ww-profile-item ww-add-item';
@@ -309,10 +326,49 @@
     }
   }
 
-  function openPinChallenge(profile) {
-    pendingPinProfile = profile;
-    if (wwPinAvatarImg) wwPinAvatarImg.src = profile.avatar;
-    if (wwPinProfileName) wwPinProfileName.textContent = profile.name;
+  function startHeroPinChallenge(targetProfile, clickedItem, isExitingKids = false) {
+    if (isSwitchingProfile || isHeroPinActive) return;
+    isHeroPinActive = true;
+    pendingPinProfile = targetProfile;
+    pendingPinHeroItem = clickedItem;
+
+    const itemRect = clickedItem.getBoundingClientRect();
+    const itemCenterX = itemRect.left + itemRect.width / 2;
+    const itemCenterY = itemRect.top + itemRect.height / 2;
+    const viewportCenterX = window.innerWidth / 2;
+    const targetCenterY = (window.innerHeight / 2) - 105;
+    const deltaX = Math.round(viewportCenterX - itemCenterX);
+    const deltaY = Math.round(targetCenterY - itemCenterY);
+
+    clickedItem.dataset.heroDeltaX = deltaX;
+    clickedItem.dataset.heroDeltaY = deltaY;
+    clickedItem.dataset.itemCenterY = itemCenterY;
+
+    clickedItem.classList.add('selected-hero');
+    clickedItem.style.zIndex = '9999';
+    clickedItem.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
+    clickedItem.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.15)`;
+
+    document.querySelectorAll('.ww-profile-item').forEach(el => {
+      if (el !== clickedItem) el.classList.add('ww-dim-item');
+    });
+    if (wwSelectTitle) wwSelectTitle.classList.add('ww-fade-element');
+    if (wwSelectSub) wwSelectSub.classList.add('ww-fade-element');
+    if (wwMainActions) wwMainActions.classList.add('ww-fade-element');
+
+    if (wwPinPrompt) {
+      wwPinPrompt.hidden = false;
+      wwPinPrompt.style.opacity = '1';
+      const titleEl = wwPinPrompt.querySelector('.ww-pin-prompt-title');
+      const subEl = wwPinPrompt.querySelector('.ww-pin-prompt-sub');
+      if (isExitingKids) {
+        if (titleEl) titleEl.textContent = 'Parent Lock is on.';
+        if (subEl) subEl.textContent = 'Enter adult PIN to exit Kids profile.';
+      } else {
+        if (titleEl) titleEl.textContent = 'Profile Lock is on.';
+        if (subEl) subEl.textContent = 'Enter your 4-digit PIN to access this profile.';
+      }
+    }
     if (wwPinError) {
       wwPinError.style.display = 'none';
       wwPinError.textContent = '';
@@ -321,19 +377,122 @@
     if (wwPinDigits) {
       wwPinDigits.forEach(i => { i.value = ''; });
     }
-    if (wwViewSelect) wwViewSelect.hidden = true;
-    if (wwViewForm) wwViewForm.hidden = true;
-    if (wwViewPin) wwViewPin.hidden = false;
     setTimeout(() => {
       if (wwPinDigits && wwPinDigits[0]) wwPinDigits[0].focus();
-    }, 60);
+    }, 120);
   }
 
-  function closePinChallenge() {
+  function cancelHeroPinChallenge() {
+    if (!isHeroPinActive) return;
+    if (wwPinPrompt) {
+      wwPinPrompt.hidden = true;
+    }
+    if (pendingPinHeroItem) {
+      const hero = pendingPinHeroItem;
+      hero.style.transition = 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1)';
+      hero.style.transform = 'translate3d(0, 0, 0) scale(1)';
+      setTimeout(() => {
+        hero.classList.remove('selected-hero');
+        hero.style.transform = '';
+        hero.style.transition = '';
+        hero.style.zIndex = '';
+      }, 380);
+    }
+    document.querySelectorAll('.ww-profile-item').forEach(el => {
+      el.classList.remove('ww-dim-item');
+    });
+    if (wwSelectTitle) wwSelectTitle.classList.remove('ww-fade-element');
+    if (wwSelectSub) wwSelectSub.classList.remove('ww-fade-element');
+    if (wwMainActions) wwMainActions.classList.remove('ww-fade-element');
+
+    isHeroPinActive = false;
     pendingPinProfile = null;
-    if (wwViewPin) wwViewPin.hidden = true;
-    if (wwViewSelect) wwViewSelect.hidden = false;
-    resetProfileSelectionAnimations();
+    pendingPinHeroItem = null;
+  }
+
+  async function submitHeroPin(enteredPin) {
+    if (!pendingPinProfile || !pendingPinHeroItem) return;
+    const targetProfile = pendingPinProfile;
+    const targetItem = pendingPinHeroItem;
+
+    try {
+      const activeP = profilesData.find(p => p.id === currentActiveId);
+      const isExitingKids = Boolean(activeP && activeP.is_kids && !targetProfile.is_kids);
+
+      const payload = { pin: enteredPin };
+      if (isExitingKids && !targetProfile.has_pin) {
+        const lockedAdult = profilesData.find(p => !p.is_kids && p.has_pin);
+        if (lockedAdult) payload.authProfileId = lockedAdult.id;
+      }
+
+      const res = await fetch(`/api/profiles/${targetProfile.id}/switch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        isSwitchingProfile = true;
+        currentActiveId = targetProfile.id;
+
+        if (wwPinPrompt) {
+          wwPinPrompt.style.opacity = '0';
+          setTimeout(() => { wwPinPrompt.hidden = true; }, 250);
+        }
+
+        // Center hero completion transition (matching Netflix slide & load)
+        if (targetItem) {
+          const deltaX = Number(targetItem.dataset.heroDeltaX || 0);
+          const itemCenterY = Number(targetItem.dataset.itemCenterY || (window.innerHeight / 2));
+          const finalDeltaY = Math.round((window.innerHeight / 2) - itemCenterY);
+          targetItem.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
+          targetItem.style.transform = `translate3d(${deltaX}px, ${finalDeltaY}px, 0) scale(1.35)`;
+        }
+
+        const navImg = document.getElementById('nav-profile-avatar-img');
+        if (navImg && data.profile && data.profile.avatar) {
+          navImg.src = data.profile.avatar;
+        }
+        const settingsName = document.querySelector('.s-settings-user-name');
+        if (settingsName && data.profile && data.profile.name) {
+          settingsName.textContent = data.profile.name;
+        }
+
+        setTimeout(() => {
+          if (wwModal) wwModal.classList.add('ww-modal-exiting');
+          setTimeout(() => {
+            closeWhosWatching();
+            delete document.body.dataset.showWhosWatching;
+            document.body.classList.remove('ww-active');
+            isSwitchingProfile = false;
+            isHeroPinActive = false;
+            pendingPinProfile = null;
+            pendingPinHeroItem = null;
+            window.location.href = window.location.pathname;
+          }, 350);
+        }, 420);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (wwPinBoxes) {
+          wwPinBoxes.classList.remove('pin-shake');
+          void wwPinBoxes.offsetWidth;
+          wwPinBoxes.classList.add('pin-shake');
+        }
+        if (wwPinError) {
+          wwPinError.textContent = errData.error || 'Incorrect PIN. Try again.';
+          wwPinError.style.display = 'block';
+        }
+        if (wwPinDigits) {
+          wwPinDigits.forEach(i => { i.value = ''; });
+          setTimeout(() => {
+            if (wwPinDigits[0]) wwPinDigits[0].focus();
+          }, 250);
+        }
+      }
+    } catch (err) {
+      console.error('Error verifying PIN:', err);
+    }
   }
 
   function resetProfileSelectionAnimations() {
@@ -346,33 +505,47 @@
     });
     if (wwSelectTitle) wwSelectTitle.classList.remove('ww-fade-element');
     if (wwSelectSub) wwSelectSub.classList.remove('ww-fade-element');
-    if (wwManageBtn && wwManageBtn.parentElement) wwManageBtn.parentElement.classList.remove('ww-fade-element');
+    if (wwMainActions) wwMainActions.classList.remove('ww-fade-element');
+    if (wwPinPrompt) {
+      wwPinPrompt.hidden = true;
+      wwPinPrompt.style.opacity = '1';
+    }
     if (wwModal) wwModal.classList.remove('ww-modal-exiting');
+    isHeroPinActive = false;
+    pendingPinProfile = null;
+    pendingPinHeroItem = null;
   }
 
-  async function switchProfile(id, pin = null) {
-    if (isSwitchingProfile) return;
+  async function switchProfile(id, clickedItem = null) {
+    if (isSwitchingProfile || isHeroPinActive) return;
     const targetProfile = profilesData.find(p => p.id === Number(id));
-    if (!pin && targetProfile && targetProfile.has_pin) {
-      openPinChallenge(targetProfile);
-      return;
+    const activeP = profilesData.find(p => p.id === currentActiveId);
+
+    // If active profile is kids and target is adult, require PIN
+    if (activeP && activeP.is_kids && targetProfile && !targetProfile.is_kids) {
+      const itemEl = clickedItem || document.querySelector(`.ww-profile-item[data-id="${id}"]`);
+      if (itemEl && targetProfile) {
+        startHeroPinChallenge(targetProfile, itemEl, true);
+        return;
+      }
+    }
+
+    // If target profile is locked with PIN, require PIN
+    if (targetProfile && targetProfile.has_pin) {
+      const itemEl = clickedItem || document.querySelector(`.ww-profile-item[data-id="${id}"]`);
+      if (itemEl) {
+        startHeroPinChallenge(targetProfile, itemEl, false);
+        return;
+      }
     }
 
     try {
       isSwitchingProfile = true;
       const isAlreadyActive = Number(id) === Number(currentActiveId);
 
-      // If user is inside PIN challenge view, close it back to select view for smooth transition
-      if (wwViewPin && !wwViewPin.hidden) {
-        wwViewPin.hidden = true;
-        if (wwViewSelect) wwViewSelect.hidden = false;
-      }
-
-      // Trigger Netflix-style hero highlight animation immediately
-      const clickedItem = document.querySelector(`.ww-profile-item[data-id="${id}"]`);
-      if (clickedItem) {
-        // Calculate offset to move clicked item to exact viewport center
-        const itemRect = clickedItem.getBoundingClientRect();
+      const targetEl = clickedItem || document.querySelector(`.ww-profile-item[data-id="${id}"]`);
+      if (targetEl) {
+        const itemRect = targetEl.getBoundingClientRect();
         const itemCenterX = itemRect.left + itemRect.width / 2;
         const itemCenterY = itemRect.top + itemRect.height / 2;
         const viewportCenterX = window.innerWidth / 2;
@@ -380,34 +553,28 @@
         const deltaX = Math.round(viewportCenterX - itemCenterX);
         const deltaY = Math.round(viewportCenterY - itemCenterY);
 
-        clickedItem.classList.add('selected-hero');
-        clickedItem.style.zIndex = '9999';
-        clickedItem.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
-        clickedItem.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.25)`;
+        targetEl.classList.add('selected-hero');
+        targetEl.style.zIndex = '9999';
+        targetEl.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
+        targetEl.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.25)`;
 
         document.querySelectorAll('.ww-profile-item').forEach(el => {
-          if (el !== clickedItem) el.classList.add('ww-dim-item');
+          if (el !== targetEl) el.classList.add('ww-dim-item');
         });
         if (wwSelectTitle) wwSelectTitle.classList.add('ww-fade-element');
         if (wwSelectSub) wwSelectSub.classList.add('ww-fade-element');
-        if (wwManageBtn && wwManageBtn.parentElement) wwManageBtn.parentElement.classList.add('ww-fade-element');
+        if (wwMainActions) wwMainActions.classList.add('ww-fade-element');
       }
 
-      const fetchOpts = {
+      const res = await fetch(`/api/profiles/${id}/switch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
-      };
-      if (pin) {
-        fetchOpts.body = JSON.stringify({ pin });
-      }
+      });
 
-      const res = await fetch(`/api/profiles/${id}/switch`, fetchOpts);
       if (res.ok) {
         const data = await res.json();
         currentActiveId = id;
-        pendingPinProfile = null;
 
-        // Inside website modal:
         const navImg = document.getElementById('nav-profile-avatar-img');
         if (navImg && data.profile && data.profile.avatar) {
           navImg.src = data.profile.avatar;
@@ -426,40 +593,15 @@
             isSwitchingProfile = false;
 
             if (!isAlreadyActive) {
-              // Different profile selected: navigate cleanly to load their watchlist, history & settings
-              const cleanUrl = window.location.pathname;
-              window.location.href = cleanUrl;
+              window.location.href = window.location.pathname;
             } else {
-              // Same profile: modal smoothly fades out revealing the page
               resetProfileSelectionAnimations();
             }
           }, 350);
         }, 420);
       } else {
-        const errData = await res.json().catch(() => ({}));
         isSwitchingProfile = false;
         resetProfileSelectionAnimations();
-
-        if (res.status === 401 || res.status === 403) {
-          if (targetProfile) {
-            openPinChallenge(targetProfile);
-            if (wwPinBoxes) {
-              wwPinBoxes.classList.remove('pin-shake');
-              void wwPinBoxes.offsetWidth;
-              wwPinBoxes.classList.add('pin-shake');
-            }
-            if (wwPinError) {
-              wwPinError.textContent = errData.error || 'Incorrect PIN. Try again.';
-              wwPinError.style.display = 'block';
-            }
-            if (wwPinDigits) {
-              wwPinDigits.forEach(i => { i.value = ''; });
-              setTimeout(() => {
-                if (wwPinDigits[0]) wwPinDigits[0].focus();
-              }, 300);
-            }
-          }
-        }
       }
     } catch (e) {
       console.error('Error switching profile:', e);
@@ -520,9 +662,9 @@
     if (wwAvatarSearchInput) wwAvatarSearchInput.value = '';
     renderAvatarGrid('');
 
+    if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
     if (wwDeleteBtn) wwDeleteBtn.hidden = true;
     if (wwViewSelect) wwViewSelect.hidden = true;
-    if (wwViewPin) wwViewPin.hidden = true;
     if (wwViewForm) wwViewForm.hidden = false;
     if (wwProfileName) wwProfileName.focus();
   }
@@ -534,6 +676,7 @@
       wwProfileName.value = profile.name;
       if (wwCharCount) wwCharCount.textContent = `${profile.name.length}/20`;
     }
+    if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
     if (wwIsKids) wwIsKids.checked = !!profile.is_kids;
     const hasPin = Boolean(profile.has_pin);
     if (wwLockPin) wwLockPin.checked = hasPin;
@@ -559,7 +702,6 @@
 
     if (wwDeleteBtn) wwDeleteBtn.hidden = profilesData.length <= 1;
     if (wwViewSelect) wwViewSelect.hidden = true;
-    if (wwViewPin) wwViewPin.hidden = true;
     if (wwViewForm) wwViewForm.hidden = false;
     if (wwProfileName) wwProfileName.focus();
   }
@@ -580,7 +722,6 @@
     }
     if (wwViewSelect) wwViewSelect.hidden = false;
     if (wwViewForm) wwViewForm.hidden = true;
-    if (wwViewPin) wwViewPin.hidden = true;
     wwModal.hidden = false;
     document.body.style.overflow = 'hidden';
     loadProfiles();
@@ -598,7 +739,6 @@
     isManageMode = false;
     isSwitchingProfile = false;
     pendingPinProfile = null;
-    if (wwViewPin) wwViewPin.hidden = true;
     delete document.body.dataset.showWhosWatching;
     resetProfileSelectionAnimations();
 
@@ -647,6 +787,29 @@
     });
   }
 
+  // Kids Profile Toggle
+  if (wwIsKids) {
+    wwIsKids.addEventListener('change', () => {
+      if (wwIsKids.checked) {
+        const editNum = wwEditId && wwEditId.value ? Number(wwEditId.value) : null;
+        if (!hasLockedAdultProfile(editNum)) {
+          wwIsKids.checked = false;
+          if (wwKidsLockNotice) {
+            wwKidsLockNotice.textContent = 'An adult profile must have a PIN lock first before creating or enabling a Kids profile.';
+            wwKidsLockNotice.style.display = 'block';
+            setTimeout(() => {
+              if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
+            }, 4500);
+          }
+        } else {
+          if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
+        }
+      } else {
+        if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
+      }
+    });
+  }
+
   // Lock PIN Toggle & Change PIN button
   if (wwLockPin) {
     wwLockPin.addEventListener('change', () => {
@@ -679,7 +842,7 @@
     });
   }
 
-  // View 3 PIN digits inputs (auto-focus, paste, auto-submit)
+  // Seamless Hero PIN digits inputs (auto-focus, paste, auto-submit)
   if (wwPinDigits && wwPinDigits.length) {
     wwPinDigits.forEach((digitInput, idx) => {
       digitInput.addEventListener('input', () => {
@@ -690,7 +853,7 @@
         }
         const enteredPin = Array.from(wwPinDigits).map(i => i.value).join('');
         if (enteredPin.length === 4 && pendingPinProfile) {
-          switchProfile(pendingPinProfile.id, enteredPin);
+          submitHeroPin(enteredPin);
         }
       });
 
@@ -712,7 +875,7 @@
           if (wwPinDigits[i]) wwPinDigits[i].value = char;
         });
         if (pasted.length === 4 && pendingPinProfile) {
-          switchProfile(pendingPinProfile.id, pasted);
+          submitHeroPin(pasted);
         } else if (wwPinDigits[pasted.length]) {
           wwPinDigits[pasted.length].focus();
         }
@@ -721,7 +884,7 @@
   }
 
   if (wwPinCancelBtn) {
-    wwPinCancelBtn.addEventListener('click', closePinChallenge);
+    wwPinCancelBtn.addEventListener('click', cancelHeroPinChallenge);
   }
 
   if (wwProfileForm) {
@@ -733,6 +896,17 @@
       const editId = wwEditId ? wwEditId.value : '';
       const lockPinChecked = wwLockPin ? wwLockPin.checked : false;
       const enteredPin = wwPinInput ? wwPinInput.value.trim() : '';
+
+      if (isKids) {
+        const editNum = editId ? Number(editId) : null;
+        if (!hasLockedAdultProfile(editNum)) {
+          if (wwKidsLockNotice) {
+            wwKidsLockNotice.textContent = 'An adult profile must have a PIN lock first before creating or enabling a Kids profile.';
+            wwKidsLockNotice.style.display = 'block';
+          }
+          return;
+        }
+      }
 
       if (wwPinFormError) wwPinFormError.style.display = 'none';
 
@@ -882,18 +1056,19 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        if (isHeroPinActive) {
+          cancelHeroPinChallenge();
+          e.stopPropagation();
+          return;
+        }
         if (!settingsMenu.hidden) {
           settingsMenu.hidden = true;
           settingsBtn.setAttribute('aria-expanded', 'false');
-        } else if (wwModal && !wwModal.hidden && document.body.dataset.showWhosWatching !== 'true') {
-          if (wwViewPin && !wwViewPin.hidden) {
-            wwViewPin.hidden = true;
-            if (wwViewSelect) wwViewSelect.hidden = false;
-            pendingPinProfile = null;
-          } else if (wwViewForm && !wwViewForm.hidden) {
+        } else if (wwModal && !wwModal.hidden) {
+          if (wwViewForm && !wwViewForm.hidden) {
             wwViewForm.hidden = true;
             if (wwViewSelect) wwViewSelect.hidden = false;
-          } else {
+          } else if (document.body.dataset.showWhosWatching !== 'true') {
             closeWhosWatching();
           }
         }

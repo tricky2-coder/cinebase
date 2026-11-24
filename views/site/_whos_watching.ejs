@@ -69,7 +69,23 @@
         </button>
       </div>
 
-      <div class="ww-actions">
+      <!-- Integrated Center PIN Prompt (seamless floating under hero, NO boxed card) -->
+      <div class="ww-pin-prompt" id="ww-pin-prompt" hidden>
+        <h2 class="ww-pin-prompt-title">Profile Lock is on.</h2>
+        <p class="ww-pin-prompt-sub">Enter your 4-digit PIN to access this profile.</p>
+        <div class="ww-pin-boxes" id="ww-pin-boxes">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="0" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="1" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="2" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="3" autocomplete="off">
+        </div>
+        <div class="ww-pin-error" id="ww-pin-error" style="display:none;"></div>
+        <div class="ww-pin-actions">
+          <button type="button" class="ww-btn-outline" id="btn-ww-pin-cancel">CANCEL</button>
+        </div>
+      </div>
+
+      <div class="ww-actions" id="ww-main-actions">
         <button type="button" class="ww-btn-outline" id="btn-ww-manage">MANAGE PROFILES</button>
         <button type="button" class="ww-btn-outline" id="btn-ww-cancel" <%- (typeof showWhosWatching !== 'undefined' && showWhosWatching) ? 'style="display:none;"' : '' %>>CANCEL</button>
       </div>
@@ -132,7 +148,8 @@
               <div class="ww-toggle-row">
                 <div class="ww-toggle-info">
                   <div class="ww-toggle-title">Kids profile</div>
-                  <div class="ww-toggle-sub">Only shows family and age-appropriate content with a dedicated kids badge.</div>
+                  <div class="ww-toggle-sub">Only shows family and age-appropriate content with a dedicated kids badge. An adult profile must have a PIN first.</div>
+                  <div class="ww-kids-lock-notice" id="ww-kids-lock-notice" style="display:none; color: #f5b301; font-size: 0.82rem; font-weight: 500; margin-top: 6px;"></div>
                 </div>
                 <label class="ww-switch">
                   <input type="checkbox" id="ww-is-kids">
@@ -169,34 +186,6 @@
               <button type="button" class="ww-btn-delete" id="btn-ww-delete" hidden>Delete Profile</button>
             </div>
           </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- View 3: Profile PIN Lock Challenge Screen -->
-    <div class="ww-view" id="ww-view-pin" hidden>
-      <div class="ww-pin-container">
-        <h2 class="ww-pin-title">Profile Lock is on.</h2>
-        <p class="ww-pin-sub">Enter your 4-digit PIN to access this profile.</p>
-
-        <div class="ww-pin-profile-preview">
-          <div class="ww-avatar-wrap ww-pin-avatar-wrap">
-            <img id="ww-pin-avatar-img" src="/profiles/avatars/blue-classic-icon.svg" alt="Profile">
-          </div>
-          <span class="ww-pin-profile-name" id="ww-pin-profile-name"></span>
-        </div>
-
-        <div class="ww-pin-boxes" id="ww-pin-boxes">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="0" autocomplete="off">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="1" autocomplete="off">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="2" autocomplete="off">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="3" autocomplete="off">
-        </div>
-
-        <div class="ww-pin-error" id="ww-pin-error" style="display:none;"></div>
-
-        <div class="ww-pin-actions">
-          <button type="button" class="ww-btn-outline" id="btn-ww-pin-cancel">CANCEL</button>
         </div>
       </div>
     </div>

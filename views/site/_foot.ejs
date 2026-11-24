@@ -28,6 +28,10 @@
     </div>
   </div>
 </div>
+<% if (typeof player !== 'undefined' && player && player.cfg && player.cfg.anime) { %>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/artplayer@5/dist/artplayer.js"></script>
+<% } %>
 <script src="/js/site.js"></script>
 </body>
 </html>

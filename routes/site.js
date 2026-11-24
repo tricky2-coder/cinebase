@@ -5,6 +5,7 @@ const plex = require('../services/plex');
 const tmdb = require('../services/tmdb');
 const vidsrc = require('../services/vidsrc');
 const anilist = require('../services/anilist');
+const anivexa = require('../services/anivexa');
 
 const router = express.Router();
 const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,backdrop_url,trailer_key,tmdb_id,anilist_id,plex_rating_key';
@@ -47,6 +48,7 @@ const localCards = (sql, ...args) => db.all(sql, ...args);
 
 // HOME
 router.get('/', async (req, res) => {
+  anivexa.wakeUp();
   let hero = [];
   let rows = [];
   if (tmdb.enabled()) {
@@ -175,7 +177,10 @@ router.get('/', async (req, res) => {
 router.get('/discover', async (req, res) => {
   const type = DISCOVER_TYPES[req.query.type] ? req.query.type : 'movie';
   const { media, label, keywords, anilist: aniFormat } = DISCOVER_TYPES[type];
-  if (aniFormat) return animeDiscover(req, res, type, label, aniFormat);
+  if (aniFormat) {
+    anivexa.wakeUp();
+    return animeDiscover(req, res, type, label, aniFormat);
+  }
   if (!tmdb.enabled()) return res.redirect('/browse');
   try {
     const genres = (await tmdb.genreList(media)).filter(g => !SKIP_GENRES.has(g.name));
@@ -422,6 +427,84 @@ router.get('/episodes/anime/:id/:chunk', async (req, res) => {
   res.set('Cache-Control', 'private, max-age=3600');
   try { res.json(await anilist.episodes(id, Number(chunk))); }
   catch (e) { res.status(e.status === 404 ? 404 : 502).json([]); }
+});
+
+// Anime stream sources via Anivexa-API (hidden from end users)
+router.get('/api/anime/watch/:anilistId/:ep', async (req, res) => {
+  const { anilistId, ep } = req.params;
+  if (!/^\d+$/.test(anilistId) || !/^\d+$/.test(ep)) {
+    return res.status(400).json({ error: 'Invalid anime ID or episode number' });
+  }
+  if (!anivexa.enabled()) {
+    return res.status(503).json({ error: 'Anime streaming server is not configured (set ANIVEXA_URL).' });
+  }
+  const audio = req.query.audio === 'dub' ? 'dub' : 'sub';
+  const provider = typeof req.query.provider === 'string' ? req.query.provider : null;
+  try {
+    const data = await anivexa.getWatchSources(anilistId, ep, audio, provider);
+    res.set('Cache-Control', 'private, max-age=300');
+    res.json(data);
+  } catch (e) {
+    console.error('Anivexa watch error:', e.message);
+    res.status(502).json({ error: e.message || 'Failed to load anime stream' });
+  }
+});
+
+// Lightweight HLS / subtitle proxy to attach Referer headers and bypass CORS
+router.get('/api/anime/proxy', async (req, res) => {
+  const targetUrl = typeof req.query.url === 'string' ? req.query.url.trim() : '';
+  const referer = typeof req.query.referer === 'string' ? req.query.referer.trim() : '';
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    return res.status(400).send('Invalid URL');
+  }
+
+  try {
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    };
+    if (referer) {
+      headers['Referer'] = referer;
+      try { headers['Origin'] = new URL(referer).origin; } catch {}
+    }
+
+    const upstream = await fetch(targetUrl, { headers, signal: AbortSignal.timeout(15000) });
+    if (!upstream.ok) {
+      return res.status(upstream.status).send(`Upstream error ${upstream.status}`);
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    res.set('Access-Control-Allow-Origin', '*');
+
+    const isM3u8 = targetUrl.includes('.m3u8') || /mpegurl/i.test(contentType);
+    if (isM3u8) {
+      const text = await upstream.text();
+      const base = new URL(targetUrl);
+      const wrap = u => {
+        const abs = new URL(u, base).href;
+        return `/api/anime/proxy?url=${encodeURIComponent(abs)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+      };
+      const rewritten = text
+        .split(/\r?\n/)
+        .map(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return line;
+          if (trimmed.startsWith('#')) {
+            return line.replace(/URI="([^"]+)"/g, (_, uri) => `URI="${wrap(uri)}"`);
+          }
+          return wrap(trimmed);
+        })
+        .join('\n');
+      res.set('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+      return res.send(rewritten);
+    }
+
+    res.set('Content-Type', contentType);
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    return res.send(buf);
+  } catch (e) {
+    console.error('Anime proxy error:', e.message);
+    return res.status(502).send('Proxy error');
+  }
 });
 
 // DETAIL — an anime from AniList; plays via Vidy /anime/{anilistId}/{episode}

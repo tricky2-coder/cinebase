@@ -1733,7 +1733,244 @@
       u.searchParams.set('progress', (t && t > 0) ? t : 0);
       return u.href;
     };
+    const animeMount = document.getElementById('anime-artplayer');
+    const animeMsg = document.getElementById('anime-player-msg');
+    const animeAudioBox = document.getElementById('anime-audio');
+    const animeServerSel = document.getElementById('anime-server');
+    const isAnimePlayer = Boolean(cfg.anime && animeMount);
+
+    let animeAudio = localStorage.getItem('cinebase.animeAudio') === 'dub' ? 'dub' : 'sub';
+    let animeProvider = localStorage.getItem('cinebase.animeServer') || 'anizone';
+    let artInstance = null;
+    let animeAbort = null;
+
+    function showAnimeMsg(text, allowRetry = false) {
+      if (!animeMsg) return;
+      animeMsg.replaceChildren();
+      const p = document.createElement('p');
+      p.textContent = text;
+      animeMsg.append(p);
+      if (allowRetry) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sbtn sbtn-play';
+        btn.textContent = 'Retry';
+        btn.addEventListener('click', () => load(true));
+        animeMsg.append(btn);
+      }
+      animeMsg.hidden = false;
+    }
+
+    function hideAnimeMsg() {
+      if (animeMsg) animeMsg.hidden = true;
+    }
+
+    if (animeAudioBox) {
+      animeAudioBox.querySelectorAll('button[data-audio]').forEach(btn => {
+        btn.classList.toggle('on', btn.dataset.audio === animeAudio);
+        btn.addEventListener('click', () => {
+          const nextAudio = btn.dataset.audio === 'dub' ? 'dub' : 'sub';
+          if (nextAudio === animeAudio) return;
+          animeAudio = nextAudio;
+          try { localStorage.setItem('cinebase.animeAudio', animeAudio); } catch {}
+          animeAudioBox.querySelectorAll('button[data-audio]').forEach(b => b.classList.toggle('on', b.dataset.audio === animeAudio));
+          load(true);
+        });
+      });
+    }
+
+    if (animeServerSel) {
+      animeServerSel.value = animeProvider;
+      animeServerSel.addEventListener('change', () => {
+        animeProvider = animeServerSel.value;
+        try { localStorage.setItem('cinebase.animeServer', animeProvider); } catch {}
+        load(true);
+      });
+    }
+
+    function destroyArtplayer() {
+      if (artInstance) {
+        try { artInstance.destroy(false); } catch {}
+        artInstance = null;
+      }
+      if (animeMount) animeMount.replaceChildren();
+    }
+
+    async function loadAnimeEpisode(epNum) {
+      if (!isAnimePlayer) return;
+      if (animeAbort) animeAbort.abort();
+      animeAbort = new AbortController();
+      showAnimeMsg(`Loading Episode ${epNum}...`, false);
+
+      try {
+        const qs = new URLSearchParams({ audio: animeAudio });
+        if (animeProvider) qs.set('provider', animeProvider);
+        const res = await fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(epNum)}?${qs.toString()}`, {
+          signal: animeAbort.signal
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(data.sources) || !data.sources.length) {
+          throw new Error(data.error || 'No stream sources available for this episode.');
+        }
+
+        if (animeServerSel && Array.isArray(data.providers)) {
+          animeServerSel.replaceChildren();
+          data.providers.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.label;
+            animeServerSel.append(opt);
+          });
+          if (data.provider) {
+            animeProvider = data.provider;
+            animeServerSel.value = data.provider;
+          }
+        }
+
+        const sources = data.sources;
+        const primary = sources.find(s => /1080|720|auto|default/i.test(s.quality)) || sources[0];
+        const subtitles = Array.isArray(data.subtitles) ? data.subtitles : [];
+        const defaultSub = subtitles.find(s => s.default) || subtitles[0] || null;
+
+        if (typeof window.Artplayer === 'undefined') {
+          throw new Error('Video player failed to initialize. Please refresh the page.');
+        }
+
+        destroyArtplayer();
+        hideAnimeMsg();
+
+        const resumeTime = resumeAt();
+        const qualityList = sources.map(s => ({
+          default: s === primary,
+          html: String(s.quality || 'Auto'),
+          url: s.url
+        }));
+
+        const artOpts = {
+          container: animeMount,
+          url: primary.url,
+          type: primary.isM3U8 ? 'm3u8' : '',
+          theme: '#f5b301',
+          volume: 0.9,
+          autoplay: true,
+          pip: true,
+          autoSize: false,
+          autoMini: false,
+          screenshot: false,
+          setting: true,
+          playbackRate: true,
+          aspectRatio: true,
+          fullscreen: true,
+          fullscreenWeb: true,
+          miniProgressBar: true,
+          playsInline: true,
+          quality: qualityList.length > 1 ? qualityList : [],
+          customType: {
+            m3u8: function playM3u8(video, m3u8Url, art) {
+              if (window.Hls && window.Hls.isSupported()) {
+                if (art.hls) art.hls.destroy();
+                const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
+                hls.loadSource(m3u8Url);
+                hls.attachMedia(video);
+                art.hls = hls;
+                art.on('destroy', () => {
+                  try { hls.destroy(); } catch {}
+                });
+              } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = m3u8Url;
+              } else {
+                art.notice.show = 'HLS playback is not supported in this browser.';
+              }
+            }
+          }
+        };
+
+        if (defaultSub) {
+          artOpts.subtitle = {
+            url: defaultSub.url,
+            type: defaultSub.url.includes('.ass') ? 'ass' : 'vtt',
+            encoding: 'utf-8',
+            style: { color: '#ffffff', fontSize: '20px', textShadow: '0 2px 6px rgba(0,0,0,0.9)' }
+          };
+        }
+
+        if (subtitles.length > 1) {
+          artOpts.settings = [
+            {
+              html: 'Subtitles',
+              tooltip: defaultSub ? defaultSub.lang : 'Off',
+              selector: [
+                { html: 'Off', url: '' },
+                ...subtitles.map(s => ({
+                  default: s === defaultSub,
+                  html: s.lang,
+                  url: s.url
+                }))
+              ],
+              onSelect(item) {
+                if (!item.url) {
+                  artInstance.subtitle.show = false;
+                } else {
+                  artInstance.subtitle.switch(item.url, { name: item.html });
+                  artInstance.subtitle.show = true;
+                }
+                return item.html;
+              }
+            }
+          ];
+        }
+
+        artInstance = new window.Artplayer(artOpts);
+
+        artInstance.on('ready', () => {
+          if (resumeTime && resumeTime > 0 && artInstance) {
+            artInstance.currentTime = resumeTime;
+          }
+        });
+
+        artInstance.on('video:timeupdate', () => {
+          if (!artInstance) return;
+          const currentTime = Number(artInstance.currentTime);
+          const duration = Number(artInstance.duration);
+          if (!Number.isFinite(currentTime)) return;
+          const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
+          if (isNearEnd) {
+            try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+            lastSaved = 0;
+            syncHistoryToServer(duration || currentTime, duration);
+          } else if (Math.abs(currentTime - lastSaved) >= 5) {
+            lastSaved = currentTime;
+            try {
+              localStorage.setItem(posKey(state.s, state.e), JSON.stringify({
+                t: currentTime,
+                d: Number.isFinite(duration) && duration > 0 ? duration : null
+              }));
+            } catch {}
+            syncHistoryToServer(currentTime, duration);
+          }
+        });
+
+        artInstance.on('video:ended', () => {
+          const dur = artInstance ? Number(artInstance.duration) : 0;
+          try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+          lastSaved = 0;
+          syncHistoryToServer(dur || 0, dur || 0);
+          if (cfg.isSeries && autoNext && typeof window._cinebaseStepNext === 'function') {
+            window._cinebaseStepNext();
+          }
+        });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        destroyArtplayer();
+        showAnimeMsg(err?.message || 'Unable to load this episode right now.', true);
+      }
+    }
+
     const load = (force = false) => {
+      if (isAnimePlayer) {
+        loadAnimeEpisode(state.e);
+        return;
+      }
       const u = url();
       if (pipWin && !pipFrame) { try { pipWin.location.href = u; } catch {} return; } // plain pop-up
       const f = frame();
@@ -1777,7 +2014,8 @@
     }
 
     function onPlayerMessage(e) {
-      if (e.source !== frame().contentWindow || typeof e.data !== 'string') return;
+      const activeF = frame();
+      if (!activeF || e.source !== activeF.contentWindow || typeof e.data !== 'string') return;
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
       if (!msg || typeof msg !== 'object') return;
@@ -1971,8 +2209,9 @@
       popBtn.textContent = '⤓ Bring back';
     }
 
-    popBtn.addEventListener('click', popOut);
-    document.getElementById('p-bringback').addEventListener('click', bringBack);
+    if (popBtn && iframe) popBtn.addEventListener('click', popOut);
+    const bringBackBtn = document.getElementById('p-bringback');
+    if (bringBackBtn) bringBackBtn.addEventListener('click', bringBack);
     addEventListener('pagehide', () => { try { pipWin?.close(); } catch {} });
 
     if (cfg.isSeries) {
@@ -2133,6 +2372,12 @@
           const nxt = step(1);
           if (!nxt) return;
           try {
+            if (isAnimePlayer) {
+              const qs = new URLSearchParams({ audio: animeAudio });
+              if (animeProvider) qs.set('provider', animeProvider);
+              fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(nxt.e)}?${qs.toString()}`).catch(() => {});
+              return;
+            }
             const nextHref = url(nxt.s, nxt.e);
             let link = document.getElementById('p-prefetch-next');
             if (!link) {
@@ -2146,6 +2391,11 @@
           } catch {}
         }, 3500);
       }
+
+      window._cinebaseStepNext = () => {
+        const nxt = step(1);
+        if (nxt) play(nxt.s, nxt.e);
+      };
 
       function play(s, e) {
         s = Number(s); e = Number(e);

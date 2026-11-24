@@ -81,25 +81,42 @@
         <button type="button" class="ep-step ep-autonext-btn" id="p-autonext" title="Toggle auto-play next episode">Auto-next: ON</button>
       </div>
       <% } %>
+      <% if (player.cfg.anime) { %>
+      <div class="anime-audio-switch" id="anime-audio" role="group" aria-label="Audio type">
+        <button type="button" class="ep-step on" data-audio="sub">Sub</button>
+        <button type="button" class="ep-step" data-audio="dub">Dub</button>
+      </div>
+      <select class="ep-quick-select anime-server-select" id="anime-server" aria-label="Select server">
+        <option value="anizone">Server 1</option>
+        <option value="anihq">Server 2</option>
+        <option value="aniwaves">Server 3</option>
+        <option value="reanime">Server 4</option>
+      </select>
+      <% } %>
       <button type="button" class="ep-step ep-fs-btn" id="p-fullscreen" title="Full screen">⛶ Fullscreen</button>
-      <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window">⧉ Pop out</button>
+      <% if (!player.cfg.anime) { %><button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window">⧉ Pop out</button><% } %>
     </div>
     <% } %>
   </div>
   <div class="player" <% if (player) { %>id="player" data-cfg="<%= JSON.stringify(player.cfg) %>"<% } %>>
     <% if (player) { %>
-      <iframe
-        src="<%= player.src %>"
-        title="<%= item.title %> player"
-        loading="eager"
-        fetchpriority="high"
-        allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
-        referrerpolicy="no-referrer"
-        allowfullscreen></iframe>
-      <div class="popped-msg" id="p-popped" hidden>
-        <p><b>Playing in the pop-out window</b><span>Close it or bring it back to keep watching here.</span></p>
-        <button type="button" class="sbtn sbtn-play" id="p-bringback">⤓ Bring back</button>
-      </div>
+      <% if (player.cfg.anime) { %>
+        <div class="anime-artplayer" id="anime-artplayer"></div>
+        <div class="anime-player-msg" id="anime-player-msg" hidden></div>
+      <% } else { %>
+        <iframe
+          src="<%= player.src %>"
+          title="<%= item.title %> player"
+          loading="eager"
+          fetchpriority="high"
+          allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
+          referrerpolicy="no-referrer"
+          allowfullscreen></iframe>
+        <div class="popped-msg" id="p-popped" hidden>
+          <p><b>Playing in the pop-out window</b><span>Close it or bring it back to keep watching here.</span></p>
+          <button type="button" class="sbtn sbtn-play" id="p-bringback">⤓ Bring back</button>
+        </div>
+      <% } %>
     <% } else { %>
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>

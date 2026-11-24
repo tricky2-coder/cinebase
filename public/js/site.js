@@ -2001,6 +2001,9 @@
           if (resumeTime && resumeTime > 0 && artInstance) {
             artInstance.currentTime = resumeTime;
           }
+          if (cfg.isSeries && data.provider && typeof window._cinebasePrefetchAnime === 'function') {
+            window._cinebasePrefetchAnime(data.provider);
+          }
         });
 
         artInstance.on('video:timeupdate', () => {
@@ -2449,18 +2452,12 @@
 
       let prefetchTimer = null;
       function schedulePrefetch() {
-        if (!cfg.isSeries) return;
+        if (!cfg.isSeries || isAnimePlayer) return;
         clearTimeout(prefetchTimer);
         prefetchTimer = setTimeout(() => {
           const nxt = step(1);
           if (!nxt) return;
           try {
-            if (isAnimePlayer && animeProvider !== 'vidy') {
-              const qs = new URLSearchParams({ audio: animeAudio });
-              if (animeProvider) qs.set('provider', animeProvider);
-              fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(nxt.e)}?${qs.toString()}`).catch(() => {});
-              return;
-            }
             const nextHref = url(nxt.s, nxt.e);
             let link = document.getElementById('p-prefetch-next');
             if (!link) {
@@ -2474,6 +2471,16 @@
           } catch {}
         }, 3500);
       }
+
+      window._cinebasePrefetchAnime = (winningProvider) => {
+        const nxt = step(1);
+        if (!nxt || !winningProvider || winningProvider === 'vidy') return;
+        clearTimeout(prefetchTimer);
+        prefetchTimer = setTimeout(() => {
+          const qs = new URLSearchParams({ audio: animeAudio, provider: winningProvider });
+          fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(nxt.e)}?${qs.toString()}`).catch(() => {});
+        }, 5000);
+      };
 
       window._cinebaseStepNext = () => {
         const nxt = step(1);

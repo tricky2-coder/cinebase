@@ -3,12 +3,12 @@ const DEFAULT_PROVIDERS = [
   { id: 'anizone', label: 'Server 1' },
   { id: 'anikoto', label: 'Server 2' },
   { id: 'anipm', label: 'Server 3' },
-  { id: 'anihq', label: 'Server 4' },
-  { id: 'aniwaves', label: 'Server 5' },
-  { id: 'pahenime', label: 'Server 6' },
-  { id: 'animedunya', label: 'Server 7' },
-  { id: 'animegg', label: 'Server 8' },
-  { id: 'animenosub', label: 'Server 9' },
+  { id: 'animegg', label: 'Server 4' },
+  { id: 'animedunya', label: 'Server 5' },
+  { id: 'aniwaves', label: 'Server 6' },
+  { id: 'pahenime', label: 'Server 7' },
+  { id: 'animenosub', label: 'Server 8' },
+  { id: 'anihq', label: 'Server 9' },
   { id: 'reanime', label: 'Server 10' }
 ];
 
@@ -145,8 +145,9 @@ async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider =
     }
   }
 
+  const autoPool = DEFAULT_PROVIDERS.slice(0, 4); // race top 4 fast HLS providers so Render free tier (0.1 CPU) doesn't overload
   try {
-    return await Promise.any(DEFAULT_PROVIDERS.map(p => fetchProviderWatch(base, p, anilistId, cleanAudio, ep)));
+    return await Promise.any(autoPool.map(p => fetchProviderWatch(base, p, anilistId, cleanAudio, ep)));
   } catch (aggErr) {
     const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'All servers failed'];
     console.error('All Anivexa providers failed:', errors);

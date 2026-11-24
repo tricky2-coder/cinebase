@@ -1,5 +1,14 @@
 // Public site behaviour. Wrapped in a function: a global `const top` would clash with window.top.
 (() => {
+  // Smooth Netflix-style site entrance transition if landing from profile selection
+  try {
+    if (sessionStorage.getItem('cinebase.profileEntered') === '1') {
+      sessionStorage.removeItem('cinebase.profileEntered');
+      document.body.classList.add('site-enter-active');
+      setTimeout(() => document.body.classList.remove('site-enter-active'), 600);
+    }
+  } catch {}
+
   // Header turns solid on scroll
   const header = document.getElementById('s-top');
   if (header) {
@@ -327,15 +336,23 @@
         setTimeout(() => {
           if (wwModal) wwModal.classList.add('ww-modal-exiting');
           setTimeout(() => {
-            const isFromLogin = document.body.dataset.showWhosWatching === 'true';
             closeWhosWatching();
             delete document.body.dataset.showWhosWatching;
             document.body.classList.remove('ww-active');
             isSwitchingProfile = false;
-            if (!isAlreadyActive && !isFromLogin) {
-              window.location.reload();
+
+            if (!isAlreadyActive) {
+              // Different profile selected: navigate cleanly to refresh watchlist, history & preferences
+              try { sessionStorage.setItem('cinebase.profileEntered', '1'); } catch {}
+              const cleanUrl = window.location.pathname;
+              window.location.href = cleanUrl;
             } else {
+              // Same profile: play smooth entrance animation without full reload
               resetProfileSelectionAnimations();
+              document.body.classList.remove('site-enter-active');
+              void document.body.offsetWidth;
+              document.body.classList.add('site-enter-active');
+              setTimeout(() => document.body.classList.remove('site-enter-active'), 600);
             }
           }, 350);
         }, 420);
@@ -460,6 +477,13 @@
     isSwitchingProfile = false;
     delete document.body.dataset.showWhosWatching;
     resetProfileSelectionAnimations();
+
+    if (window.location.search.includes('whosWatching')) {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.delete('whosWatching');
+      const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '') + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
   }
 
   if (wwBtn) {

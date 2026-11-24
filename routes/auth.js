@@ -25,9 +25,9 @@ const loginLimiter = rateLimit({
 });
 
 // Where each role lands after signing in
-const homeFor = user => (user.role === 'admin' ? '/dashboard' : '/');
+const homeFor = () => '/';
 
-router.get('/admin', async (req, res) => res.redirect(req.session.user ? homeFor(req.session.user) : '/login'));
+router.get('/admin', async (req, res) => res.redirect(req.session.user ? (req.session.user.role === 'admin' ? '/dashboard' : '/') : '/login'));
 
 router.get('/login', async (req, res) => {
   if (req.session.user) return res.redirect(homeFor(req.session.user));

@@ -9,17 +9,18 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<% const isAdmin = user && user.role === 'admin'; %>
+<% const isAdmin = typeof user !== 'undefined' && user && user.role === 'admin'; %>
+<% const currentPath = typeof path !== 'undefined' ? path : ''; %>
 <% if (isAdmin) { %>
 <header class="topbar">
   <a href="/dashboard" class="brand"><span class="reel">●</span> CINEBASE</a>
   <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu">
   <label for="nav-toggle" class="nav-burger"><span></span><span></span><span></span></label>
   <nav class="nav">
-    <a href="/dashboard" class="<%= path === '/dashboard' ? 'active' : '' %>">Dashboard</a>
-    <a href="/titles" class="<%= path.startsWith('/titles') ? 'active' : '' %>">Movies &amp; Series</a>
-    <a href="/users" class="<%= path.startsWith('/users') ? 'active' : '' %>">Users</a>
-    <a href="/plex" class="<%= path.startsWith('/plex') ? 'active' : '' %>">Plex</a>
+    <a href="/dashboard" class="<%= currentPath === '/dashboard' ? 'active' : '' %>">Dashboard</a>
+    <a href="/titles" class="<%= currentPath.startsWith('/titles') ? 'active' : '' %>">Movies &amp; Series</a>
+    <a href="/users" class="<%= currentPath.startsWith('/users') ? 'active' : '' %>">Users</a>
+    <a href="/plex" class="<%= currentPath.startsWith('/plex') ? 'active' : '' %>">Plex</a>
     <a href="/" target="_blank" rel="noopener">View site ↗</a>
     <form action="/logout" method="POST" class="logout">
       <span class="who"><%= user.name %></span>
@@ -29,6 +30,6 @@
 </header>
 <% } %>
 <main class="<%= isAdmin ? 'container' : '' %>">
-<% if (flash) { %>
+<% if (typeof flash !== 'undefined' && flash) { %>
   <div class="flash flash-<%= flash.type %>" role="status"><%= flash.msg %></div>
 <% } %>

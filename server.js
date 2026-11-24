@@ -7,11 +7,7 @@ const helmet = require('helmet');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 if (!process.env.SESSION_SECRET) {
-  if (IS_PROD && !process.env.VERCEL) {
-    console.error('FATAL: SESSION_SECRET must be set in production.');
-    process.exit(1);
-  }
-  console.warn('Warning: SESSION_SECRET is not set; using a random secret (sessions reset on restart).');
+  console.warn('Warning: SESSION_SECRET is not set; using a random secret. Set SESSION_SECRET in production to persist sessions across restarts.');
 }
 
 const db = require('./db');
@@ -56,6 +52,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Safe default view locals on every incoming request
+app.use((req, res, next) => {
+  res.locals.user = null;
+  res.locals.activeProfile = null;
+  res.locals.userProfiles = [];
+  res.locals.flash = null;
+  res.locals.path = req.path || '/';
+  res.locals.showWhosWatching = false;
+  res.locals.tmdbEnabled = tmdb.enabled();
+  res.locals.plexEnabled = plex.enabled();
+  res.locals.q = '';
+  res.locals.query = {};
+  next();
+});
 
 // Everything below needs the database schema in place (matters on serverless cold starts)
 app.use((req, res, next) => db.ready.then(() => next(), next));
@@ -131,15 +142,15 @@ app.use('/', requireUser, require('./routes/site')); // the movie site — any s
 
 app.use((req, res) => res.status(404).render('error', { title: 'Not found', message: 'Page not found.' }));
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).render('error', { title: 'Error', message: 'Something went wrong.' });
+  console.error('[CineBase 500 Error]', req.method, req.url, err);
+  res.status(500).render('error', {
+    title: 'Something Went Wrong',
+    message: err.message || 'An unexpected error occurred. Please try again.'
+  });
 });
 
 db.ready.catch(e => {
-  console.error('FATAL: database setup failed:', e.message);
-  if (!process.env.VERCEL) {
-    process.exit(1);
-  }
+  console.error('FATAL: database setup failed:', e);
 });
 
 if (require.main === module || !process.env.VERCEL) {

@@ -1,7 +1,83 @@
-<%- include('partials/header') %>
-<section class="card error-card">
-  <h1><%= title %></h1>
-  <p class="muted"><%= message %></p>
-  <a href="/" class="btn btn-primary">Go home</a>
-</section>
-<%- include('partials/footer') %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= (typeof title !== 'undefined' && title) ? title : 'Error' %> · CineBase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 20%, #171722 0%, #0b0b0e 85%);
+      color: #f3f3f6;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .err-card {
+      max-width: 480px;
+      width: 100%;
+      padding: 2.8rem 2rem;
+      background: rgba(22, 22, 28, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px);
+    }
+    .err-brand {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 0.08em;
+      color: #f5b301;
+      margin-bottom: 1.2rem;
+      display: block;
+    }
+    .err-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.8rem;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      margin: 0 0 0.6rem;
+      line-height: 1;
+    }
+    .err-msg {
+      color: #a4a4b2;
+      font-size: 0.98rem;
+      line-height: 1.55;
+      margin: 0 0 2rem;
+    }
+    .err-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.7rem 1.8rem;
+      border-radius: 999px;
+      background: #f5b301;
+      color: #0b0b0e;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+    .err-btn:hover {
+      background: #ffc222;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(245, 179, 1, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="err-card">
+    <span class="err-brand">CINEBASE</span>
+    <h1 class="err-title"><%= (typeof title !== 'undefined' && title) ? title : 'Notice' %></h1>
+    <p class="err-msg"><%= (typeof message !== 'undefined' && message) ? message : 'An error occurred. Please try again.' %></p>
+    <a href="/" class="err-btn">Return to Home</a>
+  </div>
+</body>
+</html>

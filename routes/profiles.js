@@ -39,6 +39,14 @@ router.get('/whos-watching', (req, res) => {
   res.redirect(redirectUrl);
 });
 
+// Guard all /api endpoints in this router against unauthenticated access
+router.use('/api', (req, res, next) => {
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next();
+});
+
 // List profiles
 router.get('/api/profiles', async (req, res) => {
   try {

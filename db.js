@@ -214,8 +214,8 @@ async function init() {
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
   const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
   if (!(await db.get('SELECT id FROM users WHERE username = ?', adminUser))) {
-    if (process.env.NODE_ENV === 'production' && adminPass === 'admin123' && !process.env.VERCEL) {
-      throw new Error('Set ADMIN_PASSWORD (not the default) before the first production start.');
+    if (process.env.NODE_ENV === 'production' && adminPass === 'admin123') {
+      console.warn('SECURITY WARNING: Using default admin password in production. Please set ADMIN_PASSWORD in your environment variables.');
     }
     await db.run('INSERT INTO users (name, username, email, password, role) VALUES (?, ?, ?, ?, ?)',
       'Administrator', adminUser, 'admin@cinebase.local', bcrypt.hashSync(adminPass, 10), 'admin')

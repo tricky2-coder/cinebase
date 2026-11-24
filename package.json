@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server.js",
     "dev": "node --env-file-if-exists=.env --watch --disable-warning=ExperimentalWarning server.js",
+    "test": "node scripts/verify-prod.js",
     "import:omdb": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning scripts/import-omdb.js"
   },
   "keywords": [

@@ -8,7 +8,7 @@
     <!-- View 1: Who's watching? / Manage Profiles -->
     <div class="ww-view" id="ww-view-select">
       <h1 class="ww-main-title" id="ww-select-title">Who's watching?</h1>
-      <p class="ww-main-sub" id="ww-select-sub">Each profile keeps its own watchlist, progress and settings.</p>
+      <p class="ww-main-sub" id="ww-select-sub" style="display:none;"></p>
       
       <div class="ww-grid" id="ww-profiles-grid">
         <!-- Rendered profiles -->
@@ -75,8 +75,8 @@
 
       <!-- Integrated Center PIN Prompt (seamless floating under hero, NO boxed card) -->
       <div class="ww-pin-prompt" id="ww-pin-prompt" hidden>
-        <h2 class="ww-pin-prompt-title">Profile Lock is on.</h2>
-        <p class="ww-pin-prompt-sub">Enter your 4-digit PIN to access this profile.</p>
+        <h2 class="ww-pin-prompt-title">Profile Locked</h2>
+        <p class="ww-pin-prompt-sub">Enter your 4-digit PIN.</p>
         <div class="ww-pin-boxes" id="ww-pin-boxes">
           <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="0" autocomplete="off">
           <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="ww-pin-digit" data-idx="1" autocomplete="off">
@@ -152,7 +152,7 @@
               <div class="ww-toggle-row">
                 <div class="ww-toggle-info">
                   <div class="ww-toggle-title">Kids profile</div>
-                  <div class="ww-toggle-sub">Only shows family and age-appropriate content with a dedicated kids badge. An adult profile must have a PIN first.</div>
+                  <div class="ww-toggle-sub">Only show titles rated for kids and family.</div>
                   <div class="ww-kids-lock-notice" id="ww-kids-lock-notice" style="display:none; color: #f5b301; font-size: 0.82rem; font-weight: 500; margin-top: 6px;"></div>
                 </div>
                 <label class="ww-switch">
@@ -171,14 +171,14 @@
                   <div class="ww-pin-form-group" id="ww-pin-form-group" style="display:none; margin-top: 10px;">
                     <!-- Old PIN field (only when changing or disabling an existing PIN) -->
                     <div id="ww-old-pin-row" style="display:none; margin-bottom: 12px;">
-                      <label class="ww-field-label" for="ww-old-pin-input">Current 4-Digit PIN</label>
-                      <input type="password" id="ww-old-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="Current PIN" pattern="\d{4}" inputmode="numeric" style="max-width: 150px; text-align: center; letter-spacing: 0.3em; font-size: 1.1rem; margin-top: 4px;" autocomplete="current-password">
+                      <label class="ww-field-label" for="ww-old-pin-input">Current PIN</label>
+                      <input type="password" id="ww-old-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="••••" pattern="\d{4}" inputmode="numeric" autocomplete="current-password">
                     </div>
                     
                     <!-- New PIN field -->
                     <div id="ww-new-pin-row">
                       <label class="ww-field-label" id="ww-pin-input-label" for="ww-pin-input">Enter 4-Digit PIN</label>
-                      <input type="password" id="ww-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="4 digits" pattern="\d{4}" inputmode="numeric" style="max-width: 150px; text-align: center; letter-spacing: 0.3em; font-size: 1.1rem; margin-top: 4px;" autocomplete="new-password">
+                      <input type="password" id="ww-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="••••" pattern="\d{4}" inputmode="numeric" autocomplete="new-password">
                     </div>
 
                     <div class="ww-form-error" id="ww-pin-form-error" style="display:none; color: #f87171; font-size: 0.8rem; margin-top: 6px;"></div>
@@ -207,19 +207,14 @@
     <!-- Custom Themed Delete Confirmation Dialog (replacing browser popup) -->
     <div class="ww-dialog-overlay" id="ww-delete-dialog" hidden>
       <div class="ww-dialog-card">
-        <div class="ww-dialog-icon-wrap">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
-          </svg>
+        <div class="ww-dialog-avatar-preview">
+          <img id="ww-delete-dialog-avatar" src="" alt="Profile Avatar">
         </div>
         <h3 class="ww-dialog-title" id="ww-delete-dialog-title">Delete Profile?</h3>
-        <p class="ww-dialog-text" id="ww-delete-dialog-text">This will permanently delete this profile along with its watchlist, continue watching progress, and personalized recommendations.</p>
+        <p class="ww-dialog-text" id="ww-delete-dialog-text">All watch history, watchlist, and personalized recommendations for this profile will be permanently removed.</p>
         <div class="ww-dialog-actions">
-          <button type="button" class="ww-btn-outline" id="btn-ww-delete-cancel">CANCEL</button>
-          <button type="button" class="ww-btn-danger" id="btn-ww-delete-confirm">DELETE PROFILE</button>
+          <button type="button" class="ww-btn-cancel" id="btn-ww-delete-cancel">Cancel</button>
+          <button type="button" class="ww-btn-danger" id="btn-ww-delete-confirm">Delete Profile</button>
         </div>
       </div>
     </div>

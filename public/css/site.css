@@ -58,17 +58,24 @@ button { font: inherit; }
 .s-admin { font-size: .85rem; font-weight: 600; padding: .45rem .9rem; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); }
 .s-admin:hover { color: var(--ink); border-color: var(--dim); }
 
-/* Avatar button: displays profile's chosen avatar instead of gold letter */
+/* Avatar button: displays profile's chosen avatar with smooth subtle hover */
 .s-avatar-btn {
   background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px;
-  transition: transform .15s ease; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  display: flex; align-items: center; justify-content: center;
 }
-.s-avatar-btn:hover { transform: scale(1.06); }
-.s-avatar-btn:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.s-avatar-btn:hover {
+  transform: scale(1.06);
+}
+.s-avatar-btn:focus-visible { outline: 2px solid var(--gold, #f5b301); outline-offset: 2px; }
 .s-avatar-img-wrap {
   width: 36px; height: 36px; border-radius: 8px; overflow: hidden;
-  background: #262626; display: flex; align-items: center; justify-content: center;
+  background: #181822; display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  transition: box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.s-avatar-btn:hover .s-avatar-img-wrap {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 0 1.5px rgba(245, 179, 1, 0.7);
 }
 .s-avatar-img {
   width: 100%; height: 100%; object-fit: cover; display: block;
@@ -566,11 +573,14 @@ body.ww-active .ww-overlay {
 .ww-view { width: 100%; display: flex; flex-direction: column; align-items: center; }
 .ww-main-title {
   font-size: clamp(2.4rem, 5vw, 3.8rem); font-weight: 600;
-  color: var(--ink, #ffffff); margin: 0 0 10px; letter-spacing: -0.02em; text-align: center;
+  color: var(--ink, #ffffff); margin: 0 0 2.5rem; letter-spacing: -0.02em; text-align: center;
 }
 .ww-main-sub {
   color: var(--dim, #808080); font-size: clamp(0.95rem, 1.8vw, 1.1rem);
   margin: 0 0 2.8rem; text-align: center;
+}
+.ww-main-sub:empty, .ww-main-sub[style*="display:none"] {
+  display: none !important;
 }
 
 .ww-grid {
@@ -619,18 +629,18 @@ body.ww-active .ww-overlay {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 
-/* Hover: smooth scale & crisp white border glow */
+/* Hover: smooth scale & warm gold border glow matching site theme */
 .ww-profile-item:hover .ww-avatar-wrap,
 .ww-profile-item:focus-visible .ww-avatar-wrap {
   transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(255, 255, 255, 0.22);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 179, 1, 0.35);
 }
 .ww-profile-item:hover .ww-avatar-wrap::after,
 .ww-profile-item:focus-visible .ww-avatar-wrap::after {
-  border-color: #ffffff;
+  border-color: var(--gold, #f5b301);
 }
 .ww-profile-item:hover .ww-profile-name {
-  color: #ffffff;
+  color: var(--gold, #f5b301);
 }
 
 /* Active Profile: distinct, glowing gold accent */
@@ -644,10 +654,13 @@ body.ww-active .ww-overlay {
 }
 .ww-profile-item.active:hover .ww-avatar-wrap::after {
   border-color: #ffd24d;
-  box-shadow: 0 0 0 1.5px #ffd24d, 0 0 30px rgba(245, 179, 1, 0.65);
+  box-shadow: 0 0 0 1.5px #ffd24d, 0 0 32px rgba(245, 179, 1, 0.7);
 }
 .ww-profile-item.active:hover .ww-avatar-wrap {
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 26px rgba(245, 179, 1, 0.35);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 28px rgba(245, 179, 1, 0.45);
+}
+.ww-profile-item.active:hover .ww-profile-name {
+  color: #ffd24d;
 }
 
 /* Active profile top badge */
@@ -734,20 +747,38 @@ body.ww-active .ww-overlay {
 /* Add Profile Box */
 .ww-add-wrap {
   display: flex; align-items: center; justify-content: center;
-  background: rgba(255, 255, 255, 0.03); border: 2px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px dashed rgba(255, 255, 255, 0.22);
   border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
-.ww-add-plus { font-size: 3.2rem; color: var(--dim, #808080); line-height: 1; font-weight: 200; transition: color .2s, transform .2s; }
-.ww-add-item:hover .ww-add-wrap {
+.ww-add-plus {
+  font-size: 3.2rem;
+  color: var(--dim, #808080);
+  line-height: 1;
+  font-weight: 200;
+  transition: color 0.25s ease, transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.ww-add-item:hover .ww-add-wrap,
+.ww-add-item:focus-visible .ww-add-wrap {
   border-style: solid;
-  border-color: #ffffff;
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--gold, #f5b301);
+  background: rgba(245, 179, 1, 0.06);
   transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(255, 255, 255, 0.22);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 179, 1, 0.35);
 }
-.ww-add-item:hover .ww-add-plus { color: #ffffff; transform: scale(1.15); }
-.ww-add-item:hover .ww-profile-name { color: #ffffff; }
+.ww-add-item:hover .ww-add-plus,
+.ww-add-item:focus-visible .ww-add-plus {
+  color: var(--gold, #f5b301);
+  transform: scale(1.15);
+}
+.ww-add-item:hover .ww-profile-name,
+.ww-add-item:focus-visible .ww-profile-name {
+  color: var(--gold, #f5b301);
+}
 
 /* Bottom Action Buttons */
 .ww-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
@@ -774,11 +805,23 @@ body.ww-active .ww-overlay {
   display: flex; flex-direction: column; align-items: center;
 }
 .ww-avatar-preview-box {
-  width: 140px; height: 140px; border-radius: 10px; overflow: hidden;
-  background: #181822; box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-  border: 2px solid rgba(245, 179, 1, 0.35);
+  width: 140px; height: 140px; border-radius: 8px; overflow: hidden;
+  position: relative;
+  background: #12121a;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  transform: translate3d(0, 0, 0);
 }
 .ww-avatar-preview-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ww-avatar-preview-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 3px solid var(--gold, #f5b301);
+  box-shadow: 0 0 16px rgba(245, 179, 1, 0.3);
+  pointer-events: none;
+  box-sizing: border-box;
+}
 .ww-avatar-preview-name {
   margin-top: 10px; font-size: 0.85rem; color: var(--dim, #808080); text-align: center;
 }
@@ -828,19 +871,33 @@ body.ww-active .ww-overlay {
   max-height: 290px; overflow-y: auto; overflow-x: hidden; padding: 4px; box-sizing: border-box;
 }
 .ww-avatar-tile {
-  aspect-ratio: 1; border-radius: 8px; overflow: hidden;
-  cursor: pointer; background: #181822; border: 2.5px solid transparent;
+  aspect-ratio: 1; border-radius: 8px; overflow: hidden; position: relative;
+  cursor: pointer; background: #12121a; border: none;
   box-sizing: border-box;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  transform: translate3d(0, 0, 0);
+  transition: transform .2s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.ww-avatar-tile img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 5px; }
+.ww-avatar-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ww-avatar-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2.5px solid transparent;
+  pointer-events: none;
+  box-sizing: border-box;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
 .ww-avatar-tile:hover {
-  border-color: rgba(245, 179, 1, 0.65);
-  box-shadow: 0 0 10px rgba(245, 179, 1, 0.2);
+  transform: scale(1.05);
 }
-.ww-avatar-tile.selected {
+.ww-avatar-tile:hover::after {
+  border-color: rgba(245, 179, 1, 0.65);
+  box-shadow: 0 0 10px rgba(245, 179, 1, 0.25);
+}
+.ww-avatar-tile.selected::after {
   border-color: var(--gold, #f5b301);
-  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 0 14px rgba(245, 179, 1, 0.35);
+  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 0 14px rgba(245, 179, 1, 0.4);
 }
 
 /* Toggles */
@@ -884,6 +941,23 @@ body.ww-active .ww-overlay {
   transform: translateX(20px);
 }
 
+/* PIN Input Field in Form */
+.ww-pin-input {
+  max-width: 160px;
+  text-align: center;
+  font-size: 1.25rem;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.35em;
+  padding: 10px 14px;
+  margin-top: 6px;
+}
+.ww-pin-input::placeholder {
+  letter-spacing: 0.25em;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 1.15rem;
+}
+
 /* Buttons Row */
 .ww-form-actions { display: flex; gap: 12px; align-items: center; margin-top: 2rem; }
 .ww-btn-save {
@@ -891,21 +965,24 @@ body.ww-active .ww-overlay {
   font-weight: 700; font-size: 0.95rem;
   padding: 10px 28px; border-radius: 6px; border: 0; cursor: pointer;
   box-shadow: 0 4px 18px rgba(245, 179, 1, 0.35);
-  transition: all .15s ease;
+  transition: all .2s cubic-bezier(0.25, 1, 0.5, 1);
 }
 .ww-btn-save:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 22px rgba(245, 179, 1, 0.45); }
 .ww-btn-cancel {
   background: transparent; color: var(--ink, #ffffff); border: 1px solid rgba(255, 255, 255, 0.2);
   font-size: 0.95rem; font-weight: 500; padding: 10px 26px;
-  border-radius: 6px; cursor: pointer; transition: all .15s ease;
+  border-radius: 6px; cursor: pointer; transition: all .2s cubic-bezier(0.25, 1, 0.5, 1);
 }
 .ww-btn-cancel:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.05); }
 .ww-btn-delete {
-  background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.22);
   font-size: 0.9rem; padding: 10px 22px; border-radius: 6px; cursor: pointer;
-  margin-left: auto; transition: all .15s ease;
+  margin-left: auto; transition: all .2s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.ww-btn-delete:hover { background: rgba(239, 68, 68, 0.25); color: #ffffff; }
+.ww-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444; transform: translateY(-1px);
+}
 
 @media (max-width: 680px) {
   .ww-form-layout { grid-template-columns: 1fr; gap: 1.5rem; }
@@ -971,8 +1048,8 @@ body.ww-active .ww-overlay {
 /* Custom Themed Delete Confirmation Dialog */
 .ww-dialog-overlay {
   position: fixed; inset: 0; z-index: 10005;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(12px);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
   animation: wwDialogFade 0.25s cubic-bezier(0.25, 1, 0.5, 1);
@@ -983,45 +1060,51 @@ body.ww-active .ww-overlay {
   to { opacity: 1; }
 }
 .ww-dialog-card {
-  background: #151520;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(239, 68, 68, 0.18);
-  border-radius: 14px;
-  max-width: 440px; width: 100%;
-  padding: 30px 26px; text-align: center;
+  background: rgba(18, 18, 26, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  max-width: 420px; width: 100%;
+  padding: 32px 28px; text-align: center;
   animation: wwCardPop 0.28s cubic-bezier(0.25, 1, 0.5, 1);
 }
 @keyframes wwCardPop {
-  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
-.ww-dialog-icon-wrap {
-  width: 54px; height: 54px; border-radius: 50%;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1.5px solid rgba(239, 68, 68, 0.35);
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 16px;
-  color: #ef4444;
+.ww-dialog-avatar-preview {
+  width: 68px; height: 68px; border-radius: 8px; overflow: hidden;
+  margin: 0 auto 18px; position: relative;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  background: #12121a;
+}
+.ww-dialog-avatar-preview img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.ww-dialog-avatar-preview::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: inherit; border: 2px solid rgba(255, 255, 255, 0.16);
+  pointer-events: none; box-sizing: border-box;
 }
 .ww-dialog-title {
-  font-size: 1.35rem; font-weight: 700; color: #ffffff; margin: 0 0 10px;
+  font-size: 1.35rem; font-weight: 600; color: #ffffff; margin: 0 0 10px;
 }
 .ww-dialog-text {
-  font-size: 0.92rem; color: #a3a3a3; line-height: 1.5; margin: 0 0 24px;
+  font-size: 0.9rem; color: #a3a3a3; line-height: 1.5; margin: 0 0 24px;
 }
 .ww-dialog-actions {
-  display: flex; gap: 14px; justify-content: center;
+  display: flex; gap: 12px; justify-content: center;
 }
 .ww-btn-danger {
   background: #dc2626; color: #ffffff;
-  border: none; font-size: 0.88rem; font-weight: 700;
-  letter-spacing: 0.08em; padding: 10px 24px; cursor: pointer;
-  border-radius: 6px; transition: all 0.2s ease;
-  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.35);
+  border: none; font-size: 0.88rem; font-weight: 600;
+  letter-spacing: 0.04em; padding: 11px 24px; cursor: pointer;
+  border-radius: 6px; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.35);
 }
 .ww-btn-danger:hover {
-  background: #b91c1c;
-  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.55);
+  background: #ef4444;
+  box-shadow: 0 6px 22px rgba(239, 68, 68, 0.55);
   transform: translateY(-1px);
 }
 

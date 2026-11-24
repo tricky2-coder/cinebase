@@ -377,11 +377,11 @@
       const titleEl = wwPinPrompt.querySelector('.ww-pin-prompt-title');
       const subEl = wwPinPrompt.querySelector('.ww-pin-prompt-sub');
       if (isExitingKids) {
-        if (titleEl) titleEl.textContent = 'Parent Lock is on.';
-        if (subEl) subEl.textContent = 'Enter adult PIN to exit Kids profile.';
+        if (titleEl) titleEl.textContent = 'Parental Lock';
+        if (subEl) subEl.textContent = 'Enter PIN to exit Kids.';
       } else {
-        if (titleEl) titleEl.textContent = 'Profile Lock is on.';
-        if (subEl) subEl.textContent = 'Enter your 4-digit PIN to access this profile.';
+        if (titleEl) titleEl.textContent = 'Profile Locked';
+        if (subEl) subEl.textContent = 'Enter your 4-digit PIN.';
       }
     }
     if (wwPinError) {
@@ -763,7 +763,7 @@
     pendingPinProfile = null;
     resetProfileSelectionAnimations();
     if (wwSelectTitle) wwSelectTitle.textContent = "Who's watching?";
-    if (wwSelectSub) wwSelectSub.textContent = 'Each profile keeps its own watchlist, progress and settings.';
+    if (wwSelectSub) wwSelectSub.textContent = '';
     if (wwManageBtn) wwManageBtn.textContent = 'MANAGE PROFILES';
     const isMandatory = document.body.dataset.showWhosWatching === 'true';
     if (wwCancelBtn) {
@@ -810,7 +810,7 @@
     wwManageBtn.addEventListener('click', () => {
       isManageMode = !isManageMode;
       if (wwSelectTitle) wwSelectTitle.textContent = isManageMode ? 'Manage Profiles' : "Who's watching?";
-      if (wwSelectSub) wwSelectSub.textContent = isManageMode ? 'Choose a profile to edit.' : 'Each profile keeps its own watchlist, progress and settings.';
+      if (wwSelectSub) wwSelectSub.textContent = '';
       wwManageBtn.textContent = isManageMode ? 'DONE' : 'MANAGE PROFILES';
       const isMandatory = document.body.dataset.showWhosWatching === 'true';
       if (wwCancelBtn) {
@@ -918,7 +918,7 @@
       if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
       if (wwOldPinRow) wwOldPinRow.style.display = 'block';
       if (wwNewPinRow) wwNewPinRow.style.display = 'block';
-      if (wwPinInputLabel) wwPinInputLabel.textContent = 'Enter New 4-Digit PIN';
+      if (wwPinInputLabel) wwPinInputLabel.textContent = 'New 4-Digit PIN';
       if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
       if (wwPinStatusText) wwPinStatusText.textContent = 'Enter current and new PIN to update.';
       if (wwOldPinInput) {
@@ -1106,8 +1106,12 @@
       const editId = wwEditId ? wwEditId.value : '';
       if (!editId) return;
       const targetProfile = profilesData.find(p => p.id === Number(editId));
-      if (wwDeleteDialogTitle && targetProfile) {
-        wwDeleteDialogTitle.textContent = `Delete ${targetProfile.name}?`;
+      if (targetProfile) {
+        const deleteAvatarImg = document.getElementById('ww-delete-dialog-avatar');
+        if (deleteAvatarImg) deleteAvatarImg.src = targetProfile.avatar;
+        if (wwDeleteDialogTitle) {
+          wwDeleteDialogTitle.textContent = `Delete ${targetProfile.name}?`;
+        }
       }
       if (wwDeleteDialog) wwDeleteDialog.hidden = false;
     });

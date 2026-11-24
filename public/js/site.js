@@ -1198,7 +1198,10 @@
       if (targetProfile) {
         const deleteAvatarImg = document.getElementById('ww-delete-dialog-avatar');
         if (deleteAvatarImg) deleteAvatarImg.src = targetProfile.avatar;
-        if (wwDeleteDialogTitle) {
+        const deleteNameEl = document.getElementById('ww-delete-dialog-name');
+        if (deleteNameEl) {
+          deleteNameEl.textContent = targetProfile.name;
+        } else if (wwDeleteDialogTitle) {
           wwDeleteDialogTitle.textContent = `Delete ${targetProfile.name}?`;
         }
       }

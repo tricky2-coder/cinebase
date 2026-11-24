@@ -146,12 +146,20 @@
   const wwKidsLockNotice = document.getElementById('ww-kids-lock-notice');
   const wwLockPin = document.getElementById('ww-lock-pin');
   const wwPinFormGroup = document.getElementById('ww-pin-form-group');
+  const wwOldPinRow = document.getElementById('ww-old-pin-row');
+  const wwOldPinInput = document.getElementById('ww-old-pin-input');
+  const wwNewPinRow = document.getElementById('ww-new-pin-row');
+  const wwPinInputLabel = document.getElementById('ww-pin-input-label');
   const wwPinInput = document.getElementById('ww-pin-input');
   const wwPinStatusText = document.getElementById('ww-pin-status-text');
   const wwPinFormError = document.getElementById('ww-pin-form-error');
   const wwPinChangeBtn = document.getElementById('btn-ww-pin-change');
   const wwFormCancel = document.getElementById('btn-ww-form-cancel');
   const wwDeleteBtn = document.getElementById('btn-ww-delete');
+  const wwDeleteDialog = document.getElementById('ww-delete-dialog');
+  const wwDeleteDialogTitle = document.getElementById('ww-delete-dialog-title');
+  const wwDeleteConfirmBtn = document.getElementById('btn-ww-delete-confirm');
+  const wwDeleteCancelBtn = document.getElementById('btn-ww-delete-cancel');
 
   const AVATAR_PRESETS = [
     { id: 'alien', name: 'Alien', path: '/profiles/avatars/alien.svg' },
@@ -255,6 +263,13 @@
       img.alt = p.name;
       wrap.appendChild(img);
 
+      if (p.id === currentActiveId) {
+        const activeBadge = document.createElement('span');
+        activeBadge.className = 'ww-active-badge';
+        activeBadge.textContent = 'CURRENT';
+        wrap.appendChild(activeBadge);
+      }
+
       if (p.is_kids) {
         const kidsBadge = document.createElement('span');
         kidsBadge.className = 'ww-kids-badge';
@@ -267,7 +282,7 @@
         lockBadge.className = 'ww-lock-badge';
         lockBadge.title = 'Profile Locked';
         lockBadge.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
           </svg>
         `;
@@ -638,6 +653,22 @@
     });
   }
 
+  function switchView(targetView) {
+    [wwViewSelect, wwViewForm].forEach(v => {
+      if (v) {
+        if (v === targetView) {
+          v.hidden = false;
+          v.classList.remove('ww-view-fade-in');
+          void v.offsetWidth;
+          v.classList.add('ww-view-fade-in');
+        } else {
+          v.hidden = true;
+          v.classList.remove('ww-view-fade-in');
+        }
+      }
+    });
+  }
+
   function openAddProfileForm() {
     if (wwFormHeading) wwFormHeading.textContent = 'Add Profile';
     if (wwEditId) wwEditId.value = '';
@@ -646,9 +677,17 @@
       if (wwCharCount) wwCharCount.textContent = '0/20';
     }
     if (wwIsKids) wwIsKids.checked = false;
-    if (wwLockPin) wwLockPin.checked = false;
+    if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
+    if (wwLockPin) {
+      wwLockPin.checked = false;
+      wwLockPin.disabled = false;
+    }
     if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+    if (wwOldPinRow) wwOldPinRow.style.display = 'none';
+    if (wwNewPinRow) wwNewPinRow.style.display = 'block';
+    if (wwPinInputLabel) wwPinInputLabel.textContent = 'Enter 4-Digit PIN';
     if (wwPinInput) wwPinInput.value = '';
+    if (wwOldPinInput) wwOldPinInput.value = '';
     if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
     if (wwPinStatusText) wwPinStatusText.textContent = '';
     if (wwPinFormError) wwPinFormError.style.display = 'none';
@@ -662,10 +701,8 @@
     if (wwAvatarSearchInput) wwAvatarSearchInput.value = '';
     renderAvatarGrid('');
 
-    if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
     if (wwDeleteBtn) wwDeleteBtn.hidden = true;
-    if (wwViewSelect) wwViewSelect.hidden = true;
-    if (wwViewForm) wwViewForm.hidden = false;
+    switchView(wwViewForm);
     if (wwProfileName) wwProfileName.focus();
   }
 
@@ -679,14 +716,28 @@
     if (wwKidsLockNotice) wwKidsLockNotice.style.display = 'none';
     if (wwIsKids) wwIsKids.checked = !!profile.is_kids;
     const hasPin = Boolean(profile.has_pin);
-    if (wwLockPin) wwLockPin.checked = hasPin;
+    const isCurrentActive = (Number(currentActiveId) === Number(profile.id));
+
     if (wwPinInput) wwPinInput.value = '';
+    if (wwOldPinInput) wwOldPinInput.value = '';
     if (wwPinFormError) wwPinFormError.style.display = 'none';
+
     if (hasPin) {
-      if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
-      if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'inline-block';
-      if (wwPinStatusText) wwPinStatusText.textContent = 'Profile is locked with a PIN.';
+      wwLockPin.checked = true;
+      if (isCurrentActive) {
+        wwLockPin.disabled = false;
+        if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+        if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'inline-block';
+        if (wwPinStatusText) wwPinStatusText.textContent = 'Profile is locked with a PIN.';
+      } else {
+        wwLockPin.disabled = true;
+        if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+        if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+        if (wwPinStatusText) wwPinStatusText.textContent = 'Locked with PIN. Switch to this profile to change or remove its PIN.';
+      }
     } else {
+      wwLockPin.checked = false;
+      wwLockPin.disabled = false;
       if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
       if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
       if (wwPinStatusText) wwPinStatusText.textContent = '';
@@ -701,8 +752,7 @@
     renderAvatarGrid('');
 
     if (wwDeleteBtn) wwDeleteBtn.hidden = profilesData.length <= 1;
-    if (wwViewSelect) wwViewSelect.hidden = true;
-    if (wwViewForm) wwViewForm.hidden = false;
+    switchView(wwViewForm);
     if (wwProfileName) wwProfileName.focus();
   }
 
@@ -813,32 +863,69 @@
   // Lock PIN Toggle & Change PIN button
   if (wwLockPin) {
     wwLockPin.addEventListener('change', () => {
+      const editId = wwEditId && wwEditId.value ? Number(wwEditId.value) : null;
+      const existing = editId ? profilesData.find(p => p.id === editId) : null;
+      const hadPin = Boolean(existing && existing.has_pin);
+
       if (wwLockPin.checked) {
-        if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
-        if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
-        if (wwPinStatusText) wwPinStatusText.textContent = '';
-        if (wwPinInput) {
-          wwPinInput.value = '';
-          wwPinInput.focus();
+        if (hadPin) {
+          if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+          if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'inline-block';
+          if (wwPinStatusText) wwPinStatusText.textContent = 'Profile is locked with a PIN.';
+          if (wwOldPinRow) wwOldPinRow.style.display = 'none';
+          if (wwNewPinRow) wwNewPinRow.style.display = 'block';
+          if (wwOldPinInput) wwOldPinInput.value = '';
+          if (wwPinInput) wwPinInput.value = '';
+          if (wwPinFormError) wwPinFormError.style.display = 'none';
+        } else {
+          if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+          if (wwOldPinRow) wwOldPinRow.style.display = 'none';
+          if (wwNewPinRow) wwNewPinRow.style.display = 'block';
+          if (wwPinInputLabel) wwPinInputLabel.textContent = 'Enter 4-Digit PIN';
+          if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+          if (wwPinStatusText) wwPinStatusText.textContent = '';
+          if (wwPinInput) {
+            wwPinInput.value = '';
+            wwPinInput.focus();
+          }
         }
       } else {
-        if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
-        if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
-        if (wwPinInput) wwPinInput.value = '';
-        if (wwPinStatusText) wwPinStatusText.textContent = '';
-        if (wwPinFormError) wwPinFormError.style.display = 'none';
+        if (hadPin) {
+          // Turning off existing PIN lock: prompt for current PIN
+          if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+          if (wwOldPinRow) wwOldPinRow.style.display = 'block';
+          if (wwNewPinRow) wwNewPinRow.style.display = 'none';
+          if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+          if (wwPinStatusText) wwPinStatusText.textContent = 'Enter your current PIN to turn off lock.';
+          if (wwOldPinInput) {
+            wwOldPinInput.value = '';
+            wwOldPinInput.focus();
+          }
+        } else {
+          if (wwPinFormGroup) wwPinFormGroup.style.display = 'none';
+          if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
+          if (wwPinInput) wwPinInput.value = '';
+          if (wwOldPinInput) wwOldPinInput.value = '';
+          if (wwPinStatusText) wwPinStatusText.textContent = '';
+          if (wwPinFormError) wwPinFormError.style.display = 'none';
+        }
       }
     });
   }
+
   if (wwPinChangeBtn) {
     wwPinChangeBtn.addEventListener('click', () => {
       if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+      if (wwOldPinRow) wwOldPinRow.style.display = 'block';
+      if (wwNewPinRow) wwNewPinRow.style.display = 'block';
+      if (wwPinInputLabel) wwPinInputLabel.textContent = 'Enter New 4-Digit PIN';
       if (wwPinChangeBtn) wwPinChangeBtn.style.display = 'none';
-      if (wwPinStatusText) wwPinStatusText.textContent = '';
-      if (wwPinInput) {
-        wwPinInput.value = '';
-        wwPinInput.focus();
+      if (wwPinStatusText) wwPinStatusText.textContent = 'Enter current and new PIN to update.';
+      if (wwOldPinInput) {
+        wwOldPinInput.value = '';
+        wwOldPinInput.focus();
       }
+      if (wwPinInput) wwPinInput.value = '';
     });
   }
 
@@ -894,8 +981,11 @@
       if (!name) return;
       const isKids = wwIsKids ? (wwIsKids.checked ? 1 : 0) : 0;
       const editId = wwEditId ? wwEditId.value : '';
+      const existing = editId ? profilesData.find(p => p.id === Number(editId)) : null;
+      const hadPin = Boolean(existing && existing.has_pin);
       const lockPinChecked = wwLockPin ? wwLockPin.checked : false;
-      const enteredPin = wwPinInput ? wwPinInput.value.trim() : '';
+      const enteredNewPin = wwPinInput ? wwPinInput.value.trim() : '';
+      const enteredOldPin = wwOldPinInput ? wwOldPinInput.value.trim() : '';
 
       if (isKids) {
         const editNum = editId ? Number(editId) : null;
@@ -912,47 +1002,57 @@
 
       let pinVal = undefined;
       let removePin = false;
+      let oldPinVal = undefined;
 
-      if (lockPinChecked) {
-        if (enteredPin) {
-          if (!/^\d{4}$/.test(enteredPin)) {
+      if (hadPin) {
+        if (!lockPinChecked) {
+          // Turning off lock: current PIN required
+          if (!enteredOldPin || !/^\d{4}$/.test(enteredOldPin)) {
             if (wwPinFormError) {
-              wwPinFormError.textContent = 'PIN must be exactly 4 digits (0-9).';
+              wwPinFormError.textContent = 'Enter your current 4-digit PIN to turn off lock.';
+              wwPinFormError.style.display = 'block';
+            }
+            if (wwOldPinInput) wwOldPinInput.focus();
+            return;
+          }
+          removePin = true;
+          oldPinVal = enteredOldPin;
+        } else if (enteredNewPin || enteredOldPin) {
+          // Changing PIN: both old and new PIN required
+          if (!enteredOldPin || !/^\d{4}$/.test(enteredOldPin)) {
+            if (wwPinFormError) {
+              wwPinFormError.textContent = 'Current 4-digit PIN is required.';
+              wwPinFormError.style.display = 'block';
+            }
+            if (wwOldPinInput) wwOldPinInput.focus();
+            return;
+          }
+          if (!enteredNewPin || !/^\d{4}$/.test(enteredNewPin)) {
+            if (wwPinFormError) {
+              wwPinFormError.textContent = 'New PIN must be exactly 4 digits.';
               wwPinFormError.style.display = 'block';
             }
             if (wwPinInput) wwPinInput.focus();
             return;
           }
-          pinVal = enteredPin;
-        } else {
-          // If creating new profile, PIN is required if lock is checked
-          if (!editId) {
-            if (wwPinFormError) {
-              wwPinFormError.textContent = 'Please enter a 4-digit PIN for the profile.';
-              wwPinFormError.style.display = 'block';
-            }
-            if (wwPinInput) {
-              if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
-              wwPinInput.focus();
-            }
-            return;
-          }
-          // If editing existing profile that did not have PIN previously
-          const existing = profilesData.find(p => p.id === Number(editId));
-          if (existing && !existing.has_pin) {
-            if (wwPinFormError) {
-              wwPinFormError.textContent = 'Please enter a 4-digit PIN for the profile.';
-              wwPinFormError.style.display = 'block';
-            }
-            if (wwPinInput) {
-              if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
-              wwPinInput.focus();
-            }
-            return;
-          }
+          pinVal = enteredNewPin;
+          oldPinVal = enteredOldPin;
         }
       } else {
-        removePin = true;
+        if (lockPinChecked) {
+          if (!enteredNewPin || !/^\d{4}$/.test(enteredNewPin)) {
+            if (wwPinFormError) {
+              wwPinFormError.textContent = 'Please enter a 4-digit PIN for the profile.';
+              wwPinFormError.style.display = 'block';
+            }
+            if (wwPinInput) {
+              if (wwPinFormGroup) wwPinFormGroup.style.display = 'block';
+              wwPinInput.focus();
+            }
+            return;
+          }
+          pinVal = enteredNewPin;
+        }
       }
 
       const payload = {
@@ -962,6 +1062,7 @@
       };
       if (pinVal) payload.pin = pinVal;
       if (removePin) payload.remove_pin = true;
+      if (oldPinVal) payload.old_pin = oldPinVal;
 
       try {
         let res;
@@ -985,8 +1086,7 @@
             return;
           }
           await loadProfiles();
-          if (wwViewForm) wwViewForm.hidden = true;
-          if (wwViewSelect) wwViewSelect.hidden = false;
+          switchView(wwViewSelect);
         } else {
           const errData = await res.json().catch(() => ({}));
           if (wwPinFormError) {
@@ -999,16 +1099,43 @@
       }
     });
   }
+
+  // Themed Custom Delete Confirmation Modal
   if (wwDeleteBtn) {
-    wwDeleteBtn.addEventListener('click', async () => {
+    wwDeleteBtn.addEventListener('click', () => {
       const editId = wwEditId ? wwEditId.value : '';
-      if (!editId || !confirm('Are you sure you want to delete this profile?')) return;
+      if (!editId) return;
+      const targetProfile = profilesData.find(p => p.id === Number(editId));
+      if (wwDeleteDialogTitle && targetProfile) {
+        wwDeleteDialogTitle.textContent = `Delete ${targetProfile.name}?`;
+      }
+      if (wwDeleteDialog) wwDeleteDialog.hidden = false;
+    });
+  }
+
+  if (wwDeleteCancelBtn) {
+    wwDeleteCancelBtn.addEventListener('click', () => {
+      if (wwDeleteDialog) wwDeleteDialog.hidden = true;
+    });
+  }
+
+  if (wwDeleteConfirmBtn) {
+    wwDeleteConfirmBtn.addEventListener('click', async () => {
+      const editId = wwEditId ? wwEditId.value : '';
+      if (!editId) return;
       try {
         const res = await fetch(`/api/profiles/${editId}`, { method: 'DELETE' });
         if (res.ok) {
+          if (wwDeleteDialog) wwDeleteDialog.hidden = true;
           await loadProfiles();
-          if (wwViewForm) wwViewForm.hidden = true;
-          if (wwViewSelect) wwViewSelect.hidden = false;
+          switchView(wwViewSelect);
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (wwDeleteDialog) wwDeleteDialog.hidden = true;
+          if (wwPinFormError) {
+            wwPinFormError.textContent = errData.error || 'Failed to delete profile.';
+            wwPinFormError.style.display = 'block';
+          }
         }
       } catch (err) {
         console.error('Error deleting profile:', err);
@@ -1056,6 +1183,11 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        if (wwDeleteDialog && !wwDeleteDialog.hidden) {
+          wwDeleteDialog.hidden = true;
+          e.stopPropagation();
+          return;
+        }
         if (isHeroPinActive) {
           cancelHeroPinChallenge();
           e.stopPropagation();
@@ -1066,8 +1198,7 @@
           settingsBtn.setAttribute('aria-expanded', 'false');
         } else if (wwModal && !wwModal.hidden) {
           if (wwViewForm && !wwViewForm.hidden) {
-            wwViewForm.hidden = true;
-            if (wwViewSelect) wwViewSelect.hidden = false;
+            switchView(wwViewSelect);
           } else if (document.body.dataset.showWhosWatching !== 'true') {
             closeWhosWatching();
           }

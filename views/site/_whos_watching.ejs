@@ -17,12 +17,15 @@
           <div class="ww-profile-item <%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) ? 'active' : '' %>" data-id="<%= p.id %>">
             <div class="ww-avatar-wrap">
               <img src="<%= p.avatar %>" alt="<%= p.name %>">
+              <% if (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) { %>
+                <span class="ww-active-badge">CURRENT</span>
+              <% } %>
               <% if (p.is_kids) { %>
                 <span class="ww-kids-badge">KIDS</span>
               <% } %>
               <% if (p.has_pin) { %>
                 <div class="ww-lock-badge" title="Profile Locked">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
                   </svg>
                 </div>
@@ -41,12 +44,13 @@
         <div class="ww-profile-item active" data-id="<%= activeProfile.id %>">
           <div class="ww-avatar-wrap">
             <img src="<%= activeProfile.avatar %>" alt="<%= activeProfile.name %>">
+            <span class="ww-active-badge">CURRENT</span>
             <% if (activeProfile.is_kids) { %>
               <span class="ww-kids-badge">KIDS</span>
             <% } %>
             <% if (activeProfile.has_pin) { %>
               <div class="ww-lock-badge" title="Profile Locked">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
                 </svg>
               </div>
@@ -162,14 +166,24 @@
                 <div class="ww-toggle-info">
                   <div class="ww-toggle-title">Lock with a PIN</div>
                   <div class="ww-toggle-sub">Require a 4-digit PIN to access this profile.</div>
+                  <div class="ww-pin-status-text" id="ww-pin-status-text" style="font-size: 0.82rem; color: #a3a3a3; margin-top: 4px;"></div>
+                  
                   <div class="ww-pin-form-group" id="ww-pin-form-group" style="display:none; margin-top: 10px;">
-                    <label class="ww-field-label" for="ww-pin-input">Enter 4-Digit PIN</label>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
-                      <input type="password" id="ww-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="4 digits" pattern="\d{4}" inputmode="numeric" style="max-width: 140px; text-align: center; letter-spacing: 0.3em; font-size: 1.1rem;" autocomplete="new-password">
-                      <span class="ww-pin-status-text" id="ww-pin-status-text" style="font-size: 0.8rem; color: #888;"></span>
+                    <!-- Old PIN field (only when changing or disabling an existing PIN) -->
+                    <div id="ww-old-pin-row" style="display:none; margin-bottom: 12px;">
+                      <label class="ww-field-label" for="ww-old-pin-input">Current 4-Digit PIN</label>
+                      <input type="password" id="ww-old-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="Current PIN" pattern="\d{4}" inputmode="numeric" style="max-width: 150px; text-align: center; letter-spacing: 0.3em; font-size: 1.1rem; margin-top: 4px;" autocomplete="current-password">
                     </div>
-                    <div class="ww-form-error" id="ww-pin-form-error" style="display:none; color: #f87171; font-size: 0.8rem; margin-top: 4px;"></div>
+                    
+                    <!-- New PIN field -->
+                    <div id="ww-new-pin-row">
+                      <label class="ww-field-label" id="ww-pin-input-label" for="ww-pin-input">Enter 4-Digit PIN</label>
+                      <input type="password" id="ww-pin-input" class="ww-text-input ww-pin-input" maxlength="4" placeholder="4 digits" pattern="\d{4}" inputmode="numeric" style="max-width: 150px; text-align: center; letter-spacing: 0.3em; font-size: 1.1rem; margin-top: 4px;" autocomplete="new-password">
+                    </div>
+
+                    <div class="ww-form-error" id="ww-pin-form-error" style="display:none; color: #f87171; font-size: 0.8rem; margin-top: 6px;"></div>
                   </div>
+                  
                   <button type="button" class="ww-pin-link" id="btn-ww-pin-change" style="display:none;">Change PIN</button>
                 </div>
                 <label class="ww-switch">
@@ -181,11 +195,31 @@
 
             <!-- Form Action Buttons -->
             <div class="ww-form-actions">
-              <button type="submit" class="ww-btn-save">Save</button>
+              <button type="submit" class="ww-btn-save" id="btn-ww-save">Save</button>
               <button type="button" class="ww-btn-cancel" id="btn-ww-form-cancel">Cancel</button>
               <button type="button" class="ww-btn-delete" id="btn-ww-delete" hidden>Delete Profile</button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Themed Delete Confirmation Dialog (replacing browser popup) -->
+    <div class="ww-dialog-overlay" id="ww-delete-dialog" hidden>
+      <div class="ww-dialog-card">
+        <div class="ww-dialog-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </div>
+        <h3 class="ww-dialog-title" id="ww-delete-dialog-title">Delete Profile?</h3>
+        <p class="ww-dialog-text" id="ww-delete-dialog-text">This will permanently delete this profile along with its watchlist, continue watching progress, and personalized recommendations.</p>
+        <div class="ww-dialog-actions">
+          <button type="button" class="ww-btn-outline" id="btn-ww-delete-cancel">CANCEL</button>
+          <button type="button" class="ww-btn-danger" id="btn-ww-delete-confirm">DELETE PROFILE</button>
         </div>
       </div>
     </div>

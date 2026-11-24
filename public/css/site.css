@@ -590,33 +590,83 @@ body.ww-active .ww-overlay {
 }
 .ww-avatar-wrap {
   width: 100%; aspect-ratio: 1; border-radius: 8px;
-  overflow: hidden; position: relative; background: #181822;
-  border: 2.5px solid rgba(255, 255, 255, 0.08);
-  box-sizing: border-box;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1), border-color .2s ease, box-shadow .2s ease;
+  overflow: hidden; position: relative; background: #12121a;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1);
   transform: translate3d(0, 0, 0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   will-change: transform;
 }
-.ww-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 5px; }
+.ww-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Edge overlay border: zero gap, zero squaring, hugs 8px rounded corners seamlessly */
+.ww-avatar-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 3px solid transparent;
+  pointer-events: none;
+  box-sizing: border-box;
+  transition: border-color 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 .ww-profile-name {
   margin-top: 14px; font-size: clamp(1rem, 2vw, 1.2rem);
-  font-weight: 500; color: var(--dim, #808080); transition: color .2s, transform .2s;
+  font-weight: 500; color: var(--dim, #808080);
+  transition: color 0.25s ease, transform 0.25s ease;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 
-.ww-profile-item:hover .ww-avatar-wrap, .ww-profile-item:focus-visible .ww-avatar-wrap {
-  border-color: var(--gold, #f5b301);
-  transform: translateY(-4px) scale(1.04);
-  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 25px rgba(245, 179, 1, 0.25);
+/* Hover: smooth scale & crisp white border glow */
+.ww-profile-item:hover .ww-avatar-wrap,
+.ww-profile-item:focus-visible .ww-avatar-wrap {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(255, 255, 255, 0.22);
 }
-.ww-profile-item:hover .ww-profile-name { color: var(--gold, #f5b301); }
+.ww-profile-item:hover .ww-avatar-wrap::after,
+.ww-profile-item:focus-visible .ww-avatar-wrap::after {
+  border-color: #ffffff;
+}
+.ww-profile-item:hover .ww-profile-name {
+  color: #ffffff;
+}
 
-/* Active Profile Accent */
-.ww-profile-item.active .ww-avatar-wrap {
-  border-color: rgba(245, 179, 1, 0.45);
+/* Active Profile: distinct, glowing gold accent */
+.ww-profile-item.active .ww-avatar-wrap::after {
+  border-color: var(--gold, #f5b301);
+  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 0 20px rgba(245, 179, 1, 0.4);
+}
+.ww-profile-item.active .ww-profile-name {
+  color: var(--gold, #f5b301);
+  font-weight: 600;
+}
+.ww-profile-item.active:hover .ww-avatar-wrap::after {
+  border-color: #ffd24d;
+  box-shadow: 0 0 0 1.5px #ffd24d, 0 0 30px rgba(245, 179, 1, 0.65);
+}
+.ww-profile-item.active:hover .ww-avatar-wrap {
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 26px rgba(245, 179, 1, 0.35);
+}
+
+/* Active profile top badge */
+.ww-active-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(14, 14, 20, 0.9);
+  color: var(--gold, #f5b301);
+  border: 1px solid rgba(245, 179, 1, 0.55);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2.5px 6.5px;
+  border-radius: 4px;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 10px rgba(245, 179, 1, 0.25);
+  backdrop-filter: blur(4px);
 }
 
 /* Selection Transition */
@@ -639,10 +689,9 @@ body.ww-active .ww-overlay {
   pointer-events: none !important;
 }
 
-.ww-profile-item.selected-hero .ww-avatar-wrap {
+.ww-profile-item.selected-hero .ww-avatar-wrap::after {
   border-color: var(--gold, #f5b301) !important;
-  box-shadow: 0 0 0 2px var(--gold, #f5b301), 0 20px 60px rgba(0, 0, 0, 0.95), 0 0 45px rgba(245, 179, 1, 0.45) !important;
-  transition: box-shadow 0.4s ease, border-color 0.4s ease !important;
+  box-shadow: 0 0 0 2px var(--gold, #f5b301), 0 0 45px rgba(245, 179, 1, 0.5) !important;
 }
 
 .ww-profile-item.selected-hero .ww-profile-name {
@@ -660,28 +709,45 @@ body.ww-active .ww-overlay {
 
 /* Edit pencil overlay in manage mode */
 .ww-edit-overlay {
-  display: none; position: absolute; inset: 0;
-  background: rgba(11, 11, 14, 0.65);
-  backdrop-filter: blur(2px);
-  align-items: center; justify-content: center;
+  position: absolute; inset: 0;
+  background: rgba(11, 11, 14, 0.68);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transform: scale(0.88);
+  transition: opacity 0.28s cubic-bezier(0.25, 1, 0.5, 1), transform 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  border-radius: inherit;
+  z-index: 3;
 }
-.ww-grid.manage-mode .ww-edit-overlay { display: flex; }
+.ww-grid.manage-mode .ww-edit-overlay {
+  opacity: 1; pointer-events: auto;
+  transform: scale(1);
+}
 .ww-grid.manage-mode .ww-add-item { display: none; }
+.ww-edit-overlay svg {
+  transition: transform 0.22s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.ww-profile-item:hover .ww-edit-overlay svg {
+  transform: scale(1.15);
+}
 
 /* Add Profile Box */
 .ww-add-wrap {
   display: flex; align-items: center; justify-content: center;
   background: rgba(255, 255, 255, 0.03); border: 2px dashed rgba(255, 255, 255, 0.2);
   border-radius: 8px;
+  transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
 }
 .ww-add-plus { font-size: 3.2rem; color: var(--dim, #808080); line-height: 1; font-weight: 200; transition: color .2s, transform .2s; }
 .ww-add-item:hover .ww-add-wrap {
   border-style: solid;
-  border-color: var(--gold, #f5b301);
-  background: rgba(245, 179, 1, 0.06);
-  box-shadow: 0 0 0 1px var(--gold, #f5b301), 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 25px rgba(245, 179, 1, 0.2);
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(255, 255, 255, 0.22);
 }
-.ww-add-item:hover .ww-add-plus { color: var(--gold, #f5b301); transform: scale(1.15); }
+.ww-add-item:hover .ww-add-plus { color: #ffffff; transform: scale(1.15); }
+.ww-add-item:hover .ww-profile-name { color: #ffffff; }
 
 /* Bottom Action Buttons */
 .ww-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
@@ -853,34 +919,110 @@ body.ww-active .ww-overlay {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(11, 11, 14, 0.88);
-  border: 1.5px solid rgba(245, 179, 1, 0.45);
+  background: rgba(14, 14, 20, 0.92);
+  border: 1.5px solid rgba(245, 179, 1, 0.6);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--gold, #f5b301);
   z-index: 2;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 12px rgba(245, 179, 1, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 0 0 12px rgba(245, 179, 1, 0.3);
   pointer-events: none;
+  backdrop-filter: blur(6px);
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s ease;
+}
+.ww-profile-item:hover .ww-lock-badge {
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8), 0 0 18px rgba(245, 179, 1, 0.5);
 }
 .ww-kids-badge {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: rgba(11, 11, 14, 0.88);
-  color: var(--gold, #f5b301);
-  border: 1.5px solid rgba(245, 179, 1, 0.55);
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  padding: 2px 7px;
+  background: linear-gradient(135deg, #f5b301 0%, #e59800 100%);
+  color: #0b0b0e;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  padding: 3px 8px;
   border-radius: 4px;
   z-index: 2;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 10px rgba(245, 179, 1, 0.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7), 0 0 12px rgba(245, 179, 1, 0.4);
+  text-transform: uppercase;
+}
+
+/* Smooth View Transitions */
+.ww-view {
+  transition: opacity 0.26s cubic-bezier(0.25, 1, 0.5, 1), transform 0.26s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: opacity, transform;
+}
+.ww-view-fade-in {
+  animation: wwViewSlideIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+@keyframes wwViewSlideIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Custom Themed Delete Confirmation Dialog */
+.ww-dialog-overlay {
+  position: fixed; inset: 0; z-index: 10005;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: wwDialogFade 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.ww-dialog-overlay[hidden] { display: none !important; }
+@keyframes wwDialogFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ww-dialog-card {
+  background: #151520;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(239, 68, 68, 0.18);
+  border-radius: 14px;
+  max-width: 440px; width: 100%;
+  padding: 30px 26px; text-align: center;
+  animation: wwCardPop 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+}
+@keyframes wwCardPop {
+  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.ww-dialog-icon-wrap {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  color: #ef4444;
+}
+.ww-dialog-title {
+  font-size: 1.35rem; font-weight: 700; color: #ffffff; margin: 0 0 10px;
+}
+.ww-dialog-text {
+  font-size: 0.92rem; color: #a3a3a3; line-height: 1.5; margin: 0 0 24px;
+}
+.ww-dialog-actions {
+  display: flex; gap: 14px; justify-content: center;
+}
+.ww-btn-danger {
+  background: #dc2626; color: #ffffff;
+  border: none; font-size: 0.88rem; font-weight: 700;
+  letter-spacing: 0.08em; padding: 10px 24px; cursor: pointer;
+  border-radius: 6px; transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.35);
+}
+.ww-btn-danger:hover {
+  background: #b91c1c;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.55);
+  transform: translateY(-1px);
 }
 
 /* In-place Center PIN Prompt (seamless floating under hero, NO boxed card) */

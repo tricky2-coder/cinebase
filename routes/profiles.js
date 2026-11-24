@@ -176,9 +176,32 @@ router.put('/api/profiles/:id', async (req, res) => {
     }
 
     let pin = current.pin;
-    if (req.body.remove_pin === true || req.body.remove_pin === 'true' || req.body.lock_pin === false) {
+    const wantsToRemovePin = (req.body.remove_pin === true || req.body.remove_pin === 'true' || req.body.lock_pin === false);
+    const wantsToSetNewPin = (req.body.pin && /^\d{4}$/.test(String(req.body.pin).trim()));
+
+    // If profile already has a PIN, changing or removing it is strictly restricted:
+    // 1. Only the profile itself (when active) can change or remove its PIN
+    // 2. Must provide the correct current (old) PIN
+    if (current.pin && (wantsToRemovePin || wantsToSetNewPin)) {
+      if (Number(req.session.activeProfileId) !== current.id) {
+        return res.status(403).json({
+          error: 'Only this profile can change or turn off its PIN lock. Please switch to this profile first.'
+        });
+      }
+
+      const oldPin = (req.body.old_pin || '').toString().trim();
+      if (!oldPin) {
+        return res.status(400).json({ error: 'Current PIN is required to change or turn off the PIN lock.' });
+      }
+      const match = bcrypt.compareSync(oldPin, current.pin);
+      if (!match) {
+        return res.status(401).json({ error: 'Incorrect current PIN. Please enter your existing PIN.' });
+      }
+    }
+
+    if (wantsToRemovePin) {
       pin = null;
-    } else if (req.body.pin && /^\d{4}$/.test(String(req.body.pin).trim())) {
+    } else if (wantsToSetNewPin) {
       pin = bcrypt.hashSync(String(req.body.pin).trim(), 10);
     }
 
@@ -222,6 +245,10 @@ router.delete('/api/profiles/:id', async (req, res) => {
 
     const current = await db.get('SELECT * FROM profiles WHERE id = ? AND user_id = ?', req.params.id, req.session.user.id);
     if (!current) return res.status(404).json({ error: 'Profile not found' });
+
+    if (current.pin && Number(req.session.activeProfileId) !== current.id) {
+      return res.status(403).json({ error: 'Only this profile can delete itself when locked with a PIN. Please switch to this profile first.' });
+    }
 
     if (current.pin && !current.is_kids) {
       const hasKids = await db.get('SELECT id FROM profiles WHERE user_id = ? AND is_kids = 1 LIMIT 1', req.session.user.id);

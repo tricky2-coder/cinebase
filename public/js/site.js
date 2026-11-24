@@ -195,6 +195,13 @@
       if (data.presets && data.presets.length) {
         presetsList = data.presets;
       }
+      const activeP = profilesData.find(p => p.id === currentActiveId);
+      if (activeP) {
+        const navImg = document.getElementById('nav-profile-avatar-img');
+        if (navImg && activeP.avatar) navImg.src = activeP.avatar;
+        const settingsName = document.querySelector('.s-settings-user-name');
+        if (settingsName && activeP.name) settingsName.textContent = activeP.name;
+      }
       renderProfiles();
     } catch (e) {
       console.error('Failed to load profiles:', e);
@@ -602,9 +609,18 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !settingsMenu.hidden) {
-        settingsMenu.hidden = true;
-        settingsBtn.setAttribute('aria-expanded', 'false');
+      if (e.key === 'Escape') {
+        if (!settingsMenu.hidden) {
+          settingsMenu.hidden = true;
+          settingsBtn.setAttribute('aria-expanded', 'false');
+        } else if (wwModal && !wwModal.hidden && document.body.dataset.showWhosWatching !== 'true') {
+          if (wwViewForm && !wwViewForm.hidden) {
+            wwViewForm.hidden = true;
+            if (wwViewSelect) wwViewSelect.hidden = false;
+          } else {
+            closeWhosWatching();
+          }
+        }
       }
     });
   }

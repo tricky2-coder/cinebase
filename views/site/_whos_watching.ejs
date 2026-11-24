@@ -204,21 +204,6 @@
       </div>
     </div>
 
-    <!-- Simple & Minimal Delete Confirmation Dialog -->
-    <div class="ww-dialog-overlay" id="ww-delete-dialog" hidden>
-      <div class="ww-dialog-card">
-        <div class="ww-dialog-avatar-preview">
-          <img id="ww-delete-dialog-avatar" src="" alt="Profile Avatar">
-        </div>
-        <h3 class="ww-dialog-title" id="ww-delete-dialog-title">Delete <span id="ww-delete-dialog-name">Profile</span>?</h3>
-        <p class="ww-dialog-text" id="ww-delete-dialog-text">This profile's history and watchlist will be deleted.</p>
-        <div class="ww-dialog-actions">
-          <button type="button" class="ww-btn-cancel" id="btn-ww-delete-cancel">Cancel</button>
-          <button type="button" class="ww-btn-danger" id="btn-ww-delete-confirm">Delete</button>
-        </div>
-      </div>
-    </div>
-
   </div>
 </div>
 <script id="ww-init-data" type="application/json"><%- JSON.stringify({ profiles: (typeof userProfiles !== 'undefined' && userProfiles ? userProfiles : []), activeProfileId: (typeof activeProfile !== 'undefined' && activeProfile ? activeProfile.id : null) }) %></script>

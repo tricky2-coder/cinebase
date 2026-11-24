@@ -1000,12 +1000,29 @@ body.ww-active .ww-overlay {
 .ww-btn-cancel:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.05); }
 .ww-btn-delete {
   background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.22);
-  font-size: 0.9rem; padding: 10px 22px; border-radius: 6px; cursor: pointer;
-  margin-left: auto; transition: all .2s cubic-bezier(0.25, 1, 0.5, 1);
+  font-size: 0.9rem; font-weight: 500; padding: 10px 22px; border-radius: 6px; cursor: pointer;
+  margin-left: auto; transition: all .22s cubic-bezier(0.25, 1, 0.5, 1);
+  display: inline-flex; align-items: center; justify-content: center;
+  user-select: none;
 }
 .ww-btn-delete:hover {
   background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.45);
   color: #ef4444; transform: translateY(-1px);
+}
+.ww-btn-delete.confirming {
+  background: #e50914 !important;
+  color: #ffffff !important;
+  border-color: #ff3838 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 18px rgba(229, 9, 20, 0.55), 0 0 16px rgba(255, 56, 56, 0.4) !important;
+  animation: wwDeletePulse 1.2s infinite ease-in-out;
+}
+@keyframes wwDeletePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(229, 9, 20, 0.5); }
+  50% { transform: scale(1.025); box-shadow: 0 6px 22px rgba(229, 9, 20, 0.75); }
+}
+.ww-btn-delete:disabled {
+  opacity: 0.6; cursor: not-allowed; transform: none !important;
 }
 
 @media (max-width: 680px) {
@@ -1069,72 +1086,6 @@ body.ww-active .ww-overlay {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Simple & Minimal Delete Confirmation Dialog */
-.ww-dialog-overlay {
-  position: fixed; inset: 0; z-index: 10005;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-  animation: wwDialogFade 0.2s ease;
-}
-.ww-dialog-overlay[hidden] { display: none !important; }
-@keyframes wwDialogFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.ww-dialog-card {
-  background: #151520;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
-  max-width: 350px; width: 100%;
-  padding: 26px 22px 22px; text-align: center;
-  animation: wwCardPop 0.22s cubic-bezier(0.25, 1, 0.5, 1);
-  box-sizing: border-box;
-}
-@keyframes wwCardPop {
-  from { opacity: 0; transform: scale(0.94) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.ww-dialog-avatar-preview {
-  width: 58px; height: 58px; border-radius: 8px; overflow: hidden;
-  margin: 0 auto 14px; position: relative;
-  background: transparent;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  mask-image: radial-gradient(white, black);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
-}
-.ww-dialog-avatar-preview img {
-  width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit;
-}
-.ww-dialog-title {
-  font-size: 1.25rem; font-weight: 600; color: #ffffff; margin: 0 0 6px;
-}
-.ww-dialog-text {
-  font-size: 0.86rem; color: #8e8e9c; line-height: 1.45; margin: 0 auto 20px; max-width: 270px;
-}
-.ww-dialog-actions {
-  display: flex; gap: 10px; justify-content: center;
-}
-.ww-dialog-actions .ww-btn-cancel {
-  background: transparent; color: #a4a4b2;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  padding: 9px 22px; border-radius: 6px; font-size: 0.88rem; font-weight: 500;
-  cursor: pointer; transition: all 0.15s ease;
-}
-.ww-dialog-actions .ww-btn-cancel:hover {
-  color: #ffffff; border-color: rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.05);
-}
-.ww-dialog-actions .ww-btn-danger {
-  background: #e50914; color: #ffffff; border: none;
-  padding: 9px 22px; border-radius: 6px; font-size: 0.88rem; font-weight: 500;
-  cursor: pointer; transition: all 0.15s ease;
-}
-.ww-dialog-actions .ww-btn-danger:hover {
-  background: #f40612;
-}
 
 /* In-place Center PIN Prompt (seamless floating under hero, NO boxed card) */
 .ww-pin-prompt {

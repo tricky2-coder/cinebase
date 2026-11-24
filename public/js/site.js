@@ -156,10 +156,6 @@
   const wwPinChangeBtn = document.getElementById('btn-ww-pin-change');
   const wwFormCancel = document.getElementById('btn-ww-form-cancel');
   const wwDeleteBtn = document.getElementById('btn-ww-delete');
-  const wwDeleteDialog = document.getElementById('ww-delete-dialog');
-  const wwDeleteDialogTitle = document.getElementById('ww-delete-dialog-title');
-  const wwDeleteConfirmBtn = document.getElementById('btn-ww-delete-confirm');
-  const wwDeleteCancelBtn = document.getElementById('btn-ww-delete-cancel');
 
   const AVATAR_PRESETS = [
     { id: 'alien', name: 'Alien', path: '/profiles/avatars/alien.svg' },
@@ -653,7 +649,21 @@
     });
   }
 
+  let wwDeleteTimeout = null;
+
+  function resetDeleteBtn() {
+    if (!wwDeleteBtn) return;
+    wwDeleteBtn.classList.remove('confirming');
+    wwDeleteBtn.textContent = 'Delete Profile';
+    wwDeleteBtn.disabled = false;
+    if (wwDeleteTimeout) {
+      clearTimeout(wwDeleteTimeout);
+      wwDeleteTimeout = null;
+    }
+  }
+
   function switchView(targetView) {
+    resetDeleteBtn();
     [wwViewSelect, wwViewForm].forEach(v => {
       if (v) {
         if (v === targetView) {
@@ -856,6 +866,7 @@
   }
   if (wwFormCancel) {
     wwFormCancel.addEventListener('click', () => {
+      resetDeleteBtn();
       if (wwViewForm) wwViewForm.hidden = true;
       if (wwViewSelect) wwViewSelect.hidden = false;
     });
@@ -1189,45 +1200,42 @@
     });
   }
 
-  // Themed Custom Delete Confirmation Modal
+  // Inline Two-Tap Delete Confirmation in the Same Button (No popup box)
   if (wwDeleteBtn) {
-    wwDeleteBtn.addEventListener('click', () => {
+    wwDeleteBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
       const editId = wwEditId ? wwEditId.value : '';
       if (!editId) return;
-      const targetProfile = profilesData.find(p => p.id === Number(editId));
-      if (targetProfile) {
-        const deleteAvatarImg = document.getElementById('ww-delete-dialog-avatar');
-        if (deleteAvatarImg) deleteAvatarImg.src = targetProfile.avatar;
-        const deleteNameEl = document.getElementById('ww-delete-dialog-name');
-        if (deleteNameEl) {
-          deleteNameEl.textContent = targetProfile.name;
-        } else if (wwDeleteDialogTitle) {
-          wwDeleteDialogTitle.textContent = `Delete ${targetProfile.name}?`;
-        }
+
+      // 1st Tap: Switch button into confirmation mode
+      if (!wwDeleteBtn.classList.contains('confirming')) {
+        wwDeleteBtn.classList.add('confirming');
+        wwDeleteBtn.textContent = 'Tap again to delete for Good';
+        if (wwDeleteTimeout) clearTimeout(wwDeleteTimeout);
+        // Auto-revert after 4.5 seconds if user changes mind
+        wwDeleteTimeout = setTimeout(() => {
+          resetDeleteBtn();
+        }, 4500);
+        return;
       }
-      if (wwDeleteDialog) wwDeleteDialog.hidden = false;
-    });
-  }
 
-  if (wwDeleteCancelBtn) {
-    wwDeleteCancelBtn.addEventListener('click', () => {
-      if (wwDeleteDialog) wwDeleteDialog.hidden = true;
-    });
-  }
+      // 2nd Tap: User confirmed - execute delete!
+      if (wwDeleteTimeout) {
+        clearTimeout(wwDeleteTimeout);
+        wwDeleteTimeout = null;
+      }
+      wwDeleteBtn.textContent = 'Deleting...';
+      wwDeleteBtn.disabled = true;
 
-  if (wwDeleteConfirmBtn) {
-    wwDeleteConfirmBtn.addEventListener('click', async () => {
-      const editId = wwEditId ? wwEditId.value : '';
-      if (!editId) return;
       try {
         const res = await fetch(`/api/profiles/${editId}`, { method: 'DELETE' });
         if (res.ok) {
-          if (wwDeleteDialog) wwDeleteDialog.hidden = true;
+          resetDeleteBtn();
           await loadProfiles();
           switchView(wwViewSelect);
         } else {
           const errData = await res.json().catch(() => ({}));
-          if (wwDeleteDialog) wwDeleteDialog.hidden = true;
+          resetDeleteBtn();
           if (wwPinFormError) {
             wwPinFormError.textContent = errData.error || 'Failed to delete profile.';
             wwPinFormError.style.display = 'block';
@@ -1235,6 +1243,7 @@
         }
       } catch (err) {
         console.error('Error deleting profile:', err);
+        resetDeleteBtn();
       }
     });
   }

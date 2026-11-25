@@ -87,18 +87,18 @@
         <button type="button" class="ep-step" data-audio="dub">Dub</button>
       </div>
       <select class="ep-quick-select anime-server-select" id="anime-server" aria-label="Select server">
+        <option value="vidy">Vidy (Default)</option>
         <option value="auto">Auto (Best)</option>
         <option value="anizone">Server 1</option>
         <option value="anikoto">Server 2</option>
         <option value="anipm">Server 3</option>
-        <option value="anihq">Server 4</option>
-        <option value="aniwaves">Server 5</option>
-        <option value="pahenime">Server 6</option>
-        <option value="animedunya">Server 7</option>
-        <option value="animegg">Server 8</option>
-        <option value="animenosub">Server 9</option>
+        <option value="animegg">Server 4</option>
+        <option value="animedunya">Server 5</option>
+        <option value="aniwaves">Server 6</option>
+        <option value="pahenime">Server 7</option>
+        <option value="animenosub">Server 8</option>
+        <option value="anihq">Server 9</option>
         <option value="reanime">Server 10</option>
-        <option value="vidy">Vidy (Backup)</option>
       </select>
       <% } else if (player.options && player.options.length > 1) { %>
       <label class="mirror">
@@ -109,21 +109,21 @@
       </label>
       <% } %>
       <button type="button" class="ep-step ep-fs-btn" id="p-fullscreen" title="Full screen">⛶ Fullscreen</button>
-      <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window"<%= player.cfg.anime ? ' hidden' : '' %>>⧉ Pop out</button>
+      <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window">⧉ Pop out</button>
     </div>
     <% } %>
   </div>
   <div class="player" <% if (player) { %>id="player" data-cfg="<%= JSON.stringify(player.cfg) %>"<% } %>>
     <% if (player) { %>
       <% if (player.cfg.anime) { %>
-        <div class="anime-artplayer" id="anime-artplayer"></div>
+        <div class="anime-artplayer" id="anime-artplayer" hidden></div>
         <div class="anime-player-msg" id="anime-player-msg" hidden></div>
         <iframe
           id="anime-vidy-frame"
-          hidden
-          src="about:blank"
+          src="<%= player.src %>"
           title="<%= item.title %> player"
-          loading="lazy"
+          loading="eager"
+          fetchpriority="high"
           allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
           referrerpolicy="no-referrer"
           allowfullscreen></iframe>
@@ -151,9 +151,9 @@
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>
   </div>
-  <% if (player && !player.cfg.anime) { %>
+  <% if (player) { %>
   <div class="backup-pill-row">
-    <button type="button" class="backup-pill" id="btn-backup-player">Not playing? Try Backup Player</button>
+    <button type="button" class="backup-pill" id="<%= player.cfg.anime ? 'btn-anime-backup' : 'btn-backup-player' %>">Not playing? Try Backup Player</button>
   </div>
   <% } %>
 

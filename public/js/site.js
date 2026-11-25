@@ -1943,7 +1943,16 @@
     const isAnimePlayer = Boolean(cfg.anime && animeMount);
 
     let animeAudio = localStorage.getItem('cinebase.animeAudio') === 'dub' ? 'dub' : 'sub';
-    let animeProvider = localStorage.getItem('cinebase.animeServer') || 'auto';
+    let animeProvider = localStorage.getItem('cinebase.animeServer') || 'vidy';
+    const animeBackupPill = document.getElementById('btn-anime-backup');
+    if (animeBackupPill) {
+      animeBackupPill.addEventListener('click', () => {
+        animeProvider = 'auto';
+        try { localStorage.setItem('cinebase.animeServer', 'auto'); } catch {}
+        if (animeServerSel) animeServerSel.value = 'auto';
+        load(true);
+      });
+    }
     let artInstance = null;
     let animeAbort = null;
 
@@ -2064,6 +2073,10 @@
         if (animeServerSel && Array.isArray(data.providers)) {
           const keepAuto = animeProvider === 'auto';
           animeServerSel.replaceChildren();
+          const vidyOpt = document.createElement('option');
+          vidyOpt.value = 'vidy';
+          vidyOpt.textContent = 'Vidy (Default)';
+          animeServerSel.append(vidyOpt);
           const autoOpt = document.createElement('option');
           autoOpt.value = 'auto';
           autoOpt.textContent = 'Auto (Best)';
@@ -2074,10 +2087,6 @@
             opt.textContent = p.id === data.provider ? `${p.label} ★` : p.label;
             animeServerSel.append(opt);
           });
-          const vidyOpt = document.createElement('option');
-          vidyOpt.value = 'vidy';
-          vidyOpt.textContent = 'Vidy (Backup)';
-          animeServerSel.append(vidyOpt);
           animeServerSel.value = keepAuto ? 'auto' : (data.provider || 'auto');
         }
 

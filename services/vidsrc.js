@@ -1,7 +1,7 @@
 // Embedded players: Vidy (default) plus VidSrc & multi-mirror servers for Movies & Series.
 //   VIDSRC_DOMAINS=vidsrc.pm,vidsrc.cc,vidlink.pro,vidfast.pro,vidnest.fun
 //   VIDY=0   hide the Vidy player
-const DEFAULT_DOMAINS = ['vidsrc.pm', 'vidsrc.cc', 'vidlink.pro', 'vidfast.pro', 'vidnest.fun'];
+const DEFAULT_DOMAINS = ['vidsrc.pm', 'vidsrc.cc', 'vidsrc.me', 'vidrock.net', 'vidlink.pro', 'vidfast.pro', 'vidnest.fun', 'www.2embed.cc'];
 const VIDY = 'www.vidy.st';
 
 const SERIES_FLAGS = 'color=F5B301&autoplay=true&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&progress=0';
@@ -26,6 +26,24 @@ const PLAYERS = {
     id: 'any',
     movie: '/v2/embed/movie/{id}',
     tv: '/v2/embed/tv/{id}/{s}/{e}'
+  },
+  'vidsrc.me': {
+    label: 'VidSrc (vidsrc.me)',
+    id: 'tmdb',
+    movie: '/embed/movie?tmdb={id}',
+    tv: '/embed/tv?tmdb={id}&season={s}&episode={e}'
+  },
+  'vidrock.net': {
+    label: 'VidRock',
+    id: 'tmdb',
+    movie: '/movie/{id}',
+    tv: '/tv/{id}/{s}/{e}'
+  },
+  'www.2embed.cc': {
+    label: '2Embed',
+    id: 'tmdb',
+    movie: '/embed/{id}',
+    tv: '/embedtv/{id}&s={s}&e={e}'
   },
   'vidlink.pro': {
     label: 'VidLink',

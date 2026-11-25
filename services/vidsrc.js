@@ -13,7 +13,7 @@ const PLAYERS = {
     id: 'tmdb',
     movie: `/movie/{id}?${MOVIE_FLAGS}`,
     tv: `/tv/{id}/{s}/{e}?${SERIES_FLAGS}`,
-    events: true
+    startParam: 'progress'
   },
   'vidsrc.pm': {
     label: 'VidSrc (vidsrc.pm)',
@@ -36,8 +36,8 @@ const PLAYERS = {
   'vidrock.net': {
     label: 'VidRock',
     id: 'tmdb',
-    movie: '/movie/{id}',
-    tv: '/tv/{id}/{s}/{e}'
+    movie: '/movie/{id}?autoplay=true&theme=F5B301',
+    tv: '/tv/{id}/{s}/{e}?autoplay=true&theme=F5B301'
   },
   'www.2embed.cc': {
     label: '2Embed',
@@ -49,13 +49,15 @@ const PLAYERS = {
     label: 'VidLink',
     id: 'tmdb',
     movie: '/movie/{id}?primaryColor=f5b301&autoplay=true',
-    tv: '/tv/{id}/{s}/{e}?primaryColor=f5b301&autoplay=true'
+    tv: '/tv/{id}/{s}/{e}?primaryColor=f5b301&autoplay=true',
+    startParam: 'startAt'
   },
   'vidfast.pro': {
     label: 'VidFast',
     id: 'tmdb',
     movie: '/movie/{id}?theme=F5B301&autoPlay=true',
-    tv: '/tv/{id}/{s}/{e}?theme=F5B301&autoPlay=true'
+    tv: '/tv/{id}/{s}/{e}?theme=F5B301&autoPlay=true',
+    startParam: 'startAt'
   },
   'vidnest.fun': {
     label: 'VidNest',
@@ -126,7 +128,7 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
       label,
       id: String(pid),
       path: p[isSeries ? 'tv' : 'movie'],
-      events: Boolean(p.events)
+      startParam: p.startParam || null
     };
   }).filter(Boolean);
 
@@ -153,7 +155,7 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
       path: first.path,
       id: first.id,
       domain: first.domain,
-      players: Object.fromEntries(options.map(o => [o.domain, { id: o.id, path: o.path, events: o.events }])),
+      players: Object.fromEntries(options.map(o => [o.domain, { id: o.id, path: o.path, startParam: o.startParam }])),
       seasons: seasonList,
       initialEpisodes: initialEpisodes || null
     }

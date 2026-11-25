@@ -1741,10 +1741,13 @@
       const pCfg = (cfg.players && cfg.players[domain]) || { id: cfg.id, path: cfg.path, events: domain.includes('vidy') };
       const u = new URL(`https://${domain}` + pCfg.path
         .replace('{id}', encodeURIComponent(pCfg.id)).replace('{s}', sn).replace('{e}', ep));
-      if (pCfg.events) {
+      if (pCfg.startParam) {
         const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
-        // Explicitly set progress=0 when starting from the beginning on Vidy
-        u.searchParams.set('progress', (t && t > 0) ? t : 0);
+        if (pCfg.startParam === 'progress') {
+          u.searchParams.set('progress', (t && t > 0) ? t : 0);
+        } else if (t && t > 0) {
+          u.searchParams.set(pCfg.startParam, t);
+        }
       }
       return u.href;
     };
@@ -2116,15 +2119,19 @@
 
     function onPlayerMessage(e) {
       const activeF = frame();
-      if (!activeF || e.source !== activeF.contentWindow || typeof e.data !== 'string') return;
-      let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
+      if (!activeF || e.source !== activeF.contentWindow) return;
+      let msg = e.data;
+      if (typeof msg === 'string') {
+        try { msg = JSON.parse(msg); } catch { return; }
+      }
       if (!msg || typeof msg !== 'object') return;
 
-      // Vidy sends PLAYER_EVENT during playback.
-      // Do NOT process MEDIA_DATA for episode navigation — MEDIA_DATA is just a 1-second interval dump
-      // of localStorage where last_episode_watched is often stale, which falsely reverts state.e to 1.
-      if (msg.type !== 'PLAYER_EVENT') return;
+      // Do NOT process MEDIA_DATA for episode navigation — MEDIA_DATA is a bulk localStorage dump
+      // where last_episode_watched can be stale and falsely revert state.e to 1.
+      if (msg.type === 'MEDIA_DATA') return;
+      // Accept both { type: 'PLAYER_EVENT', data: {...} } (Vidy/VidLink/VidFast/VidNest) and direct { event: '...' }
+      const isPlayerEvt = msg.type === 'PLAYER_EVENT' || typeof msg.event === 'string' || typeof msg.data?.event === 'string';
+      if (!isPlayerEvt) return;
 
       const data = (msg.data && typeof msg.data === 'object') ? msg.data : msg;
       const isAnime = Boolean(cfg.anime || data.type === 'anime');

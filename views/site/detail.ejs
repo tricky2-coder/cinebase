@@ -132,6 +132,8 @@
           <button type="button" class="sbtn sbtn-play" id="p-bringback">⤓ Bring back</button>
         </div>
       <% } else { %>
+        <div class="anime-artplayer" id="media-artplayer" hidden></div>
+        <div class="anime-player-msg" id="media-player-msg" hidden></div>
         <iframe
           src="<%= player.src %>"
           title="<%= item.title %> player"
@@ -149,6 +151,11 @@
       <p class="player-empty">No stream available for this title (it needs an IMDb or TMDB ID).</p>
     <% } %>
   </div>
+  <% if (player && !player.cfg.anime) { %>
+  <div class="backup-pill-row">
+    <button type="button" class="backup-pill" id="btn-backup-player">Not playing? Try Backup Player</button>
+  </div>
+  <% } %>
 
   <% if (player && player.isSeries) { %>
   <div class="episodes" id="episodes">

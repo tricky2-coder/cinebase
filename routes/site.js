@@ -6,6 +6,7 @@ const tmdb = require('../services/tmdb');
 const vidsrc = require('../services/vidsrc');
 const anilist = require('../services/anilist');
 const anivexa = require('../services/anivexa');
+const mediaStreams = require('../services/media-streams');
 
 const router = express.Router();
 const CARD_COLS = 'id,title,type,genre,release_year,rating,poster_url,backdrop_url,trailer_key,tmdb_id,anilist_id,plex_rating_key';
@@ -427,6 +428,24 @@ router.get('/episodes/anime/:id/:chunk', async (req, res) => {
   res.set('Cache-Control', 'private, max-age=3600');
   try { res.json(await anilist.episodes(id, Number(chunk))); }
   catch (e) { res.status(e.status === 404 ? 404 : 502).json([]); }
+});
+
+// Direct Movie/Series stream sources via P-Stream + Consumet auto-switching
+router.get('/api/media/watch', async (req, res) => {
+  const title = typeof req.query.title === 'string' ? req.query.title.trim() : '';
+  const year = typeof req.query.year === 'string' ? req.query.year.trim() : '';
+  const tmdbId = typeof req.query.tmdbId === 'string' ? req.query.tmdbId.trim() : '';
+  const type = req.query.type === 'Series' || req.query.type === 'tv' ? 'Series' : 'Movie';
+  const season = parseInt(req.query.season, 10) || 1;
+  const episode = parseInt(req.query.episode, 10) || 1;
+  if (!title) return res.status(400).json({ error: 'Title is required' });
+  try {
+    const data = await mediaStreams.getMediaStreams({ title, year, tmdbId, type, season, episode });
+    res.set('Cache-Control', 'private, max-age=300');
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'No direct stream found' });
+  }
 });
 
 // Anime stream sources via Anivexa-API (hidden from end users)

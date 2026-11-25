@@ -457,6 +457,15 @@ button { font: inherit; }
 .anime-msg-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin-top: .4rem; }
 .mirror { display: inline-flex; align-items: center; gap: .4rem; color: var(--dim); font-size: .84rem; font-weight: 600; }
 .mirror select { max-width: 160px; }
+.backup-pill-row { display: flex; align-items: center; justify-content: flex-end; margin-top: .55rem; }
+.backup-pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .35rem .85rem; border-radius: 999px;
+  border: 1px solid rgba(245, 179, 1, 0.35); background: rgba(245, 179, 1, 0.08);
+  color: var(--gold); font-size: .8rem; font-weight: 600; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.backup-pill:hover { background: rgba(245, 179, 1, 0.18); border-color: var(--gold); transform: translateY(-1px); }
 .pop-btn { white-space: nowrap; }
 /* Phones/tablets: no Document PiP and pop-ups open as tabs; their OS picture-in-picture works from fullscreen instead */
 @media (hover: none), (pointer: coarse) { .pop-btn { display: none; } }

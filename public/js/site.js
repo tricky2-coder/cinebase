@@ -1725,6 +1725,178 @@
 
     const mirror = document.getElementById('p-mirror');
     const MIRROR_KEY = 'cinebase.player';
+    const mediaMount = document.getElementById('media-artplayer');
+    const mediaMsg = document.getElementById('media-player-msg');
+    const backupPillBtn = document.getElementById('btn-backup-player');
+    let mediaArtInstance = null;
+    let mediaAbort = null;
+
+    function destroyMediaArtplayer() {
+      if (mediaArtInstance) {
+        try { mediaArtInstance.destroy(false); } catch {}
+        mediaArtInstance = null;
+      }
+      if (mediaMount) mediaMount.replaceChildren();
+    }
+
+    function showMediaMsg(text) {
+      if (!mediaMsg) return;
+      mediaMsg.replaceChildren();
+      const p = document.createElement('p');
+      p.textContent = text;
+      mediaMsg.append(p);
+      mediaMsg.hidden = false;
+    }
+
+    function hideMediaMsg() {
+      if (mediaMsg) mediaMsg.hidden = true;
+    }
+
+    async function loadMediaArtplayer() {
+      if (!mediaMount) return;
+      if (mediaAbort) mediaAbort.abort();
+      mediaAbort = new AbortController();
+      if (iframe) {
+        iframe.hidden = true;
+        if (iframe.src && iframe.src !== 'about:blank') iframe.src = 'about:blank';
+      }
+      mediaMount.hidden = false;
+      const pBtn = document.getElementById('p-popout');
+      if (pBtn) pBtn.hidden = true;
+      showMediaMsg('Finding best direct stream (P-Stream / Consumet)...');
+
+      try {
+        const qs = new URLSearchParams({
+          title: cfg.title || '',
+          year: String(cfg.year || ''),
+          tmdbId: String(cfg.tmdbId || cfg.id || ''),
+          type: cfg.isSeries ? 'Series' : 'Movie',
+          season: String(state.s || 1),
+          episode: String(state.e || 1)
+        });
+        const res = await fetch(`/api/media/watch?${qs.toString()}`, { signal: mediaAbort.signal });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(data.sources) || !data.sources.length) {
+          throw new Error(data.error || 'No direct stream available');
+        }
+        if (typeof window.Artplayer === 'undefined') {
+          throw new Error('Artplayer failed to load');
+        }
+
+        destroyMediaArtplayer();
+        hideMediaMsg();
+
+        const sources = data.sources;
+        const primary = sources.find(s => /1080|720|auto|default/i.test(s.quality)) || sources[0];
+        const candidateUrls = [];
+        sources.forEach(s => {
+          if (s.directUrl && !s.hasReferer) candidateUrls.push(s.directUrl);
+          if (s.url) candidateUrls.push(s.url);
+          if (s.directUrl && s.hasReferer) candidateUrls.push(s.directUrl);
+        });
+        const startUrl = candidateUrls[0] || primary.url;
+        const subtitles = Array.isArray(data.subtitles) ? data.subtitles : [];
+        const defaultSub = subtitles.find(s => s.default) || subtitles[0] || null;
+        const resumeTime = resumeAt();
+
+        const artOpts = {
+          container: mediaMount,
+          url: startUrl,
+          type: primary.isM3U8 ? 'm3u8' : '',
+          theme: '#f5b301',
+          volume: 0.9,
+          autoplay: true,
+          pip: true,
+          setting: true,
+          playbackRate: true,
+          aspectRatio: true,
+          fullscreen: true,
+          fullscreenWeb: true,
+          miniProgressBar: true,
+          playsInline: true,
+          quality: sources.length > 1 ? sources.map(s => ({ default: s === primary, html: String(s.quality || 'Auto'), url: (s.directUrl && !s.hasReferer) ? s.directUrl : s.url })) : [],
+          customType: {
+            m3u8: function playMediaM3u8(video, m3u8Url, art) {
+              if (window.Hls && window.Hls.isSupported()) {
+                if (art.hls) art.hls.destroy();
+                const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
+                let attemptIdx = Math.max(0, candidateUrls.indexOf(m3u8Url));
+                hls.on(window.Hls.Events.ERROR, (_, errData) => {
+                  if (!errData?.fatal) return;
+                  attemptIdx++;
+                  if (attemptIdx < candidateUrls.length) {
+                    hls.loadSource(candidateUrls[attemptIdx]);
+                    return;
+                  }
+                  try { hls.destroy(); } catch {}
+                  fallbackMediaMirror();
+                });
+                hls.loadSource(m3u8Url);
+                hls.attachMedia(video);
+                art.hls = hls;
+                art.on('destroy', () => { try { hls.destroy(); } catch {} });
+              } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = m3u8Url;
+              }
+            }
+          }
+        };
+
+        if (defaultSub) {
+          artOpts.subtitle = {
+            url: defaultSub.url,
+            type: defaultSub.url.includes('.srt') ? 'srt' : 'vtt',
+            encoding: 'utf-8',
+            style: { color: '#ffffff', fontSize: '20px', textShadow: '0 2px 6px rgba(0,0,0,0.9)' }
+          };
+        }
+
+        mediaArtInstance = new window.Artplayer(artOpts);
+        mediaArtInstance.on('video:error', () => fallbackMediaMirror());
+        mediaArtInstance.on('ready', () => {
+          if (resumeTime && resumeTime > 0 && mediaArtInstance) mediaArtInstance.currentTime = resumeTime;
+        });
+        mediaArtInstance.on('video:timeupdate', () => {
+          if (!mediaArtInstance) return;
+          const currentTime = Number(mediaArtInstance.currentTime);
+          const duration = Number(mediaArtInstance.duration);
+          if (!Number.isFinite(currentTime)) return;
+          const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
+          if (isNearEnd) {
+            try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+            lastSaved = 0;
+            syncHistoryToServer(duration || currentTime, duration);
+          } else if (Math.abs(currentTime - lastSaved) >= 5) {
+            lastSaved = currentTime;
+            try { localStorage.setItem(posKey(state.s, state.e), JSON.stringify({ t: currentTime, d: Number.isFinite(duration) && duration > 0 ? duration : null })); } catch {}
+            syncHistoryToServer(currentTime, duration);
+          }
+        });
+        mediaArtInstance.on('video:ended', () => {
+          const dur = mediaArtInstance ? Number(mediaArtInstance.duration) : 0;
+          try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+          lastSaved = 0;
+          syncHistoryToServer(dur || 0, dur || 0);
+          if (cfg.isSeries && autoNext && typeof window._cinebaseStepNext === 'function') {
+            window._cinebaseStepNext();
+          }
+        });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        fallbackMediaMirror();
+      }
+    }
+
+    function fallbackMediaMirror() {
+      if (!mirror) return;
+      const opts = [...mirror.options];
+      const nextOpt = opts.find(o => o.value !== 'artplayer' && !o.value.includes('vidy'));
+      if (nextOpt) {
+        mirror.value = nextOpt.value;
+        load(true);
+      }
+    }
+
     if (mirror) {
       try {
         const savedMirror = localStorage.getItem(MIRROR_KEY);
@@ -1733,6 +1905,19 @@
       mirror.addEventListener('change', () => {
         try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
         load(true);
+      });
+    }
+
+    if (backupPillBtn && mirror) {
+      backupPillBtn.addEventListener('click', () => {
+        const opts = [...mirror.options];
+        const idx = opts.findIndex(o => o.value === mirror.value);
+        const nextOpt = opts[(idx + 1) % opts.length];
+        if (nextOpt) {
+          mirror.value = nextOpt.value;
+          try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
+          load(true);
+        }
       });
     }
 
@@ -2071,6 +2256,19 @@
         destroyArtplayer();
         hideAnimeMsg();
         if (animeMount) animeMount.hidden = true;
+        if (iframe) iframe.hidden = false;
+        const pBtn = document.getElementById('p-popout');
+        if (pBtn) pBtn.hidden = false;
+      }
+      if (!isAnimePlayer && mirror && mirror.value === 'artplayer') {
+        loadMediaArtplayer();
+        return;
+      }
+      if (!isAnimePlayer && mediaMount) {
+        if (mediaAbort) mediaAbort.abort();
+        destroyMediaArtplayer();
+        hideMediaMsg();
+        mediaMount.hidden = true;
         if (iframe) iframe.hidden = false;
         const pBtn = document.getElementById('p-popout');
         if (pBtn) pBtn.hidden = false;

@@ -134,6 +134,12 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
 
   if (!options.length) return null;
 
+  // Insert Artplayer (Auto: P-Stream + Consumet) right after Vidy (default) and before Server 1..N
+  const vidyIdx = options.findIndex(o => o.domain === VIDY);
+  const artOpt = { domain: 'artplayer', label: 'Artplayer (Auto)', id: String(item.tmdb_id || item.imdb_id), path: '', startParam: null };
+  if (vidyIdx >= 0) options.splice(vidyIdx + 1, 0, artOpt);
+  else options.unshift(artOpt);
+
   const first = options[0];
   const initialSrc = `https://${first.domain}` + first.path
     .replace('{id}', encodeURIComponent(first.id))
@@ -149,6 +155,9 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
     cfg: {
       isSeries,
       anime: false,
+      title: item.title || '',
+      year: item.release_year || '',
+      tmdbId: item.tmdb_id || null,
       tvId: tvId || item.tmdb_id || null,
       key: String(tvId || item.tmdb_id || item.imdb_id),
       epBase: tvId ? `/episodes/${tvId}/` : null,

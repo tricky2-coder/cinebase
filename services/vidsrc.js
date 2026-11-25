@@ -115,13 +115,15 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
     };
   }
 
+  let serverIdx = 0;
   const options = domains().map(domain => {
     const p = PLAYERS[domain] || PLAYERS['*'];
     const pid = p.id === 'tmdb' ? (item.tmdb_id || item.imdb_id) : (item.imdb_id || item.tmdb_id);
     if (!pid) return null;
+    const label = domain === VIDY ? 'Vidy' : `Server ${++serverIdx}`;
     return {
       domain,
-      label: p.label || domain,
+      label,
       id: String(pid),
       path: p[isSeries ? 'tv' : 'movie'],
       events: Boolean(p.events)

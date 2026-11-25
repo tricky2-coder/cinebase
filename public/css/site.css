@@ -455,6 +455,8 @@ button { font: inherit; }
 .anime-player-msg[hidden] { display: none; }
 .anime-player-msg p { margin: 0; color: var(--dim); max-width: 420px; font-size: .95rem; }
 .anime-msg-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin-top: .4rem; }
+.mirror { display: inline-flex; align-items: center; gap: .4rem; color: var(--dim); font-size: .84rem; font-weight: 600; }
+.mirror select { max-width: 160px; }
 .pop-btn { white-space: nowrap; }
 /* Phones/tablets: no Document PiP and pop-ups open as tabs; their OS picture-in-picture works from fullscreen instead */
 @media (hover: none), (pointer: coarse) { .pop-btn { display: none; } }

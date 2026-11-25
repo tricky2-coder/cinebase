@@ -100,6 +100,13 @@
         <option value="reanime">Server 10</option>
         <option value="vidy">Vidy (Backup)</option>
       </select>
+      <% } else if (player.options && player.options.length > 1) { %>
+      <label class="mirror">
+        <span>Player</span>
+        <select id="p-mirror" class="ep-quick-select" aria-label="Select player">
+          <% player.options.forEach(o => { %><option value="<%= o.domain %>"><%= o.label %></option><% }) %>
+        </select>
+      </label>
       <% } %>
       <button type="button" class="ep-step ep-fs-btn" id="p-fullscreen" title="Full screen">⛶ Fullscreen</button>
       <button type="button" class="ep-step pop-btn" id="p-popout" title="Keep watching in a small always-on-top window"<%= player.cfg.anime ? ' hidden' : '' %>>⧉ Pop out</button>

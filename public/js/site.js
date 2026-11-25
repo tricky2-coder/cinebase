@@ -1723,14 +1723,29 @@
     let pipFrame = null; // player iframe inside a Document PiP window (null for a plain pop-up)
     const frame = () => pipFrame || iframe;
 
+    const mirror = document.getElementById('p-mirror');
+    const MIRROR_KEY = 'cinebase.player';
+    if (mirror) {
+      try {
+        const savedMirror = localStorage.getItem(MIRROR_KEY);
+        if (savedMirror && [...mirror.options].some(o => o.value === savedMirror)) mirror.value = savedMirror;
+      } catch {}
+      mirror.addEventListener('change', () => {
+        try { localStorage.setItem(MIRROR_KEY, mirror.value); } catch {}
+        load(true);
+      });
+    }
+
     const url = (sn = state.s, ep = state.e) => {
-      const u = new URL(`https://${cfg.domain || 'www.vidy.st'}` + cfg.path
-        .replace('{id}', encodeURIComponent(cfg.id)).replace('{s}', sn).replace('{e}', ep));
-      const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
-      // Explicitly set progress=0 when starting from the beginning.
-      // Vidy requires ?progress=0 in query params to override its internal localStorage history;
-      // otherwise, Vidy resumes completed episodes at their end time (e.g. 40:00) and immediately skips to the next episode!
-      u.searchParams.set('progress', (t && t > 0) ? t : 0);
+      const domain = (mirror && cfg.players && cfg.players[mirror.value]) ? mirror.value : (cfg.domain || 'www.vidy.st');
+      const pCfg = (cfg.players && cfg.players[domain]) || { id: cfg.id, path: cfg.path, events: domain.includes('vidy') };
+      const u = new URL(`https://${domain}` + pCfg.path
+        .replace('{id}', encodeURIComponent(pCfg.id)).replace('{s}', sn).replace('{e}', ep));
+      if (pCfg.events) {
+        const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
+        // Explicitly set progress=0 when starting from the beginning on Vidy
+        u.searchParams.set('progress', (t && t > 0) ? t : 0);
+      }
       return u.href;
     };
     const animeMount = document.getElementById('anime-artplayer');

@@ -448,23 +448,30 @@ router.get('/api/media/watch', async (req, res) => {
   }
 });
 
-// Anime stream sources via Anivexa-API (hidden from end users)
+// Anime stream sources: Consumet (Server 1), P-Stream (Server 2), & Anivexa-API (Servers 3-12)
 router.get('/api/anime/watch/:anilistId/:ep', async (req, res) => {
   const { anilistId, ep } = req.params;
   if (!/^\d+$/.test(anilistId) || !/^\d+$/.test(ep)) {
     return res.status(400).json({ error: 'Invalid anime ID or episode number' });
   }
-  if (!anivexa.enabled()) {
-    return res.status(503).json({ error: 'Anime streaming server is not configured (set ANIVEXA_URL).' });
-  }
   const audio = req.query.audio === 'dub' ? 'dub' : 'sub';
   const provider = typeof req.query.provider === 'string' ? req.query.provider : null;
+  let title = typeof req.query.title === 'string' ? req.query.title.trim() : '';
+  let year = typeof req.query.year === 'string' ? req.query.year.trim() : '';
+  const tmdbId = typeof req.query.tmdbId === 'string' ? req.query.tmdbId.trim() : '';
+  if (!title) {
+    try {
+      const info = await anilist.titlePage(anilistId);
+      title = info?.item?.title || '';
+      year = year || String(info?.item?.release_year || '');
+    } catch {}
+  }
   try {
-    const data = await anivexa.getWatchSources(anilistId, ep, audio, provider);
+    const data = await anivexa.getWatchSources(anilistId, ep, audio, provider, { title, year, tmdbId });
     res.set('Cache-Control', 'private, max-age=300');
     res.json(data);
   } catch (e) {
-    console.error('Anivexa watch error:', e.message);
+    console.error('Anime watch error:', e.message);
     res.status(502).json({ error: e.message || 'Failed to load anime stream' });
   }
 });

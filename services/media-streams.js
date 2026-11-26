@@ -4,7 +4,7 @@
 // Races both engines in parallel so Artplayer gets whichever working stream responds first.
 
 const { makeProviders, makeStandardFetcher, targets } = require('@movie-web/providers');
-const { MOVIES } = require('@consumet/extensions');
+const { MOVIES, ANIME, SubOrSub } = require('@consumet/extensions');
 
 let mwProviders = null;
 function getMwProviders() {
@@ -193,4 +193,74 @@ async function getMediaStreams({ title, year = '', tmdbId = '', type = 'Movie', 
   }
 }
 
-module.exports = { getMediaStreams };
+async function tryConsumetAnimeProvider(ProviderClass, name, { title, episode, audio }) {
+  const inst = new ProviderClass();
+  const search = await Promise.race([
+    inst.search(title),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${name} search timeout`)), 5500))
+  ]);
+  const match = pickConsumetMatch(search?.results, title, '', true);
+  if (!match || !match.id) throw new Error(`${name}: no match`);
+
+  const info = await Promise.race([
+    inst.fetchAnimeInfo(match.id),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${name} info timeout`)), 5500))
+  ]);
+  const eps = Array.isArray(info?.episodes) ? info.episodes : [];
+  const eNum = Number(episode) || 1;
+  const epObj = eps.find(e => Number(e.number) === eNum) || eps[eNum - 1] || null;
+  if (!epObj || !epObj.id) throw new Error(`${name}: episode ${eNum} not found`);
+
+  const subOrDub = audio === 'dub' ? SubOrSub?.DUB : SubOrSub?.SUB;
+  const data = await Promise.race([
+    inst.fetchEpisodeSources(epObj.id, undefined, subOrDub),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${name} sources timeout`)), 6500))
+  ]);
+
+  const rawSources = Array.isArray(data?.sources) ? data.sources : [];
+  const referer = data?.headers?.Referer || data?.headers?.referer || '';
+  const sources = rawSources
+    .filter(s => s && s.url)
+    .map(s => ({
+      url: wrapProxy(s.url, referer),
+      directUrl: s.url,
+      hasReferer: Boolean(referer),
+      isM3U8: Boolean(s.isM3U8 || String(s.url).includes('.m3u8')),
+      quality: s.quality || 'Auto'
+    }));
+
+  if (!sources.length) throw new Error(`${name}: no playable sources`);
+
+  return {
+    engine: 'consumet',
+    providerLabel: `Consumet (${name})`,
+    sources,
+    subtitles: mapCaptions(data?.subtitles, referer)
+  };
+}
+
+async function getAnimeStreams({ title, year = '', tmdbId = '', episode = 1, audio = 'sub', engine = 'auto' }) {
+  if (!title) throw new Error('Anime title is required');
+  const ctx = { title, year, tmdbId, isSeries: true, season: 1, episode, audio };
+
+  if (engine === 'pstream') {
+    return tryPStream(ctx);
+  }
+
+  const consumetTasks = [
+    tryConsumetAnimeProvider(ANIME.Hianime, 'Hianime', ctx),
+    tryConsumetAnimeProvider(ANIME.KickAssAnime, 'KickAssAnime', ctx),
+    tryConsumetAnimeProvider(ANIME.AnimePahe, 'AnimePahe', ctx),
+    tryConsumetAnimeProvider(ANIME.AnimeKai, 'AnimeKai', ctx)
+  ];
+
+  const tasks = engine === 'consumet' ? consumetTasks : [...consumetTasks, tryPStream(ctx)];
+  try {
+    return await Promise.any(tasks);
+  } catch (aggErr) {
+    const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'No anime stream found'];
+    throw new Error(errors.join(' | '));
+  }
+}
+
+module.exports = { getMediaStreams, getAnimeStreams };

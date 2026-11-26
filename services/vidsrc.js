@@ -104,6 +104,9 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
       cfg: {
         isSeries,
         anime: true,
+        title: item.title || '',
+        year: item.release_year || '',
+        tmdbId: item.tmdb_id || null,
         tvId: null,
         key: `a${id}`,
         epBase: `/episodes/anime/${id}/`,

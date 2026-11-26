@@ -1,16 +1,22 @@
-// Anivexa-API integration for anime streaming (server-side only; hidden from end users)
+// Anime streaming aggregator: Consumet (Server 1), P-Stream (Server 2), + Anivexa-API (Servers 3-12)
+const mediaStreams = require('./media-streams');
+
 const DEFAULT_PROVIDERS = [
-  { id: 'anizone', label: 'Server 1' },
-  { id: 'anikoto', label: 'Server 2' },
-  { id: 'anipm', label: 'Server 3' },
-  { id: 'animegg', label: 'Server 4' },
-  { id: 'animedunya', label: 'Server 5' },
-  { id: 'aniwaves', label: 'Server 6' },
-  { id: 'pahenime', label: 'Server 7' },
-  { id: 'animenosub', label: 'Server 8' },
-  { id: 'anihq', label: 'Server 9' },
-  { id: 'reanime', label: 'Server 10' }
+  { id: 'consumet', label: 'Server 1', local: true },
+  { id: 'pstream', label: 'Server 2', local: true },
+  { id: 'anizone', label: 'Server 3' },
+  { id: 'anikoto', label: 'Server 4' },
+  { id: 'anipm', label: 'Server 5' },
+  { id: 'animegg', label: 'Server 6' },
+  { id: 'animedunya', label: 'Server 7' },
+  { id: 'aniwaves', label: 'Server 8' },
+  { id: 'pahenime', label: 'Server 9' },
+  { id: 'animenosub', label: 'Server 10' },
+  { id: 'anihq', label: 'Server 11' },
+  { id: 'reanime', label: 'Server 12' }
 ];
+
+const PUBLIC_PROVIDERS = DEFAULT_PROVIDERS.map(({ id, label }) => ({ id, label }));
 
 let lastWakeAt = 0;
 
@@ -22,10 +28,6 @@ function enabled() {
   return Boolean(baseUrl());
 }
 
-/**
- * Fire-and-forget ping to wake a sleeping Render instance in the background
- * when a user opens Home or Anime Discover. Throttled to once every 5 minutes.
- */
 function wakeUp() {
   const base = baseUrl();
   if (!base) return;
@@ -39,7 +41,7 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
   const url = `${base}/watch/${encodeURIComponent(prov.id)}/${encodeURIComponent(anilistId)}/${cleanAudio}/${encodeURIComponent(prov.id)}-${encodeURIComponent(ep)}`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(8500) // stays safely inside Vercel's 10s serverless limit
+    signal: AbortSignal.timeout(8500)
   });
 
   const text = await res.text();
@@ -54,13 +56,11 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
     throw new Error(`${prov.label} returned non-JSON response`);
   }
 
-  // Anivexa providers return either `streams` ([{ url, type, server, referer, subtitles }]) or `sources`
   const rawList = Array.isArray(data.streams) ? data.streams
     : Array.isArray(data.sources) ? data.sources
     : Array.isArray(data.data?.sources) ? data.data.sources
     : (data.url ? [{ url: data.url, isM3U8: String(data.url).includes('.m3u8'), quality: data.quality || 'auto' }] : []);
 
-  // Filter to Artplayer-compatible HLS/MP4 streams (exclude iframe embeds and DASH .mpd streams)
   const playable = rawList.filter(s =>
     s && s.url &&
     s.type !== 'embed' &&
@@ -119,44 +119,74 @@ async function fetchProviderWatch(base, prov, anilistId, cleanAudio, ep) {
   return {
     provider: prov.id,
     providerLabel: prov.label,
-    providers: DEFAULT_PROVIDERS,
+    providers: PUBLIC_PROVIDERS,
     audio: cleanAudio,
     sources,
     subtitles: collectedSubs
   };
 }
 
-/**
- * Fetch stream sources for an anime episode from Anivexa-API.
- * Uses parallel race on Auto mode for fast loading within serverless timeouts.
- */
-async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider = null) {
-  const base = baseUrl();
-  if (!base) {
-    throw new Error('ANIVEXA_URL is not configured');
-  }
+async function fetchLocalWatch(provId, meta, ep, cleanAudio) {
+  const res = await mediaStreams.getAnimeStreams({
+    title: meta?.title || '',
+    year: meta?.year || '',
+    tmdbId: meta?.tmdbId || '',
+    episode: Number(ep) || 1,
+    audio: cleanAudio,
+    engine: provId
+  });
+  const prov = DEFAULT_PROVIDERS.find(p => p.id === provId) || { id: provId, label: provId };
+  return {
+    provider: prov.id,
+    providerLabel: prov.label,
+    providers: PUBLIC_PROVIDERS,
+    audio: cleanAudio,
+    sources: res.sources,
+    subtitles: res.subtitles
+  };
+}
 
+/**
+ * Fetch stream sources for an anime episode.
+ * Server 1 = Consumet, Server 2 = P-Stream, Servers 3-12 = Anivexa-API.
+ */
+async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider = null, meta = {}) {
+  const base = baseUrl();
   const cleanAudio = audio === 'dub' ? 'dub' : 'sub';
+
+  if (preferredProvider === 'consumet' || preferredProvider === 'pstream') {
+    return fetchLocalWatch(preferredProvider, meta, ep, cleanAudio);
+  }
 
   if (preferredProvider && preferredProvider !== 'auto' && preferredProvider !== 'vidy') {
     const picked = DEFAULT_PROVIDERS.find(p => p.id === preferredProvider);
     if (picked) {
-      return await fetchProviderWatch(base, picked, anilistId, cleanAudio, ep);
+      if (!base) throw new Error('Anime streaming server is not configured (set ANIVEXA_URL).');
+      return fetchProviderWatch(base, picked, anilistId, cleanAudio, ep);
     }
   }
 
-  const autoPool = DEFAULT_PROVIDERS.slice(0, 4); // race top 4 fast HLS providers so Render free tier (0.1 CPU) doesn't overload
+  // Auto mode: race Consumet + P-Stream + top Anivexa servers (if ANIVEXA_URL configured)
+  const tasks = [
+    fetchLocalWatch('consumet', meta, ep, cleanAudio),
+    fetchLocalWatch('pstream', meta, ep, cleanAudio)
+  ];
+  if (base) {
+    const anivexaTop = DEFAULT_PROVIDERS.filter(p => !p.local).slice(0, 4);
+    tasks.push(...anivexaTop.map(p => fetchProviderWatch(base, p, anilistId, cleanAudio, ep)));
+  }
+
   try {
-    return await Promise.any(autoPool.map(p => fetchProviderWatch(base, p, anilistId, cleanAudio, ep)));
+    return await Promise.any(tasks);
   } catch (aggErr) {
     const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'All servers failed'];
-    console.error('All Anivexa providers failed:', errors);
+    console.error('All anime providers failed:', errors);
     throw new Error(errors.join(' | '));
   }
 }
 
 module.exports = {
-  DEFAULT_PROVIDERS,
+  DEFAULT_PROVIDERS: PUBLIC_PROVIDERS,
   enabled,
   wakeUp,
   getWatchSources

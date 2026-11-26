@@ -2031,25 +2031,8 @@
     }
 
     function fallbackToVidy(reason) {
-      if (!iframe) {
-        showAnimeMsg(reason || 'Unable to load this episode right now.', true);
-        return;
-      }
-      console.warn('[CineBase Anime] Auto-switching to Vidy:', reason);
-      if (animeAbort) animeAbort.abort();
       destroyArtplayer();
-      hideAnimeMsg();
-      if (animeMount) animeMount.hidden = true;
-      iframe.hidden = false;
-      const pBtn = document.getElementById('p-popout');
-      if (pBtn) pBtn.hidden = false;
-      if (animeServerSel) animeServerSel.value = 'vidy';
-      const f = frame();
-      const u = url();
-      if (f) {
-        applyAdSandbox(f);
-        f.src = u;
-      }
+      showAnimeMsg(reason ? `${reason}. Try another server or Vidy.` : 'Unable to load this episode on this server.', true);
     }
 
     async function loadAnimeEpisode(epNum) {
@@ -2063,10 +2046,13 @@
       if (animeMount) animeMount.hidden = false;
       const pBtn = document.getElementById('p-popout');
       if (pBtn) pBtn.hidden = true;
-      showAnimeMsg(`Loading Episode ${epNum}...`, false);
+      showAnimeMsg('Finding the best server...', false);
 
       try {
         const qs = new URLSearchParams({ audio: animeAudio });
+        if (cfg.title) qs.set('title', cfg.title);
+        if (cfg.year) qs.set('year', String(cfg.year));
+        if (cfg.tmdbId) qs.set('tmdbId', String(cfg.tmdbId));
         if (animeProvider && animeProvider !== 'vidy') qs.set('provider', animeProvider);
         const res = await fetch(`/api/anime/watch/${encodeURIComponent(cfg.id)}/${encodeURIComponent(epNum)}?${qs.toString()}`, {
           signal: animeAbort.signal

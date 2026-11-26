@@ -188,8 +188,9 @@ async function getMediaStreams({ title, year = '', tmdbId = '', type = 'Movie', 
   try {
     return await Promise.any(tasks);
   } catch (aggErr) {
-    const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'All direct stream extractors failed'];
-    throw new Error(errors.join(' | '));
+    const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'All extractors failed'];
+    console.error('Direct media streams failed:', errors);
+    throw new Error('This server is unavailable right now.');
   }
 }
 

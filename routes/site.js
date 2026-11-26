@@ -444,7 +444,8 @@ router.get('/api/media/watch', async (req, res) => {
     res.set('Cache-Control', 'private, max-age=300');
     res.json(data);
   } catch (e) {
-    res.status(502).json({ error: e.message || 'No direct stream found' });
+    console.error('Media watch error:', e.message);
+    res.status(502).json({ error: 'This server is unavailable right now. Please try another server.' });
   }
 });
 
@@ -455,7 +456,7 @@ router.get('/api/anime/watch/:anilistId/:ep', async (req, res) => {
     return res.status(400).json({ error: 'Invalid anime ID or episode number' });
   }
   if (!anivexa.enabled()) {
-    return res.status(503).json({ error: 'Anime streaming server is not configured (set ANIVEXA_URL).' });
+    return res.status(503).json({ error: 'Anime backup servers are not configured.' });
   }
   const audio = req.query.audio === 'dub' ? 'dub' : 'sub';
   const provider = typeof req.query.provider === 'string' ? req.query.provider : null;
@@ -465,7 +466,7 @@ router.get('/api/anime/watch/:anilistId/:ep', async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error('Anivexa watch error:', e.message);
-    res.status(502).json({ error: e.message || 'Failed to load anime stream' });
+    res.status(502).json({ error: 'This server is unavailable right now. Please try another server.' });
   }
 });
 

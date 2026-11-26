@@ -1931,12 +1931,30 @@
       if (isAnimePlayer && animeProvider === 'pstream') {
         const audioParam = animeAudio === 'dub' ? 'en' : 'ja';
         const epNum = Math.max(1, Number(ep) || 1);
-        return `https://embed.pstream.cfd/media/anilist-anime-${encodeURIComponent(cfg.id)}/${epNum}?autoplay=1&autonext=1&episodes=0&title=0&audio=${audioParam}`;
+        const u = new URL(`https://embed.pstream.cfd/media/anilist-anime-${encodeURIComponent(cfg.id)}/${epNum}`);
+        u.searchParams.set('autoplay', '1');
+        u.searchParams.set('autonext', autoNext ? '1' : '0');
+        u.searchParams.set('episodes', '1');
+        u.searchParams.set('title', '0');
+        u.searchParams.set('logo', '0');
+        u.searchParams.set('markers', '1');
+        u.searchParams.set('skip', '1');
+        u.searchParams.set('seek', '1');
+        u.searchParams.set('boost', '1');
+        u.searchParams.set('cast', '1');
+        u.searchParams.set('lang', 'en');
+        u.searchParams.set('audio', audioParam);
+        const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
+        if (t && t > 0) u.searchParams.set('t', t);
+        return u.href;
       }
       const domain = (mirror && cfg.players && cfg.players[mirror.value]) ? mirror.value : (cfg.domain || 'www.vidy.st');
       const pCfg = (cfg.players && cfg.players[domain]) || { id: cfg.id, path: cfg.path, events: domain.includes('vidy') };
       const u = new URL(`https://${domain}` + pCfg.path
         .replace('{id}', encodeURIComponent(pCfg.id)).replace('{s}', sn).replace('{e}', ep));
+      if (cfg.isSeries && domain === 'embed.pstream.cfd') {
+        u.searchParams.set('autonext', autoNext ? '1' : '0');
+      }
       if (pCfg.startParam) {
         const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
         if (pCfg.startParam === 'progress') {
@@ -2334,16 +2352,25 @@
       // Do NOT process MEDIA_DATA for episode navigation — MEDIA_DATA is a bulk localStorage dump
       // where last_episode_watched can be stale and falsely revert state.e to 1.
       if (msg.type === 'MEDIA_DATA') return;
-      // Accept both { type: 'PLAYER_EVENT', data: {...} } (Vidy/VidLink/VidFast/VidNest) and direct { event: '...' }
-      const isPlayerEvt = msg.type === 'PLAYER_EVENT' || typeof msg.event === 'string' || typeof msg.data?.event === 'string';
+      // Accept { type: 'PLAYER_EVENT', data: {...} }, { type: 'pstream', event: '...', media: {...}, time, duration }, and direct { event: '...' }
+      const isPStreamEvt = msg.type === 'pstream';
+      const isPlayerEvt = isPStreamEvt || msg.type === 'PLAYER_EVENT' || typeof msg.event === 'string' || typeof msg.data?.event === 'string';
       if (!isPlayerEvt) return;
 
       const data = (msg.data && typeof msg.data === 'object') ? msg.data : msg;
-      const isAnime = Boolean(cfg.anime || data.type === 'anime');
+      const isAnime = Boolean(cfg.anime || data.type === 'anime' || msg.media?.kind === 'anime');
       let epNum;
       let snNum;
 
-      if (isAnime) {
+      if (isPStreamEvt) {
+        epNum = Number(msg.media?.episode);
+        if (isAnime && Number.isFinite(epNum) && epNum > 0) {
+          const tab = cfg.seasons?.find(x => epNum >= (x.start || 1) && (!x.episodes || epNum <= (x.start || 1) + x.episodes - 1));
+          snNum = tab ? tab.n : 1;
+        } else {
+          snNum = Number(msg.media?.season);
+        }
+      } else if (isAnime) {
         // Vidy's anime URL structure is /anime/:id/:episode (there is no season param).
         // Inside Vidy's video player (chunk 5114), param 1 (episode) is assigned to `season`, while `episode` defaults to 1.
         // Therefore, for anime events from Vidy, `data.season` is the real episode number, whereas `data.episode` is always 1!
@@ -2390,8 +2417,10 @@
       }
 
       const event = data.event || msg.event;
-      const currentTime = Number(data.currentTime != null ? data.currentTime : msg.currentTime);
-      const duration = Number(data.duration != null ? data.duration : msg.duration);
+      const rawTime = data.currentTime != null ? data.currentTime : (msg.currentTime != null ? msg.currentTime : msg.time);
+      const currentTime = rawTime != null ? Number(rawTime) : NaN;
+      const rawDur = data.duration != null ? data.duration : msg.duration;
+      const duration = rawDur != null ? Number(rawDur) : NaN;
 
       // 3. Save watch progress periodically during playback
       if (Number.isFinite(currentTime)) {

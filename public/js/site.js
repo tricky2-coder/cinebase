@@ -1798,6 +1798,60 @@
       };
     }
 
+    function getActiveFullscreenEl() {
+      return document.fullscreenElement || document.webkitFullscreenElement || (player.classList.contains('is-fs') ? player : null);
+    }
+
+    function syncFullscreenBtn() {
+      const fsEl = document.getElementById('p-fullscreen');
+      if (!fsEl) return;
+      const isFs = Boolean(getActiveFullscreenEl());
+      fsEl.textContent = isFs ? '⛶ Exit' : '⛶ Fullscreen';
+      fsEl.classList.toggle('active', isFs);
+    }
+
+    async function togglePlayerFullscreen() {
+      const isNativeFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      if (isNativeFs) {
+        try {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch {}
+        try { screen.orientation?.unlock?.(); } catch {}
+        player.classList.remove('is-fs');
+        document.body.style.overflow = '';
+        syncFullscreenBtn();
+        return;
+      }
+      if (player.classList.contains('is-fs')) {
+        player.classList.remove('is-fs');
+        document.body.style.overflow = '';
+        syncFullscreenBtn();
+        return;
+      }
+      try {
+        if (player.requestFullscreen) {
+          await player.requestFullscreen();
+          if (window.matchMedia?.('(pointer: coarse)').matches) {
+            screen.orientation?.lock?.('landscape').catch(() => {});
+          }
+          return;
+        }
+        if (player.webkitRequestFullscreen) {
+          player.webkitRequestFullscreen();
+          return;
+        }
+      } catch {}
+      // iOS iPhone Safari fallback: native <video> fullscreen if active, else fixed viewport overlay
+      const v = player.querySelector('video');
+      if (v && typeof v.webkitEnterFullscreen === 'function') {
+        try { v.webkitEnterFullscreen(); return; } catch {}
+      }
+      player.classList.add('is-fs');
+      document.body.style.overflow = 'hidden';
+      syncFullscreenBtn();
+    }
+
     function createArtWrapperFullscreenControl() {
       return {
         name: 'cinebase-fullscreen',
@@ -1805,14 +1859,96 @@
         index: 99,
         tooltip: 'Fullscreen',
         html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
-        click() {
-          if (document.fullscreenElement) {
-            document.exitFullscreen().catch(() => {});
-          } else {
-            player.requestFullscreen().catch(() => {});
-          }
-        }
+        click: togglePlayerFullscreen
       };
+    }
+
+    function buildCandidateUrls(sources, primary) {
+      const urls = [];
+      const pushUrls = s => {
+        if (!s) return;
+        if (s.directUrl && !s.hasReferer) urls.push(s.directUrl);
+        if (s.url) urls.push(s.url);
+        if (s.directUrl && s.hasReferer) urls.push(s.directUrl);
+      };
+      pushUrls(primary);
+      sources.forEach(s => { if (s !== primary) pushUrls(s); });
+      return urls;
+    }
+
+    function buildArtBaseOptions({ container, primary, sources, startUrl, candidateUrls, defaultSub, onFatalError, extra }) {
+      const isCompact = window.innerWidth <= 560;
+      const opts = {
+        container,
+        url: startUrl,
+        type: primary.isM3U8 ? 'm3u8' : '',
+        theme: '#f5b301',
+        volume: 0.9,
+        autoplay: true,
+        pip: true,
+        setting: true,
+        playbackRate: true,
+        aspectRatio: true,
+        fullscreen: false, // Use #player wrapper fullscreen so auto-next keeps fullscreen
+        fullscreenWeb: true,
+        miniProgressBar: true,
+        playsInline: true,
+        controls: [createArtWrapperFullscreenControl()],
+        quality: sources.length > 1 ? sources.map(s => ({ default: s === primary, html: String(s.quality || 'Auto'), url: (s.directUrl && !s.hasReferer) ? s.directUrl : s.url })) : [],
+        customType: {
+          m3u8: createHlsM3u8Handler(candidateUrls, onFatalError)
+        },
+        ...extra
+      };
+      if (defaultSub) {
+        opts.subtitle = {
+          url: defaultSub.url,
+          type: defaultSub.url.includes('.ass') ? 'ass' : (defaultSub.url.includes('.srt') ? 'srt' : 'vtt'),
+          encoding: 'utf-8',
+          style: { color: '#ffffff', fontSize: isCompact ? '15px' : '20px', textShadow: '0 2px 6px rgba(0,0,0,0.9)' }
+        };
+      }
+      return opts;
+    }
+
+    function attachArtCommonEvents(art, resumeTime, { onError, onReadyExtra } = {}) {
+      art.on('quality', item => {
+        if (item?.html) try { localStorage.setItem(QUALITY_KEY, item.html); } catch {}
+      });
+      art.on('video:error', () => { if (onError) onError(); });
+      art.on('ready', () => {
+        if (resumeTime && resumeTime > 0) art.currentTime = resumeTime;
+        if (onReadyExtra) onReadyExtra();
+      });
+      art.on('video:timeupdate', () => {
+        const currentTime = Number(art.currentTime);
+        const duration = Number(art.duration);
+        if (!Number.isFinite(currentTime)) return;
+        const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
+        if (isNearEnd) {
+          try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+          lastSaved = 0;
+          syncHistoryToServer(duration || currentTime, duration);
+        } else if (Math.abs(currentTime - lastSaved) >= 5) {
+          lastSaved = currentTime;
+          try {
+            localStorage.setItem(posKey(state.s, state.e), JSON.stringify({
+              t: currentTime,
+              d: Number.isFinite(duration) && duration > 0 ? duration : null
+            }));
+          } catch {}
+          syncHistoryToServer(currentTime, duration);
+        }
+      });
+      art.on('video:ended', () => {
+        const dur = Number(art.duration) || 0;
+        try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
+        lastSaved = 0;
+        syncHistoryToServer(dur, dur);
+        if (cfg.isSeries && autoNext && typeof window._cinebaseStepNext === 'function') {
+          window._cinebaseStepNext();
+        }
+      });
     }
 
     function destroyMediaArtplayer() {
@@ -1883,87 +2019,30 @@
 
         const sources = data.sources;
         const primary = pickPreferredSource(sources);
-        const candidateUrls = [];
-        const addSourceUrls = s => {
-          if (s.directUrl && !s.hasReferer) candidateUrls.push(s.directUrl);
-          if (s.url) candidateUrls.push(s.url);
-          if (s.directUrl && s.hasReferer) candidateUrls.push(s.directUrl);
-        };
-        addSourceUrls(primary);
-        sources.forEach(s => { if (s !== primary) addSourceUrls(s); });
+        const candidateUrls = buildCandidateUrls(sources, primary);
         const startUrl = candidateUrls[0] || primary.url;
         const subtitles = Array.isArray(data.subtitles) ? data.subtitles : [];
         const defaultSub = subtitles.find(s => s.default) || subtitles[0] || null;
         const resumeTime = resumeAt();
 
-        const artOpts = {
+        const artOpts = buildArtBaseOptions({
           container: mediaMount,
-          url: startUrl,
-          type: primary.isM3U8 ? 'm3u8' : '',
-          theme: '#f5b301',
-          volume: 0.9,
-          autoplay: true,
-          pip: true,
-          setting: true,
-          playbackRate: true,
-          aspectRatio: true,
-          fullscreen: false, // Use #player wrapper fullscreen so auto-next stays in fullscreen
-          fullscreenWeb: true,
-          miniProgressBar: true,
-          playsInline: true,
-          controls: [createArtWrapperFullscreenControl()],
-          quality: sources.length > 1 ? sources.map(s => ({ default: s === primary, html: String(s.quality || 'Auto'), url: (s.directUrl && !s.hasReferer) ? s.directUrl : s.url })) : [],
-          customType: {
-            m3u8: createHlsM3u8Handler(candidateUrls, () => {
-              destroyMediaArtplayer();
-              showMediaMsg("This server isn't playing right now. Please try another server.", true);
-            })
+          primary,
+          sources,
+          startUrl,
+          candidateUrls,
+          defaultSub,
+          onFatalError: () => {
+            destroyMediaArtplayer();
+            showMediaMsg("This server isn't playing right now. Please try another server.", true);
           }
-        };
-
-        if (defaultSub) {
-          artOpts.subtitle = {
-            url: defaultSub.url,
-            type: defaultSub.url.includes('.srt') ? 'srt' : 'vtt',
-            encoding: 'utf-8',
-            style: { color: '#ffffff', fontSize: '20px', textShadow: '0 2px 6px rgba(0,0,0,0.9)' }
-          };
-        }
+        });
 
         mediaArtInstance = new window.Artplayer(artOpts);
-        mediaArtInstance.on('quality', item => {
-          if (item?.html) try { localStorage.setItem(QUALITY_KEY, item.html); } catch {}
-        });
-        mediaArtInstance.on('video:error', () => {
-          destroyMediaArtplayer();
-          showMediaMsg("This server isn't playing right now. Please try another server.", true);
-        });
-        mediaArtInstance.on('ready', () => {
-          if (resumeTime && resumeTime > 0 && mediaArtInstance) mediaArtInstance.currentTime = resumeTime;
-        });
-        mediaArtInstance.on('video:timeupdate', () => {
-          if (!mediaArtInstance) return;
-          const currentTime = Number(mediaArtInstance.currentTime);
-          const duration = Number(mediaArtInstance.duration);
-          if (!Number.isFinite(currentTime)) return;
-          const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
-          if (isNearEnd) {
-            try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
-            lastSaved = 0;
-            syncHistoryToServer(duration || currentTime, duration);
-          } else if (Math.abs(currentTime - lastSaved) >= 5) {
-            lastSaved = currentTime;
-            try { localStorage.setItem(posKey(state.s, state.e), JSON.stringify({ t: currentTime, d: Number.isFinite(duration) && duration > 0 ? duration : null })); } catch {}
-            syncHistoryToServer(currentTime, duration);
-          }
-        });
-        mediaArtInstance.on('video:ended', () => {
-          const dur = mediaArtInstance ? Number(mediaArtInstance.duration) : 0;
-          try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
-          lastSaved = 0;
-          syncHistoryToServer(dur || 0, dur || 0);
-          if (cfg.isSeries && autoNext && typeof window._cinebaseStepNext === 'function') {
-            window._cinebaseStepNext();
+        attachArtCommonEvents(mediaArtInstance, resumeTime, {
+          onError: () => {
+            destroyMediaArtplayer();
+            showMediaMsg("This server isn't playing right now. Please try another server.", true);
           }
         });
       } catch (err) {
@@ -2217,58 +2296,22 @@
         hideAnimeMsg();
 
         const resumeTime = resumeAt();
-        // Build ordered candidate list starting from preferred HD source + fallbacks
-        const candidateUrls = [];
-        const addAnimeUrls = s => {
-          if (s.directUrl && !s.hasReferer) candidateUrls.push(s.directUrl);
-          if (s.url) candidateUrls.push(s.url);
-          if (s.directUrl && s.hasReferer) candidateUrls.push(s.directUrl);
-        };
-        addAnimeUrls(primary);
-        sources.forEach(s => { if (s !== primary) addAnimeUrls(s); });
+        const candidateUrls = buildCandidateUrls(sources, primary);
         const startUrl = candidateUrls[0] || primary.url;
-        const qualityList = sources.map(s => ({
-          default: s === primary,
-          html: String(s.quality || 'Auto'),
-          url: (s.directUrl && !s.hasReferer) ? s.directUrl : s.url
-        }));
 
-        const artOpts = {
+        const artOpts = buildArtBaseOptions({
           container: animeMount,
-          url: startUrl,
-          type: primary.isM3U8 ? 'm3u8' : '',
-          theme: '#f5b301',
-          volume: 0.9,
-          autoplay: true,
-          pip: true,
-          autoSize: false,
-          autoMini: false,
-          screenshot: false,
-          setting: true,
-          playbackRate: true,
-          aspectRatio: true,
-          fullscreen: false, // Use #player wrapper fullscreen so auto-next keeps fullscreen
-          fullscreenWeb: true,
-          miniProgressBar: true,
-          playsInline: true,
-          controls: [createArtWrapperFullscreenControl()],
-          quality: qualityList.length > 1 ? qualityList : [],
-          customType: {
-            m3u8: createHlsM3u8Handler(candidateUrls, errData => {
-              const detail = [data.providerLabel, errData.type, errData.details, errData.response?.code].filter(Boolean).join(' · ');
-              fallbackToVidy(`Stream failed (${detail || 'playback error'})`);
-            })
-          }
-        };
-
-        if (defaultSub) {
-          artOpts.subtitle = {
-            url: defaultSub.url,
-            type: defaultSub.url.includes('.ass') ? 'ass' : 'vtt',
-            encoding: 'utf-8',
-            style: { color: '#ffffff', fontSize: '20px', textShadow: '0 2px 6px rgba(0,0,0,0.9)' }
-          };
-        }
+          primary,
+          sources,
+          startUrl,
+          candidateUrls,
+          defaultSub,
+          onFatalError: errData => {
+            const detail = [data.providerLabel, errData.type, errData.details, errData.response?.code].filter(Boolean).join(' · ');
+            fallbackToVidy(`Stream failed (${detail || 'playback error'})`);
+          },
+          extra: { autoSize: false, autoMini: false, screenshot: false }
+        });
 
         if (subtitles.length > 1) {
           artOpts.settings = [
@@ -2297,53 +2340,12 @@
         }
 
         artInstance = new window.Artplayer(artOpts);
-
-        artInstance.on('quality', item => {
-          if (item?.html) try { localStorage.setItem(QUALITY_KEY, item.html); } catch {}
-        });
-
-        artInstance.on('video:error', () => {
-          fallbackToVidy('Video playback error');
-        });
-
-        artInstance.on('ready', () => {
-          if (resumeTime && resumeTime > 0 && artInstance) {
-            artInstance.currentTime = resumeTime;
-          }
-          if (cfg.isSeries && data.provider && typeof window._cinebasePrefetchAnime === 'function') {
-            window._cinebasePrefetchAnime(data.provider);
-          }
-        });
-
-        artInstance.on('video:timeupdate', () => {
-          if (!artInstance) return;
-          const currentTime = Number(artInstance.currentTime);
-          const duration = Number(artInstance.duration);
-          if (!Number.isFinite(currentTime)) return;
-          const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
-          if (isNearEnd) {
-            try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
-            lastSaved = 0;
-            syncHistoryToServer(duration || currentTime, duration);
-          } else if (Math.abs(currentTime - lastSaved) >= 5) {
-            lastSaved = currentTime;
-            try {
-              localStorage.setItem(posKey(state.s, state.e), JSON.stringify({
-                t: currentTime,
-                d: Number.isFinite(duration) && duration > 0 ? duration : null
-              }));
-            } catch {}
-            syncHistoryToServer(currentTime, duration);
-          }
-        });
-
-        artInstance.on('video:ended', () => {
-          const dur = artInstance ? Number(artInstance.duration) : 0;
-          try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
-          lastSaved = 0;
-          syncHistoryToServer(dur || 0, dur || 0);
-          if (cfg.isSeries && autoNext && typeof window._cinebaseStepNext === 'function') {
-            window._cinebaseStepNext();
+        attachArtCommonEvents(artInstance, resumeTime, {
+          onError: () => fallbackToVidy('Video playback error'),
+          onReadyExtra: () => {
+            if (cfg.isSeries && data.provider && typeof window._cinebasePrefetchAnime === 'function') {
+              window._cinebasePrefetchAnime(data.provider);
+            }
           }
         });
       } catch (err) {
@@ -2577,18 +2579,9 @@
     const popBtn = document.getElementById('p-popout');
     const fsBtn = document.getElementById('p-fullscreen');
     if (fsBtn) {
-      fsBtn.addEventListener('click', () => {
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        } else {
-          player.requestFullscreen().catch(() => {});
-        }
-      });
-      document.addEventListener('fullscreenchange', () => {
-        const isFs = Boolean(document.fullscreenElement);
-        fsBtn.textContent = isFs ? '⛶ Exit' : '⛶ Fullscreen';
-        fsBtn.classList.toggle('active', isFs);
-      });
+      fsBtn.addEventListener('click', togglePlayerFullscreen);
+      document.addEventListener('fullscreenchange', syncFullscreenBtn);
+      document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
     }
 
     // Keyboard 'F' shortcut for full screen
@@ -2597,11 +2590,7 @@
         const tag = document.activeElement?.tagName?.toLowerCase();
         if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
           e.preventDefault();
-          if (document.fullscreenElement) {
-            document.exitFullscreen().catch(() => {});
-          } else {
-            player.requestFullscreen().catch(() => {});
-          }
+          togglePlayerFullscreen();
         }
       }
     });

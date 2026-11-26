@@ -415,9 +415,18 @@ button { font: inherit; }
 .ep-card.upcoming { opacity: .45; cursor: default; }
 .ep-msg { color: var(--dim); margin: .4rem 0; }
 .player { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; }
-.player:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; }
-.player:fullscreen iframe { width: 100%; height: 100%; }
+.player:fullscreen, .player:-webkit-full-screen {
+  width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto; border-radius: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.player.is-fs {
+  position: fixed; inset: 0; z-index: 9999; width: 100vw; height: 100vh; height: 100dvh;
+  aspect-ratio: auto; border-radius: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.player:fullscreen iframe, .player:-webkit-full-screen iframe, .player.is-fs iframe { width: 100%; height: 100%; }
 .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ep-step, .ep-quick-btn, .ep-autonext-btn, .ep-fs-btn, .backup-pill, .sbtn, .ep-card { touch-action: manipulation; }
 .player-tools { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .player-quick-nav { display: inline-flex; align-items: center; gap: .35rem; }
 .ep-quick-btn { padding: .4rem .75rem; font-size: 1rem; line-height: 1; min-width: 32px; text-align: center; }
@@ -467,8 +476,11 @@ button { font: inherit; }
 }
 .backup-pill:hover { background: rgba(245, 179, 1, 0.18); border-color: var(--gold); transform: translateY(-1px); }
 .pop-btn { white-space: nowrap; }
-/* Phones/tablets: no Document PiP and pop-ups open as tabs; their OS picture-in-picture works from fullscreen instead */
-@media (hover: none), (pointer: coarse) { .pop-btn { display: none; } }
+/* Phones/tablets: no Document PiP; touch selects stay >=16px to prevent iOS Safari auto-zoom */
+@media (hover: none), (pointer: coarse) {
+  .pop-btn { display: none; }
+  .ep-quick-select, .filterbar select { font-size: 16px; }
+}
 .player.popped iframe { visibility: hidden; }
 .popped-msg {
   position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 1rem; padding: 1rem;
@@ -582,18 +594,30 @@ button { font: inherit; }
     flex-wrap: wrap;
   }
   .player-quick-nav {
-    flex: 1 1 auto;
-    min-width: 0;
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: .35rem;
+  }
+  .ep-quick-btn, .ep-autonext-btn, .ep-quick-select, .ep-fs-btn, .anime-audio-switch .ep-step {
+    min-height: 38px;
   }
   .ep-quick-select {
     flex: 1 1 auto;
     min-width: 0;
     max-width: none;
   }
+  .mirror { flex: 1 1 auto; min-width: 0; }
+  .mirror span { display: none; }
+  .mirror select, .anime-server-select { flex: 1 1 auto; max-width: none; min-width: 0; }
   .ep-fs-btn {
     flex-shrink: 0;
     padding: .45rem .8rem;
   }
+  .backup-pill-row { justify-content: center; margin-top: .6rem; }
+  .backup-pill { width: 100%; justify-content: center; min-height: 40px; padding: .5rem 1rem; font-size: .85rem; }
+  .anime-player-msg { padding: .9rem; gap: .5rem; }
+  .anime-player-msg p { font-size: .85rem; }
   .cta {
     gap: .5rem;
     flex-wrap: wrap;

@@ -181,7 +181,7 @@ async function getWatchSources(anilistId, ep, audio = 'sub', preferredProvider =
   } catch (aggErr) {
     const errors = Array.isArray(aggErr?.errors) ? aggErr.errors.map(e => e.message) : [aggErr?.message || 'All servers failed'];
     console.error('All anime providers failed:', errors);
-    throw new Error(errors.join(' | '));
+    throw new Error('This server is unavailable right now.');
   }
 }
 

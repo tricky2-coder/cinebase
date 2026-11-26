@@ -1,7 +1,7 @@
 // Embedded players: Vidy (default) plus VidSrc & multi-mirror servers for Movies & Series.
 //   VIDSRC_DOMAINS=vidsrc.pm,vidsrc.cc,vidlink.pro,vidfast.pro,vidnest.fun
 //   VIDY=0   hide the Vidy player
-const DEFAULT_DOMAINS = ['vidsrc.pm', 'vidsrc.cc', 'vidsrc.me', 'vidrock.net', 'vidlink.pro', 'vidfast.pro', 'vidnest.fun', 'www.2embed.cc'];
+const DEFAULT_DOMAINS = ['vidrock.net', 'vidsrc.me', 'vidlink.pro', 'vidfast.pro', 'vidnest.fun', 'vidsrc.pm', 'vidsrc.cc', 'www.2embed.cc'];
 const VIDY = 'www.vidy.st';
 
 const SERIES_FLAGS = 'color=F5B301&autoplay=true&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&progress=0';

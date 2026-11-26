@@ -1841,7 +1841,7 @@
                   }
                   try { hls.destroy(); } catch {}
                   destroyMediaArtplayer();
-                  showMediaMsg('Stream could not be loaded on Artplayer. Try selecting Server 1–8 or Vidy above.', true);
+                  showMediaMsg("This server isn't playing right now. Please try another server.", true);
                 });
                 hls.loadSource(m3u8Url);
                 hls.attachMedia(video);
@@ -1866,7 +1866,7 @@
         mediaArtInstance = new window.Artplayer(artOpts);
         mediaArtInstance.on('video:error', () => {
           destroyMediaArtplayer();
-          showMediaMsg('Playback failed on Artplayer. Try selecting Server 1–8 or Vidy above.', true);
+          showMediaMsg("This server isn't playing right now. Please try another server.", true);
         });
         mediaArtInstance.on('ready', () => {
           if (resumeTime && resumeTime > 0 && mediaArtInstance) mediaArtInstance.currentTime = resumeTime;
@@ -1899,7 +1899,7 @@
       } catch (err) {
         if (err && err.name === 'AbortError') return;
         destroyMediaArtplayer();
-        showMediaMsg('No working direct stream found. Please select Server 1–8 or Vidy from Player above.', true);
+        showMediaMsg("This server isn't playing right now. Please try another server.", true);
       }
     }
 
@@ -2030,9 +2030,9 @@
       if (animeMount) animeMount.replaceChildren();
     }
 
-    function fallbackToVidy(reason) {
+    function fallbackToVidy() {
       destroyArtplayer();
-      showAnimeMsg(reason ? `${reason}. Try another server or Vidy.` : 'Unable to load this episode on this server.', true);
+      showAnimeMsg("This server isn't playing right now. Please try another server.", true);
     }
 
     async function loadAnimeEpisode(epNum) {

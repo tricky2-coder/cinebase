@@ -3,16 +3,21 @@
 //   2. @consumet/extensions (FlixHQ, DramaCool, SFlix, Goku, HiMovies)
 // Races both engines in parallel so Artplayer gets whichever working stream responds first.
 
-const { makeProviders, makeStandardFetcher, targets } = require('@movie-web/providers');
+const { makeProviders, makeStandardFetcher, makeSimpleProxyFetcher, targets } = require('@movie-web/providers');
 const { MOVIES, ANIME, SubOrSub } = require('@consumet/extensions');
 
 let mwProviders = null;
 function getMwProviders() {
   if (!mwProviders) {
-    mwProviders = makeProviders({
+    const proxyUrl = (process.env.PSTREAM_PROXY_URL || '').trim().replace(/\/+$/, '');
+    const cfg = {
       fetcher: makeStandardFetcher(fetch),
       target: targets.ANY
-    });
+    };
+    if (proxyUrl) {
+      cfg.proxiedFetcher = makeSimpleProxyFetcher(proxyUrl, fetch);
+    }
+    mwProviders = makeProviders(cfg);
   }
   return mwProviders;
 }

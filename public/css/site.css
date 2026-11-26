@@ -1,4 +1,7 @@
 :root {
+  color-scheme: dark;
+  scrollbar-color: rgba(245, 179, 1, 0.42) rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
   --bg: #0b0b0e;
   --ink: #f2f2f5;
   --dim: #a4a4b2;
@@ -12,6 +15,18 @@ html, body { margin: 0; }
 body.site { background: var(--bg); color: var(--ink); font: 15px/1.5 'Inter', system-ui, sans-serif; overflow-x: hidden; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; }
+select { color-scheme: dark; accent-color: var(--gold); }
+
+/* Sleek dark & gold scrollbars matching CineBase theme */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); border-radius: 999px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 179, 1, 0.38);
+  border-radius: 999px;
+  border: 1px solid rgba(11, 11, 14, 0.4);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---------- Header ---------- */
 .s-top {

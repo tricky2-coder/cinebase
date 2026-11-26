@@ -106,7 +106,7 @@
       if (list.hidden) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); highlight((active + 1) % items.length); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); highlight((active - 1 + items.length) % items.length); }
-      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); permitInternalNavigation(); location.href = items[active].href; }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.href = items[active].href; }
       else if (e.key === 'Escape') closeList();
     });
     input.addEventListener('focus', () => { if (list.children.length && input.value.trim().length >= 2) { list.hidden = false; input.setAttribute('aria-expanded', 'true'); } });
@@ -471,7 +471,6 @@
         }
 
         setTimeout(() => {
-          permitInternalNavigation();
           window.location.href = '/';
         }, 500);
       } else {
@@ -588,7 +587,6 @@
 
         if (!isAlreadyActive || window.location.pathname !== '/') {
           setTimeout(() => {
-            permitInternalNavigation();
             window.location.href = '/';
           }, 500);
         } else {
@@ -817,7 +815,6 @@
 
   function closeWhosWatching() {
     if (window.location.pathname === '/whos-watching') {
-      permitInternalNavigation();
       window.location.href = '/';
       return;
     }
@@ -1169,7 +1166,6 @@
             await switchPromise;
 
             setTimeout(() => {
-              permitInternalNavigation();
               window.location.href = '/';
             }, 500);
             return;

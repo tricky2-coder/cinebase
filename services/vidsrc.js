@@ -18,8 +18,8 @@ const PLAYERS = {
   'embed.pstream.cfd': {
     label: 'P-Stream',
     id: 'tmdb',
-    movie: '/movie/{id}?autoplay=1&autonext=0&title=0&logo=0&overlay=1&markers=1&boost=1&seek=1&fill=1&cast=1&lang=en',
-    tv: '/tv/{id}/{s}/{e}?autoplay=1&autonext=0&episodes=1&title=0&logo=0&overlay=1&markers=1&boost=1&seek=1&fill=1&cast=1&lang=en',
+    movie: '/movie/{id}?autoplay=1&autonext=0&title=0&logo=0&overlay=1&markers=1&boost=1&seek=1&fill=1&cast=1&party=1&lang=en',
+    tv: '/tv/{id}/{s}/{e}?autoplay=1&autonext=1&episodes=1&title=0&logo=0&overlay=1&markers=1&boost=1&seek=1&fill=1&cast=1&party=1&lang=en',
     startParam: 't'
   },
   'vidsrc.pm': {

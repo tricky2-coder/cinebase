@@ -1305,59 +1305,11 @@
   // Anti-Redirect & Ad-Shield Protection (for Vidy & Embedded Players)
   // -------------------------------------------------------------
   // Vidy player embeds contain third-party ad scripts that attempt to hijack
-  // the top window via top.location, parent.location, <a target="_top">, or window.open.
+  // the top window via window.open or Navigation API redirects.
   // Because Vidy has internal anti-sandbox detection that halts playback under HTML `sandbox`,
-  // we keep HTML sandbox off Vidy and shield the top window using proactive client-side navigation traps.
+  // we keep HTML sandbox off Vidy and shield the top window silently without beforeunload prompts.
 
-  let allowInternalUnload = false;
-  let unloadTimer = null;
-
-  function permitInternalNavigation(durationMs = 1500) {
-    allowInternalUnload = true;
-    clearTimeout(unloadTimer);
-    unloadTimer = setTimeout(() => {
-      allowInternalUnload = false;
-    }, durationMs);
-  }
-
-  // 1. Authorize legitimate user interactions on CineBase links ONLY
-  // Hash links (like #watch or #) and internal action buttons must NEVER permit page unloads!
-  document.addEventListener('click', (e) => {
-    const link = e.target.closest('a');
-    if (link && link.href) {
-      const hrefAttr = link.getAttribute('href') || '';
-      if (!hrefAttr.startsWith('#') && !hrefAttr.startsWith('javascript:')) {
-        try {
-          const targetUrl = new URL(link.href, window.location.href);
-          if (targetUrl.origin === window.location.origin) {
-            permitInternalNavigation();
-          }
-        } catch {}
-      }
-    }
-  }, true);
-
-  document.addEventListener('submit', (e) => {
-    const form = e.target.closest('form');
-    if (form) {
-      const action = form.getAttribute('action') || '';
-      if (!action.startsWith('http') || action.startsWith(window.location.origin)) {
-        permitInternalNavigation();
-      }
-    }
-  }, true);
-
-  // Keyboard navigation & reload (F5, Ctrl+R)
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R'))) {
-      permitInternalNavigation();
-    }
-  }, true);
-
-  // History back/forward
-  window.addEventListener('popstate', () => permitInternalNavigation());
-
-  // 2. Intercept window.open popups targeted at top or parent
+  // 1. Intercept window.open popups targeted at top or parent
   const nativeWindowOpen = window.open;
   window.open = function(url, target, features) {
     // Allow CineBase's own Picture-in-Picture window
@@ -1372,8 +1324,8 @@
     return nativeWindowOpen.call(window, url, target, features);
   };
 
-  // 3. Navigation API trap (Chromium: Chrome, Edge, Brave, Opera)
-  // Cross-origin navigations from the top window are ALWAYS blocked when showAds is off
+  // 2. Navigation API trap (Chromium: Chrome, Edge, Brave, Opera)
+  // Cross-origin navigations from the top window are silently blocked when showAds is off
   if (typeof window.navigation !== 'undefined' && window.navigation.addEventListener) {
     window.navigation.addEventListener('navigate', (e) => {
       const showAds = localStorage.getItem('cinebase.showAds') === 'true';
@@ -1392,23 +1344,8 @@
     });
   }
 
-  // 4. Universal beforeunload & navigation defense:
-  // When an embedded iframe tries to navigate top.location without user clicking an internal CineBase page link
-  function blockUnwantedUnload(e) {
-    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
-    if (showAds) return;
-
-    const playerEl = document.getElementById('player');
-    if (playerEl && !allowInternalUnload) {
-      if (e) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-      return '';
-    }
-  }
-  window.addEventListener('beforeunload', blockUnwantedUnload);
-  window.onbeforeunload = blockUnwantedUnload;
+  // Note: Do NOT attach a blocking `beforeunload` handler (`e.returnValue = ''`), as it triggers
+  // Chrome's "Leave site? Changes you made may not be saved." dialog when users close or refresh the tab.
 
   // Video Player Ad Shield & Anti-Sandbox Protection:
   // Vidy engine has strict anti-sandbox detection that blocks playback with "Iframe Sandbox Detected".
@@ -1725,11 +1662,158 @@
 
     const mirror = document.getElementById('p-mirror');
     const MIRROR_KEY = 'cinebase.player';
+    const QUALITY_KEY = 'cinebase.quality';
     const mediaMount = document.getElementById('media-artplayer');
     const mediaMsg = document.getElementById('media-player-msg');
     const backupPillBtn = document.getElementById('btn-backup-player');
     let mediaArtInstance = null;
     let mediaAbort = null;
+
+    function parseQualityHeight(label) {
+      const str = String(label || '').toLowerCase();
+      if (str.includes('4k') || str.includes('2160')) return 2160;
+      const m = str.match(/(\d{3,4})\s*p?\b/);
+      return m ? Number(m[1]) : 0;
+    }
+
+    function pickPreferredSource(sources) {
+      if (!Array.isArray(sources) || !sources.length) return null;
+      let saved = '';
+      try { saved = localStorage.getItem(QUALITY_KEY) || ''; } catch {}
+      const savedHeight = parseQualityHeight(saved);
+      if (savedHeight > 0) {
+        const exact = sources.find(s => parseQualityHeight(s.quality) === savedHeight);
+        if (exact) return exact;
+      }
+      // Prefer 1080p -> 720p -> highest >= 720p -> highest numeric -> default/first (avoid 360p start)
+      const ranked = [...sources].sort((a, b) => {
+        const ha = parseQualityHeight(a.quality);
+        const hb = parseQualityHeight(b.quality);
+        const sa = ha === 1080 ? 3000 : ha === 720 ? 2500 : ha >= 720 ? ha : (ha > 0 ? ha : (/auto|default/i.test(String(a.quality)) ? 100 : 0));
+        const sb = hb === 1080 ? 3000 : hb === 720 ? 2500 : hb >= 720 ? hb : (hb > 0 ? hb : (/auto|default/i.test(String(b.quality)) ? 100 : 0));
+        return sb - sa;
+      });
+      return ranked[0] || sources[0];
+    }
+
+    function createHlsM3u8Handler(candidateUrls, onFatalError) {
+      return function playM3u8(video, m3u8Url, art) {
+        if (window.Hls && window.Hls.isSupported()) {
+          if (art.hls) art.hls.destroy();
+          const hls = new window.Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            abrEwmaDefaultEstimate: 5000000, // Start HD instead of low-bitrate 360p estimate
+            startLevel: -1
+          });
+          let attemptIdx = Math.max(0, candidateUrls.indexOf(m3u8Url));
+
+          hls.on(window.Hls.Events.MANIFEST_PARSED, (_, parsed) => {
+            const levels = Array.isArray(parsed?.levels) ? parsed.levels : hls.levels || [];
+            if (!levels.length) return;
+            let saved = '';
+            try { saved = localStorage.getItem(QUALITY_KEY) || ''; } catch {}
+            const targetH = parseQualityHeight(saved) || 1080;
+
+            let bestIdx = -1;
+            if (saved === 'auto') {
+              bestIdx = -1;
+            } else {
+              // Exact saved height -> closest >= 720 (preferring 1080 then 720) -> highest available
+              const indexed = levels.map((lvl, idx) => ({ idx, h: Number(lvl.height) || parseQualityHeight(lvl.name) || 0 }));
+              const exact = indexed.find(x => x.h === targetH);
+              if (exact) {
+                bestIdx = exact.idx;
+              } else {
+                const hd = indexed.filter(x => x.h >= 720).sort((a, b) => (a.h === 1080 ? -1 : b.h === 1080 ? 1 : b.h - a.h));
+                if (hd.length) bestIdx = hd[0].idx;
+                else {
+                  indexed.sort((a, b) => b.h - a.h);
+                  bestIdx = indexed[0].idx;
+                }
+              }
+            }
+
+            if (bestIdx >= 0) {
+              hls.startLevel = bestIdx;
+              hls.currentLevel = bestIdx;
+            }
+
+            if (levels.length > 1 && art.setting && typeof art.setting.update === 'function') {
+              const items = levels
+                .map((lvl, idx) => {
+                  const h = Number(lvl.height) || 0;
+                  const label = h ? `${h}p` : `Level ${idx + 1}`;
+                  return { idx, h, html: label, default: bestIdx === idx };
+                })
+                .sort((a, b) => b.h - a.h);
+              items.push({ idx: -1, h: 0, html: 'Auto', default: bestIdx === -1 });
+
+              const currentLabel = bestIdx >= 0 ? (items.find(x => x.idx === bestIdx)?.html || 'HD') : 'Auto';
+              try {
+                const qSetting = {
+                  name: 'hls-quality',
+                  html: 'Quality',
+                  tooltip: currentLabel,
+                  selector: items,
+                  onSelect(item) {
+                    hls.currentLevel = item.idx;
+                    try {
+                      localStorage.setItem(QUALITY_KEY, item.idx === -1 ? 'auto' : item.html);
+                    } catch {}
+                    return item.html;
+                  }
+                };
+                if (typeof art.setting.find === 'function' && art.setting.find('hls-quality')) {
+                  art.setting.update(qSetting);
+                } else if (typeof art.setting.add === 'function') {
+                  art.setting.add(qSetting);
+                } else {
+                  art.setting.update(qSetting);
+                }
+              } catch {}
+            }
+          });
+
+          hls.on(window.Hls.Events.ERROR, (_, errData) => {
+            if (!errData?.fatal) return;
+            attemptIdx++;
+            if (attemptIdx < candidateUrls.length) {
+              hls.loadSource(candidateUrls[attemptIdx]);
+              return;
+            }
+            try { hls.destroy(); } catch {}
+            onFatalError(errData);
+          });
+
+          hls.loadSource(m3u8Url);
+          hls.attachMedia(video);
+          art.hls = hls;
+          art.on('destroy', () => { try { hls.destroy(); } catch {} });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = m3u8Url;
+        } else if (art.notice) {
+          art.notice.show = 'HLS playback is not supported in this browser.';
+        }
+      };
+    }
+
+    function createArtWrapperFullscreenControl() {
+      return {
+        name: 'cinebase-fullscreen',
+        position: 'right',
+        index: 99,
+        tooltip: 'Fullscreen',
+        html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
+        click() {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          } else {
+            player.requestFullscreen().catch(() => {});
+          }
+        }
+      };
+    }
 
     function destroyMediaArtplayer() {
       if (mediaArtInstance) {
@@ -1798,13 +1882,15 @@
         hideMediaMsg();
 
         const sources = data.sources;
-        const primary = sources.find(s => /1080|720|auto|default/i.test(s.quality)) || sources[0];
+        const primary = pickPreferredSource(sources);
         const candidateUrls = [];
-        sources.forEach(s => {
+        const addSourceUrls = s => {
           if (s.directUrl && !s.hasReferer) candidateUrls.push(s.directUrl);
           if (s.url) candidateUrls.push(s.url);
           if (s.directUrl && s.hasReferer) candidateUrls.push(s.directUrl);
-        });
+        };
+        addSourceUrls(primary);
+        sources.forEach(s => { if (s !== primary) addSourceUrls(s); });
         const startUrl = candidateUrls[0] || primary.url;
         const subtitles = Array.isArray(data.subtitles) ? data.subtitles : [];
         const defaultSub = subtitles.find(s => s.default) || subtitles[0] || null;
@@ -1821,36 +1907,17 @@
           setting: true,
           playbackRate: true,
           aspectRatio: true,
-          fullscreen: true,
+          fullscreen: false, // Use #player wrapper fullscreen so auto-next stays in fullscreen
           fullscreenWeb: true,
           miniProgressBar: true,
           playsInline: true,
+          controls: [createArtWrapperFullscreenControl()],
           quality: sources.length > 1 ? sources.map(s => ({ default: s === primary, html: String(s.quality || 'Auto'), url: (s.directUrl && !s.hasReferer) ? s.directUrl : s.url })) : [],
           customType: {
-            m3u8: function playMediaM3u8(video, m3u8Url, art) {
-              if (window.Hls && window.Hls.isSupported()) {
-                if (art.hls) art.hls.destroy();
-                const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
-                let attemptIdx = Math.max(0, candidateUrls.indexOf(m3u8Url));
-                hls.on(window.Hls.Events.ERROR, (_, errData) => {
-                  if (!errData?.fatal) return;
-                  attemptIdx++;
-                  if (attemptIdx < candidateUrls.length) {
-                    hls.loadSource(candidateUrls[attemptIdx]);
-                    return;
-                  }
-                  try { hls.destroy(); } catch {}
-                  destroyMediaArtplayer();
-                  showMediaMsg("This server isn't playing right now. Please try another server.", true);
-                });
-                hls.loadSource(m3u8Url);
-                hls.attachMedia(video);
-                art.hls = hls;
-                art.on('destroy', () => { try { hls.destroy(); } catch {} });
-              } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = m3u8Url;
-              }
-            }
+            m3u8: createHlsM3u8Handler(candidateUrls, () => {
+              destroyMediaArtplayer();
+              showMediaMsg("This server isn't playing right now. Please try another server.", true);
+            })
           }
         };
 
@@ -1864,6 +1931,9 @@
         }
 
         mediaArtInstance = new window.Artplayer(artOpts);
+        mediaArtInstance.on('quality', item => {
+          if (item?.html) try { localStorage.setItem(QUALITY_KEY, item.html); } catch {}
+        });
         mediaArtInstance.on('video:error', () => {
           destroyMediaArtplayer();
           showMediaMsg("This server isn't playing right now. Please try another server.", true);
@@ -1930,7 +2000,8 @@
     function buildPStreamEmbedUrl(path, resumeSeconds, audioLang) {
       const u = new URL(`https://embed.pstream.cfd${path}`);
       u.searchParams.set('autoplay', '1');
-      u.searchParams.set('autonext', '0'); // CineBase manages Auto-next cleanly via postMessage events
+      // Let P-Stream auto-advance smoothly inside its SPA when Auto-next is ON (preserves fullscreen!)
+      u.searchParams.set('autonext', cfg.isSeries && autoNext ? '1' : '0');
       if (cfg.isSeries) u.searchParams.set('episodes', '1');
       u.searchParams.set('title', '0');
       u.searchParams.set('logo', '0');
@@ -1940,9 +2011,14 @@
       u.searchParams.set('seek', '1');
       u.searchParams.set('fill', '1');
       u.searchParams.set('cast', '1');
+      u.searchParams.set('party', '1');
       u.searchParams.set('lang', 'en');
       if (audioLang) u.searchParams.set('audio', audioLang);
       if (resumeSeconds && resumeSeconds > 0) u.searchParams.set('t', resumeSeconds);
+      try {
+        const partyCode = new URLSearchParams(window.location.search).get('code');
+        if (partyCode) u.searchParams.set('code', partyCode);
+      } catch {}
       return u.href;
     }
 
@@ -2128,7 +2204,7 @@
         }
 
         const sources = data.sources;
-        const primary = sources.find(s => /1080|720|auto|default/i.test(s.quality)) || sources[0];
+        const primary = pickPreferredSource(sources);
         const subtitles = Array.isArray(data.subtitles) ? data.subtitles : [];
         const defaultSub = subtitles.find(s => s.default) || subtitles[0] || null;
 
@@ -2140,13 +2216,15 @@
         hideAnimeMsg();
 
         const resumeTime = resumeAt();
-        // Build ordered candidate list across all returned sources (proxy + direct fallback if no referer/key required)
+        // Build ordered candidate list starting from preferred HD source + fallbacks
         const candidateUrls = [];
-        sources.forEach(s => {
+        const addAnimeUrls = s => {
           if (s.directUrl && !s.hasReferer) candidateUrls.push(s.directUrl);
           if (s.url) candidateUrls.push(s.url);
           if (s.directUrl && s.hasReferer) candidateUrls.push(s.directUrl);
-        });
+        };
+        addAnimeUrls(primary);
+        sources.forEach(s => { if (s !== primary) addAnimeUrls(s); });
         const startUrl = candidateUrls[0] || primary.url;
         const qualityList = sources.map(s => ({
           default: s === primary,
@@ -2168,40 +2246,17 @@
           setting: true,
           playbackRate: true,
           aspectRatio: true,
-          fullscreen: true,
+          fullscreen: false, // Use #player wrapper fullscreen so auto-next keeps fullscreen
           fullscreenWeb: true,
           miniProgressBar: true,
           playsInline: true,
+          controls: [createArtWrapperFullscreenControl()],
           quality: qualityList.length > 1 ? qualityList : [],
           customType: {
-            m3u8: function playM3u8(video, m3u8Url, art) {
-              if (window.Hls && window.Hls.isSupported()) {
-                if (art.hls) art.hls.destroy();
-                const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
-                let attemptIdx = Math.max(0, candidateUrls.indexOf(m3u8Url));
-                hls.on(window.Hls.Events.ERROR, (_, errData) => {
-                  if (!errData?.fatal) return;
-                  attemptIdx++;
-                  if (attemptIdx < candidateUrls.length) {
-                    hls.loadSource(candidateUrls[attemptIdx]);
-                    return;
-                  }
-                  const detail = [data.providerLabel, errData.type, errData.details, errData.response?.code].filter(Boolean).join(' · ');
-                  try { hls.destroy(); } catch {}
-                  fallbackToVidy(`Stream failed (${detail || 'playback error'})`);
-                });
-                hls.loadSource(m3u8Url);
-                hls.attachMedia(video);
-                art.hls = hls;
-                art.on('destroy', () => {
-                  try { hls.destroy(); } catch {}
-                });
-              } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = m3u8Url;
-              } else {
-                art.notice.show = 'HLS playback is not supported in this browser.';
-              }
-            }
+            m3u8: createHlsM3u8Handler(candidateUrls, errData => {
+              const detail = [data.providerLabel, errData.type, errData.details, errData.response?.code].filter(Boolean).join(' · ');
+              fallbackToVidy(`Stream failed (${detail || 'playback error'})`);
+            })
           }
         };
 
@@ -2241,6 +2296,10 @@
         }
 
         artInstance = new window.Artplayer(artOpts);
+
+        artInstance.on('quality', item => {
+          if (item?.html) try { localStorage.setItem(QUALITY_KEY, item.html); } catch {}
+        });
 
         artInstance.on('video:error', () => {
           fallbackToVidy('Video playback error');
@@ -2329,9 +2388,10 @@
       if (force || f.src !== u) f.src = u;
     };
 
-    // Playback events posted by Vidy player (JSON strings). Only trust our own iframe.
+    // Playback events posted by Vidy / P-Stream players. Only trust our own iframe.
     let lastSaved = 0;
     let lastServerSync = 0;
+    let pstreamNextTimer = null;
 
     // Synchronize playback progress to active profile's watch history on backend
     function syncHistoryToServer(time, dur) {
@@ -2440,6 +2500,7 @@
           // Clear previously finished episode's saved position so re-watching starts at 0:00
           try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
           const targetSn = diffSn ? snNum : state.s;
+          clearTimeout(pstreamNextTimer);
           if (isPStreamEvt && typeof window._cinebaseSyncEpisodeUI === 'function') {
             // P-Stream already transitioned internally inside its React player — sync UI/counter smoothly without reloading iframe
             window._cinebaseSyncEpisodeUI(targetSn, epNum);
@@ -2460,8 +2521,8 @@
         const isNearEnd = Number.isFinite(duration) && duration > 60 && (currentTime >= duration - 90 || currentTime / duration >= 0.90);
         const isFinished = Number.isFinite(duration) && duration > 60 && currentTime >= duration - 1;
 
-        if (isFinished && cfg.isSeries && autoNext && !pendingNav) {
-          // Episode reached the end -> clear saved position and advance cleanly to the next episode from 0:00
+        if (isFinished && cfg.isSeries && autoNext && !pendingNav && !isPStreamEvt) {
+          // Episode reached the end on non-SPA iframe player -> clear saved position and advance cleanly
           try { localStorage.removeItem(posKey(snNum || state.s, epNum || state.e)); } catch {}
           lastSaved = 0;
           const nxt = step(1);
@@ -2493,7 +2554,17 @@
         syncHistoryToServer(duration || 0, duration || 0);
         if (cfg.isSeries && autoNext && !pendingNav) {
           const nxt = step(1);
-          if (nxt) play(nxt.s, nxt.e);
+          if (nxt) {
+            if (isPStreamEvt) {
+              // Give P-Stream's SPA auto-next ~4s to transition without leaving fullscreen; fall back to reload only if needed
+              clearTimeout(pstreamNextTimer);
+              pstreamNextTimer = setTimeout(() => {
+                if (!pendingNav && state.e === (epNum || state.e)) play(nxt.s, nxt.e);
+              }, 4000);
+            } else {
+              play(nxt.s, nxt.e);
+            }
+          }
         }
       }
     }
@@ -2777,6 +2848,7 @@
       };
 
       function commitEpisode(s, e, { reload = true } = {}) {
+        clearTimeout(pstreamNextTimer);
         s = Number(s); e = Number(e);
         if (cfg.anime) {
           const tab = seasons.find(x => e >= first(x.n) && (!last(x.n) || e <= last(x.n)));

@@ -1928,6 +1928,11 @@
     }
 
     const url = (sn = state.s, ep = state.e) => {
+      if (isAnimePlayer && animeProvider === 'pstream') {
+        const audioParam = animeAudio === 'dub' ? 'en' : 'ja';
+        const epNum = Math.max(1, Number(ep) || 1);
+        return `https://embed.pstream.cfd/media/anilist-anime-${encodeURIComponent(cfg.id)}/${epNum}?autoplay=1&autonext=1&episodes=0&title=0&audio=${audioParam}`;
+      }
       const domain = (mirror && cfg.players && cfg.players[mirror.value]) ? mirror.value : (cfg.domain || 'www.vidy.st');
       const pCfg = (cfg.players && cfg.players[domain]) || { id: cfg.id, path: cfg.path, events: domain.includes('vidy') };
       const u = new URL(`https://${domain}` + pCfg.path
@@ -2248,11 +2253,12 @@
     }
 
     const load = (force = false) => {
-      if (isAnimePlayer && animeProvider !== 'vidy') {
+      const isAnimeIframe = isAnimePlayer && (animeProvider === 'vidy' || animeProvider === 'pstream');
+      if (isAnimePlayer && !isAnimeIframe) {
         loadAnimeEpisode(state.e);
         return;
       }
-      if (isAnimePlayer && animeProvider === 'vidy') {
+      if (isAnimeIframe) {
         if (animeAbort) animeAbort.abort();
         destroyArtplayer();
         hideAnimeMsg();

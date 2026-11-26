@@ -1,7 +1,7 @@
 // Embedded players: Vidy (default) plus VidSrc & multi-mirror servers for Movies & Series.
 //   VIDSRC_DOMAINS=vidsrc.pm,vidsrc.cc,vidlink.pro,vidfast.pro,vidnest.fun
 //   VIDY=0   hide the Vidy player
-const DEFAULT_DOMAINS = ['vidrock.net', 'vidsrc.me', 'vidlink.pro', 'vidfast.pro', 'vidnest.fun', 'vidsrc.pm', 'vidsrc.cc', 'www.2embed.cc'];
+const DEFAULT_DOMAINS = ['embed.pstream.cfd', 'vidrock.net', 'vidsrc.me', 'vidlink.pro', 'vidfast.pro', 'vidnest.fun', 'vidsrc.pm', 'vidsrc.cc', 'www.2embed.cc'];
 const VIDY = 'www.vidy.st';
 
 const SERIES_FLAGS = 'color=F5B301&autoplay=true&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&progress=0';
@@ -14,6 +14,12 @@ const PLAYERS = {
     movie: `/movie/{id}?${MOVIE_FLAGS}`,
     tv: `/tv/{id}/{s}/{e}?${SERIES_FLAGS}`,
     startParam: 'progress'
+  },
+  'embed.pstream.cfd': {
+    label: 'P-Stream',
+    id: 'tmdb',
+    movie: '/media/tmdb-movie-{id}?autoplay=1&title=0',
+    tv: '/media/tmdb-tv-{id}/{s}/{e}?autoplay=1&autonext=1&episodes=0&title=0'
   },
   'vidsrc.pm': {
     label: 'VidSrc (vidsrc.pm)',

@@ -1927,36 +1927,42 @@
       });
     }
 
+    function buildPStreamEmbedUrl(path, resumeSeconds, audioLang) {
+      const u = new URL(`https://embed.pstream.cfd${path}`);
+      u.searchParams.set('autoplay', '1');
+      u.searchParams.set('autonext', '0'); // CineBase manages Auto-next cleanly via postMessage events
+      if (cfg.isSeries) u.searchParams.set('episodes', '1');
+      u.searchParams.set('title', '0');
+      u.searchParams.set('logo', '0');
+      u.searchParams.set('overlay', '1');
+      u.searchParams.set('markers', '1');
+      u.searchParams.set('boost', '1');
+      u.searchParams.set('seek', '1');
+      u.searchParams.set('fill', '1');
+      u.searchParams.set('cast', '1');
+      u.searchParams.set('lang', 'en');
+      if (audioLang) u.searchParams.set('audio', audioLang);
+      if (resumeSeconds && resumeSeconds > 0) u.searchParams.set('t', resumeSeconds);
+      return u.href;
+    }
+
     const url = (sn = state.s, ep = state.e) => {
+      const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
       if (isAnimePlayer && animeProvider === 'pstream') {
         const audioParam = animeAudio === 'dub' ? 'en' : 'ja';
         const epNum = Math.max(1, Number(ep) || 1);
-        const u = new URL(`https://embed.pstream.cfd/media/anilist-anime-${encodeURIComponent(cfg.id)}/${epNum}`);
-        u.searchParams.set('autoplay', '1');
-        u.searchParams.set('autonext', autoNext ? '1' : '0');
-        u.searchParams.set('episodes', '1');
-        u.searchParams.set('title', '0');
-        u.searchParams.set('logo', '0');
-        u.searchParams.set('markers', '1');
-        u.searchParams.set('skip', '1');
-        u.searchParams.set('seek', '1');
-        u.searchParams.set('boost', '1');
-        u.searchParams.set('cast', '1');
-        u.searchParams.set('lang', 'en');
-        u.searchParams.set('audio', audioParam);
-        const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
-        if (t && t > 0) u.searchParams.set('t', t);
-        return u.href;
+        return buildPStreamEmbedUrl(`/anime/${encodeURIComponent(cfg.id)}/${epNum}`, t, audioParam);
       }
       const domain = (mirror && cfg.players && cfg.players[mirror.value]) ? mirror.value : (cfg.domain || 'www.vidy.st');
+      if (domain === 'embed.pstream.cfd') {
+        const pCfg = cfg.players[domain];
+        const path = pCfg.path.replace('{id}', encodeURIComponent(pCfg.id)).replace('{s}', sn).replace('{e}', ep).split('?')[0];
+        return buildPStreamEmbedUrl(path, t, null);
+      }
       const pCfg = (cfg.players && cfg.players[domain]) || { id: cfg.id, path: cfg.path, events: domain.includes('vidy') };
       const u = new URL(`https://${domain}` + pCfg.path
         .replace('{id}', encodeURIComponent(pCfg.id)).replace('{s}', sn).replace('{e}', ep));
-      if (cfg.isSeries && domain === 'embed.pstream.cfd') {
-        u.searchParams.set('autonext', autoNext ? '1' : '0');
-      }
       if (pCfg.startParam) {
-        const t = (sn === state.s && ep === state.e) ? resumeAt() : null;
         if (pCfg.startParam === 'progress') {
           u.searchParams.set('progress', (t && t > 0) ? t : 0);
         } else if (t && t > 0) {
@@ -1976,9 +1982,17 @@
     const animeBackupPill = document.getElementById('btn-anime-backup');
     if (animeBackupPill) {
       animeBackupPill.addEventListener('click', () => {
-        animeProvider = 'auto';
-        try { localStorage.setItem('cinebase.animeServer', 'auto'); } catch {}
-        if (animeServerSel) animeServerSel.value = 'auto';
+        if (animeProvider === 'vidy') animeProvider = 'pstream';
+        else if (animeProvider === 'pstream') animeProvider = 'auto';
+        else if (animeServerSel) {
+          const opts = [...animeServerSel.options];
+          const idx = opts.findIndex(o => o.value === animeProvider);
+          animeProvider = opts[(idx + 1) % opts.length]?.value || 'auto';
+        } else {
+          animeProvider = 'auto';
+        }
+        try { localStorage.setItem('cinebase.animeServer', animeProvider); } catch {}
+        if (animeServerSel) animeServerSel.value = animeProvider;
         load(true);
       });
     }
@@ -2092,11 +2106,19 @@
           vidyOpt.value = 'vidy';
           vidyOpt.textContent = 'Vidy (Default)';
           animeServerSel.append(vidyOpt);
+          const pstreamProv = data.providers.find(p => p.id === 'pstream');
+          if (pstreamProv) {
+            const pOpt = document.createElement('option');
+            pOpt.value = pstreamProv.id;
+            pOpt.textContent = pstreamProv.label;
+            animeServerSel.append(pOpt);
+          }
           const autoOpt = document.createElement('option');
           autoOpt.value = 'auto';
           autoOpt.textContent = 'Auto (Best)';
           animeServerSel.append(autoOpt);
           data.providers.forEach(p => {
+            if (p.id === 'pstream') return;
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = p.id === data.provider ? `${p.label} ★` : p.label;
@@ -2303,6 +2325,7 @@
       const f = frame();
       if (!f) return;
       applyAdSandbox(f);
+      f.referrerPolicy = u.includes('embed.pstream.cfd') ? 'no-referrer-when-downgrade' : 'no-referrer';
       if (force || f.src !== u) f.src = u;
     };
 
@@ -2363,19 +2386,21 @@
       let snNum;
 
       if (isPStreamEvt) {
-        epNum = Number(msg.media?.episode);
+        epNum = msg.media?.episode != null ? Number(msg.media.episode) : NaN;
         if (isAnime && Number.isFinite(epNum) && epNum > 0) {
           const tab = cfg.seasons?.find(x => epNum >= (x.start || 1) && (!x.episodes || epNum <= (x.start || 1) + x.episodes - 1));
           snNum = tab ? tab.n : 1;
         } else {
-          snNum = Number(msg.media?.season);
+          snNum = msg.media?.season != null ? Number(msg.media.season) : NaN;
         }
       } else if (isAnime) {
         // Vidy's anime URL structure is /anime/:id/:episode (there is no season param).
         // Inside Vidy's video player (chunk 5114), param 1 (episode) is assigned to `season`, while `episode` defaults to 1.
         // Therefore, for anime events from Vidy, `data.season` is the real episode number, whereas `data.episode` is always 1!
-        const parsedSeason = Number(data.season != null ? data.season : msg.season);
-        const parsedEpisode = Number(data.episode != null ? data.episode : msg.episode);
+        const rawSeason = data.season != null ? data.season : msg.season;
+        const rawEpisode = data.episode != null ? data.episode : msg.episode;
+        const parsedSeason = rawSeason != null ? Number(rawSeason) : NaN;
+        const parsedEpisode = rawEpisode != null ? Number(rawEpisode) : NaN;
         epNum = Number.isFinite(parsedSeason) && parsedSeason > 0
           ? parsedSeason
           : (Number.isFinite(parsedEpisode) && parsedEpisode > 0 ? parsedEpisode : state.e);
@@ -2383,9 +2408,14 @@
         const tab = cfg.seasons?.find(x => epNum >= (x.start || 1) && (!x.episodes || epNum <= (x.start || 1) + x.episodes - 1));
         snNum = tab ? tab.n : 1;
       } else {
-        epNum = Number(data.episode != null ? data.episode : msg.episode);
-        snNum = Number(data.season != null ? data.season : msg.season);
+        const rawEpisode = data.episode != null ? data.episode : msg.episode;
+        const rawSeason = data.season != null ? data.season : msg.season;
+        epNum = rawEpisode != null ? Number(rawEpisode) : NaN;
+        snNum = rawSeason != null ? Number(rawSeason) : NaN;
       }
+
+      const event = data.event || msg.event;
+      if (isPStreamEvt && (event === 'error' || event === 'status')) return;
 
       // 1. If we commanded a manual navigation, ignore any stale messages from old episodes until target loads
       if (pendingNav) {
@@ -2402,21 +2432,24 @@
         }
       }
 
-      // 2. Synchronize when user navigates inside Vidy (Next Episode button, Vidy's auto-next, or drawer)
-      // When Vidy auto-nexts, Next.js routes client-side without query flags.
-      // We detect the episode change, clear the finished episode's progress, and reload with all flags intact (autoplay=true, nextEpisode, episodeSelector).
+      // 2. Synchronize when user navigates inside Vidy or P-Stream (Next Episode button, Episodes drawer, etc.)
       if (cfg.isSeries && Number.isFinite(epNum) && epNum > 0) {
         const diffEp = epNum !== state.e;
         const diffSn = Number.isFinite(snNum) && snNum > 0 && snNum !== state.s;
         if (diffEp || diffSn) {
           // Clear previously finished episode's saved position so re-watching starts at 0:00
           try { localStorage.removeItem(posKey(state.s, state.e)); } catch {}
-          play(diffSn ? snNum : state.s, epNum);
+          const targetSn = diffSn ? snNum : state.s;
+          if (isPStreamEvt && typeof window._cinebaseSyncEpisodeUI === 'function') {
+            // P-Stream already transitioned internally inside its React player — sync UI/counter smoothly without reloading iframe
+            window._cinebaseSyncEpisodeUI(targetSn, epNum);
+          } else {
+            play(targetSn, epNum);
+          }
           return;
         }
       }
 
-      const event = data.event || msg.event;
       const rawTime = data.currentTime != null ? data.currentTime : (msg.currentTime != null ? msg.currentTime : msg.time);
       const currentTime = rawTime != null ? Number(rawTime) : NaN;
       const rawDur = data.duration != null ? data.duration : msg.duration;
@@ -2743,7 +2776,7 @@
         if (nxt) play(nxt.s, nxt.e);
       };
 
-      function play(s, e) {
+      function commitEpisode(s, e, { reload = true } = {}) {
         s = Number(s); e = Number(e);
         if (cfg.anime) {
           const tab = seasons.find(x => e >= first(x.n) && (!last(x.n) || e <= last(x.n)));
@@ -2752,11 +2785,14 @@
         state.s = s; state.e = e;
         lastSaved = 0;
         try { localStorage.setItem(EP_KEY, JSON.stringify(state)); } catch {}
-        pendingNav = { s, e, deadline: Date.now() + 15000 };
-        load(true);
+        pendingNav = reload ? { s, e, deadline: Date.now() + 25000 } : null;
+        if (reload) load(true);
         if (shown !== s) showSeason(s); else mark();
         schedulePrefetch();
       }
+
+      window._cinebaseSyncEpisodeUI = (s, e) => commitEpisode(s, e, { reload: false });
+      function play(s, e) { commitEpisode(s, e, { reload: true }); }
 
       tabs.forEach(t => t.addEventListener('click', () => showSeason(+t.dataset.season)));
       // Anime: jump straight to any episode number (long shows / unknown counts)

@@ -1,9 +1,9 @@
-// Anime streaming aggregator: Consumet (Server 1), P-Stream (Server 2), + Anivexa-API (Servers 3-12)
+// Anime streaming aggregator: P-Stream (Server 1), Consumet (Server 2), + Anivexa-API (Servers 3-12)
 const mediaStreams = require('./media-streams');
 
 const DEFAULT_PROVIDERS = [
-  { id: 'consumet', label: 'Server 1', local: true },
-  { id: 'pstream', label: 'Server 2', local: true },
+  { id: 'pstream', label: 'Server 1', local: true },
+  { id: 'consumet', label: 'Server 2', local: true },
   { id: 'anizone', label: 'Server 3' },
   { id: 'anikoto', label: 'Server 4' },
   { id: 'anipm', label: 'Server 5' },

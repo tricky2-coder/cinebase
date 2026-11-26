@@ -18,8 +18,8 @@ const PLAYERS = {
   'embed.pstream.cfd': {
     label: 'P-Stream',
     id: 'tmdb',
-    movie: '/media/tmdb-movie-{id}?autoplay=1&title=0&logo=0&markers=1&seek=1&boost=1&cast=1&lang=en',
-    tv: '/media/tmdb-tv-{id}/{s}/{e}?autoplay=1&autonext=1&episodes=1&title=0&logo=0&markers=1&skip=1&seek=1&boost=1&cast=1&lang=en',
+    movie: '/movie/{id}?autoplay=1&autonext=0&title=0&logo=0&overlay=1&markers=1&boost=1&seek=1&fill=1&cast=1&lang=en',
+    tv: '/tv/{id}/{s}/{e}?autoplay=1&autonext=0&episodes=1&title=0&logo=0&overlay=1&markers=1&boost=1&seek=1&fill=1&cast=1&lang=en',
     startParam: 't'
   },
   'vidsrc.pm': {
@@ -144,10 +144,12 @@ function player(item, { seasons = null, tvId = null, initialEpisodes = null } = 
 
   if (!options.length) return null;
 
-  // Insert Artplayer (Auto: P-Stream + Consumet) right after Vidy (default) and before Server 1..N
+  // Order: Vidy (Default) -> Server 1 (P-Stream) -> Artplayer (Auto) -> Server 2..N
+  const pstreamIdx = options.findIndex(o => o.domain === 'embed.pstream.cfd');
   const vidyIdx = options.findIndex(o => o.domain === VIDY);
   const artOpt = { domain: 'artplayer', label: 'Artplayer (Auto)', id: String(item.tmdb_id || item.imdb_id), path: '', startParam: null };
-  if (vidyIdx >= 0) options.splice(vidyIdx + 1, 0, artOpt);
+  if (pstreamIdx >= 0) options.splice(pstreamIdx + 1, 0, artOpt);
+  else if (vidyIdx >= 0) options.splice(vidyIdx + 1, 0, artOpt);
   else options.unshift(artOpt);
 
   const first = options[0];

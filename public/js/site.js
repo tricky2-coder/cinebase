@@ -1739,12 +1739,23 @@
       if (mediaMount) mediaMount.replaceChildren();
     }
 
-    function showMediaMsg(text) {
+    function showMediaMsg(text, allowRetry = false) {
       if (!mediaMsg) return;
       mediaMsg.replaceChildren();
       const p = document.createElement('p');
       p.textContent = text;
       mediaMsg.append(p);
+      if (allowRetry) {
+        const actions = document.createElement('div');
+        actions.className = 'anime-msg-actions';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sbtn sbtn-play';
+        btn.textContent = 'Retry';
+        btn.addEventListener('click', () => load(true));
+        actions.append(btn);
+        mediaMsg.append(actions);
+      }
       mediaMsg.hidden = false;
     }
 
@@ -1763,7 +1774,7 @@
       mediaMount.hidden = false;
       const pBtn = document.getElementById('p-popout');
       if (pBtn) pBtn.hidden = true;
-      showMediaMsg('Finding best direct stream (P-Stream / Consumet)...');
+      showMediaMsg('Finding the best server...', false);
 
       try {
         const qs = new URLSearchParams({
@@ -1829,7 +1840,8 @@
                     return;
                   }
                   try { hls.destroy(); } catch {}
-                  fallbackMediaMirror();
+                  destroyMediaArtplayer();
+                  showMediaMsg('Stream could not be loaded on Artplayer. Try selecting Server 1–8 or Vidy above.', true);
                 });
                 hls.loadSource(m3u8Url);
                 hls.attachMedia(video);
@@ -1852,7 +1864,10 @@
         }
 
         mediaArtInstance = new window.Artplayer(artOpts);
-        mediaArtInstance.on('video:error', () => fallbackMediaMirror());
+        mediaArtInstance.on('video:error', () => {
+          destroyMediaArtplayer();
+          showMediaMsg('Playback failed on Artplayer. Try selecting Server 1–8 or Vidy above.', true);
+        });
         mediaArtInstance.on('ready', () => {
           if (resumeTime && resumeTime > 0 && mediaArtInstance) mediaArtInstance.currentTime = resumeTime;
         });
@@ -1883,17 +1898,8 @@
         });
       } catch (err) {
         if (err && err.name === 'AbortError') return;
-        fallbackMediaMirror();
-      }
-    }
-
-    function fallbackMediaMirror() {
-      if (!mirror) return;
-      const opts = [...mirror.options];
-      const nextOpt = opts.find(o => o.value !== 'artplayer' && !o.value.includes('vidy'));
-      if (nextOpt) {
-        mirror.value = nextOpt.value;
-        load(true);
+        destroyMediaArtplayer();
+        showMediaMsg('No working direct stream found. Please select Server 1–8 or Vidy from Player above.', true);
       }
     }
 

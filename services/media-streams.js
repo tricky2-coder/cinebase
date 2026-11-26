@@ -11,7 +11,7 @@ function getMwProviders() {
   if (!mwProviders) {
     mwProviders = makeProviders({
       fetcher: makeStandardFetcher(fetch),
-      target: targets.NATIVE
+      target: targets.ANY
     });
   }
   return mwProviders;

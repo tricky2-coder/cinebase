@@ -672,7 +672,8 @@ select { color-scheme: dark; accent-color: var(--gold); }
   .ww-main-title { font-size: clamp(1.8rem, 6vw, 2.6rem); margin-bottom: 1.8rem; }
   .ww-grid { gap: 1rem; margin-bottom: 2rem; }
   .ww-profile-item { width: clamp(82px, 26vw, 105px); }
-  .ww-profile-name { margin-top: 8px; font-size: .88rem; }
+  .ww-profile-label-row { margin-top: 8px; }
+  .ww-profile-name { font-size: .88rem; }
   .ww-pin-prompt .ww-pin-boxes { gap: 8px; }
   .ww-pin-prompt .ww-pin-digit { width: 44px; height: 52px; font-size: 1.6rem; }
 }
@@ -702,10 +703,13 @@ body.ww-active .ww-overlay {
 
 .ww-overlay {
   position: fixed; inset: 0; z-index: 99999;
-  background: radial-gradient(circle at 50% 25%, #161622 0%, #0b0b0e 85%);
+  background:
+    radial-gradient(540px circle at var(--ww-glow-x, 50%) var(--ww-glow-y, 28%), rgba(245, 179, 1, var(--ww-glow-alpha, 0.06)) 0%, transparent 65%),
+    radial-gradient(circle at 50% 25%, #161622 0%, #0b0b0e 85%);
   display: flex; align-items: center; justify-content: center;
   padding: 24px; animation: wwFadeIn .2s ease-out;
   overflow-y: auto;
+  transition: background 0.35s ease;
 }
 
 .ww-top-bar {
@@ -751,10 +755,12 @@ body.ww-active .ww-overlay {
 .ww-main-title {
   font-size: clamp(2.4rem, 5vw, 3.8rem); font-weight: 600;
   color: var(--ink, #ffffff); margin: 0 0 2.5rem; letter-spacing: -0.02em; text-align: center;
+  transition: margin-bottom 0.2s ease;
 }
+.ww-view.is-manage .ww-main-title { margin-bottom: 0.45rem; }
 .ww-main-sub {
-  color: var(--dim, #808080); font-size: clamp(0.95rem, 1.8vw, 1.1rem);
-  margin: 0 0 2.8rem; text-align: center;
+  color: var(--dim, #a4a4b2); font-size: clamp(0.92rem, 1.8vw, 1.05rem);
+  margin: 0 0 2.4rem; text-align: center;
 }
 .ww-main-sub:empty, .ww-main-sub[style*="display:none"] {
   display: none !important;
@@ -800,27 +806,83 @@ body.ww-active .ww-overlay {
   z-index: 1;
 }
 
+.ww-profile-label-row {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+}
 .ww-profile-name {
-  margin-top: 14px; font-size: clamp(1rem, 2vw, 1.2rem);
+  margin-top: 0; font-size: clamp(1rem, 2vw, 1.2rem);
   font-weight: 500; color: var(--dim, #808080);
   transition: color 0.25s ease, transform 0.25s ease;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
+.ww-profile-item.ww-add-item .ww-profile-name { margin-top: 14px; }
+.ww-inline-lock {
+  flex: none;
+  color: var(--dim, #a4a4b2);
+  opacity: 0.85;
+  transition: color 0.25s ease, opacity 0.25s ease;
+}
+.ww-active-tag {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold, #f5b301);
+  opacity: 0.92;
+  transition: opacity 0.2s ease;
+}
+.ww-grid.manage-mode .ww-active-tag,
+.ww-profile-item.selected-hero .ww-active-tag {
+  opacity: 0;
+}
 
-/* Hover: smooth scale & warm gold border glow matching site theme */
-.ww-profile-item:hover .ww-avatar-wrap,
+/* Tactile press feedback everywhere; hover lift/glow only on pointer devices (no sticky mobile hover) */
+.ww-profile-item:focus-visible { outline: none; }
+.ww-profile-item:active .ww-avatar-wrap { transform: scale(0.96); }
 .ww-profile-item:focus-visible .ww-avatar-wrap {
   transform: translateY(-4px) scale(1.05);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 179, 1, 0.35);
 }
-.ww-profile-item:hover .ww-avatar-wrap::after,
 .ww-profile-item:focus-visible .ww-avatar-wrap::after {
   border-color: var(--gold, #f5b301);
   box-shadow: 0 0 18px rgba(245, 179, 1, 0.4);
 }
-.ww-profile-item:hover .ww-profile-name {
+.ww-profile-item:focus-visible .ww-profile-name,
+.ww-profile-item:focus-visible .ww-inline-lock {
   color: var(--gold, #f5b301);
-  text-shadow: 0 0 12px rgba(245, 179, 1, 0.45);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ww-profile-item:hover .ww-avatar-wrap {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 179, 1, 0.35);
+  }
+  .ww-profile-item:hover .ww-avatar-wrap::after {
+    border-color: var(--gold, #f5b301);
+    box-shadow: 0 0 18px rgba(245, 179, 1, 0.4);
+  }
+  .ww-profile-item:hover .ww-profile-name,
+  .ww-profile-item:hover .ww-inline-lock {
+    color: var(--gold, #f5b301);
+    text-shadow: 0 0 12px rgba(245, 179, 1, 0.45);
+  }
+  .ww-profile-item.active:hover .ww-avatar-wrap::after {
+    border-color: #ffd24d;
+    box-shadow: 0 0 0 1.5px #ffd24d, 0 0 32px rgba(245, 179, 1, 0.75);
+  }
+  .ww-profile-item.active:hover .ww-avatar-wrap {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 26px rgba(245, 179, 1, 0.35);
+  }
+  .ww-profile-item.active:hover .ww-profile-name {
+    color: #ffd24d;
+    text-shadow: 0 0 18px rgba(245, 179, 1, 0.75);
+  }
 }
 
 /* Active Profile: distinct glowing gold accent */
@@ -832,18 +894,6 @@ body.ww-active .ww-overlay {
   color: var(--gold, #f5b301);
   font-weight: 600;
   text-shadow: 0 0 14px rgba(245, 179, 1, 0.55);
-}
-.ww-profile-item.active:hover .ww-avatar-wrap::after {
-  border-color: #ffd24d;
-  box-shadow: 0 0 0 1.5px #ffd24d, 0 0 32px rgba(245, 179, 1, 0.75);
-}
-.ww-profile-item.active:hover .ww-avatar-wrap {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 26px rgba(245, 179, 1, 0.35);
-}
-.ww-profile-item.active:hover .ww-profile-name {
-  color: #ffd24d;
-  text-shadow: 0 0 18px rgba(245, 179, 1, 0.75);
 }
 
 /* In Manage Profiles mode: smooth unhighlighted avatars */
@@ -1303,6 +1353,15 @@ body.ww-active .ww-overlay {
   justify-content: center;
   margin: 0 0 18px;
 }
+.ww-pin-prompt.ww-pin-compact {
+  top: 44%;
+}
+.ww-pin-prompt.ww-pin-compact .ww-pin-prompt-title { font-size: 1.2rem; margin-bottom: 2px; }
+.ww-pin-prompt.ww-pin-compact .ww-pin-prompt-sub { font-size: 0.84rem; margin-bottom: 12px; }
+.ww-pin-prompt.ww-pin-compact .ww-pin-boxes { gap: 10px; margin-bottom: 12px; }
+.ww-pin-prompt.ww-pin-compact .ww-pin-digit { width: 44px; height: 50px; font-size: 1.55rem; }
+.ww-pin-prompt.ww-pin-compact .ww-pin-error { margin-bottom: 10px; font-size: 0.84rem; }
+.ww-pin-prompt.ww-pin-compact .ww-btn-outline { padding: 7px 22px; font-size: 0.8rem; }
 .ww-pin-prompt .ww-pin-digit {
   width: 52px;
   height: 60px;

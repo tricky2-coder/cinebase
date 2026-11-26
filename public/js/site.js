@@ -233,10 +233,30 @@
     }
   }
 
+  let isVerifyingPin = false;
+  let wwSaveBtn = document.getElementById('btn-ww-save');
+
+  function updateAmbientGlow(targetEl) {
+    if (!wwModal) return;
+    if (!targetEl) {
+      wwModal.style.removeProperty('--ww-glow-x');
+      wwModal.style.removeProperty('--ww-glow-y');
+      wwModal.style.removeProperty('--ww-glow-alpha');
+      return;
+    }
+    const r = targetEl.getBoundingClientRect();
+    const xPct = Math.round(((r.left + r.width / 2) / window.innerWidth) * 100);
+    const yPct = Math.round(((r.top + r.height / 2) / window.innerHeight) * 100);
+    wwModal.style.setProperty('--ww-glow-x', `${xPct}%`);
+    wwModal.style.setProperty('--ww-glow-y', `${yPct}%`);
+    wwModal.style.setProperty('--ww-glow-alpha', '0.14');
+  }
+
   function renderProfiles() {
     if (!wwGrid || isSwitchingProfile) return;
     wwGrid.innerHTML = '';
     wwGrid.classList.toggle('manage-mode', isManageMode);
+    if (wwViewSelect) wwViewSelect.classList.toggle('is-manage', isManageMode);
 
     const activeP = profilesData.find(p => p.id === currentActiveId);
     if (activeP && activeP.is_kids) {
@@ -247,7 +267,8 @@
     }
 
     profilesData.forEach(p => {
-      const item = document.createElement('div');
+      const item = document.createElement('button');
+      item.type = 'button';
       item.className = 'ww-profile-item' + (p.id === currentActiveId ? ' active' : '');
       item.dataset.id = p.id;
 
@@ -259,30 +280,11 @@
       img.alt = p.name;
       wrap.appendChild(img);
 
-      if (p.id === currentActiveId) {
-        const activeBadge = document.createElement('span');
-        activeBadge.className = 'ww-active-badge';
-        activeBadge.textContent = 'CURRENT';
-        wrap.appendChild(activeBadge);
-      }
-
       if (p.is_kids) {
         const kidsBadge = document.createElement('span');
         kidsBadge.className = 'ww-kids-badge';
         kidsBadge.textContent = 'KIDS';
         wrap.appendChild(kidsBadge);
-      }
-
-      if (p.has_pin) {
-        const lockBadge = document.createElement('div');
-        lockBadge.className = 'ww-lock-badge';
-        lockBadge.title = 'Profile Locked';
-        lockBadge.innerHTML = `
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-          </svg>
-        `;
-        wrap.appendChild(lockBadge);
       }
 
       const overlay = document.createElement('div');
@@ -295,12 +297,40 @@
       `;
       wrap.appendChild(overlay);
 
+      const labelRow = document.createElement('div');
+      labelRow.className = 'ww-profile-label-row';
+
       const nameSpan = document.createElement('span');
       nameSpan.className = 'ww-profile-name';
       nameSpan.textContent = p.name;
+      labelRow.appendChild(nameSpan);
+
+      if (p.has_pin) {
+        const lockSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        lockSvg.setAttribute('class', 'ww-inline-lock');
+        lockSvg.setAttribute('width', '13');
+        lockSvg.setAttribute('height', '13');
+        lockSvg.setAttribute('viewBox', '0 0 24 24');
+        lockSvg.setAttribute('fill', 'currentColor');
+        lockSvg.setAttribute('aria-label', 'PIN protected');
+        lockSvg.innerHTML = '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>';
+        labelRow.appendChild(lockSvg);
+      }
 
       item.appendChild(wrap);
-      item.appendChild(nameSpan);
+      item.appendChild(labelRow);
+
+      if (p.id === currentActiveId) {
+        const activeTag = document.createElement('span');
+        activeTag.className = 'ww-active-tag';
+        activeTag.textContent = '● Active';
+        item.appendChild(activeTag);
+      }
+
+      item.addEventListener('pointerenter', () => updateAmbientGlow(item));
+      item.addEventListener('focus', () => updateAmbientGlow(item));
+      item.addEventListener('pointerleave', () => updateAmbientGlow(null));
+      item.addEventListener('blur', () => updateAmbientGlow(null));
 
       item.addEventListener('click', () => {
         if (isManageMode) {
@@ -337,28 +367,66 @@
     }
   }
 
+  function positionHeroPinPrompt(heroEl) {
+    if (!heroEl) return;
+    const vv = window.visualViewport;
+    const vw = vv ? vv.width : window.innerWidth;
+    const vh = vv ? vv.height : window.innerHeight;
+    const vTop = vv ? vv.offsetTop : 0;
+    const isCompact = vh < 600 || vw <= 600;
+
+    if (!heroEl.dataset.baseCenterX) {
+      const rect = heroEl.getBoundingClientRect();
+      heroEl.dataset.baseCenterX = String(rect.left + rect.width / 2);
+      heroEl.dataset.baseCenterY = String(rect.top + rect.height / 2);
+    }
+    const baseX = Number(heroEl.dataset.baseCenterX);
+    const baseY = Number(heroEl.dataset.baseCenterY);
+    const targetY = isCompact ? (vTop + Math.max(82, vh * 0.22)) : (vTop + vh / 2 - 105);
+    const scale = isCompact ? (vh < 480 ? 0.82 : 0.95) : 1.15;
+    const deltaX = Math.round(vw / 2 - baseX);
+    const deltaY = Math.round(targetY - baseY);
+
+    heroEl.dataset.heroDeltaX = deltaX;
+    heroEl.dataset.heroDeltaY = deltaY;
+    heroEl.dataset.itemCenterY = baseY;
+    heroEl.style.zIndex = '9999';
+    heroEl.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
+    heroEl.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(${scale})`;
+
+    if (wwPinPrompt) {
+      wwPinPrompt.classList.toggle('ww-pin-compact', isCompact);
+      wwPinPrompt.style.top = isCompact ? `${Math.round(vTop + Math.max(152, vh * 0.43))}px` : '';
+    }
+  }
+
+  function handlePinViewportResize() {
+    if (isHeroPinActive && pendingPinHeroItem) {
+      positionHeroPinPrompt(pendingPinHeroItem);
+    }
+  }
+
+  function bindPinViewportResize(on) {
+    const fn = on ? 'addEventListener' : 'removeEventListener';
+    window[fn]('resize', handlePinViewportResize);
+    if (window.visualViewport) {
+      window.visualViewport[fn]('resize', handlePinViewportResize);
+      window.visualViewport[fn]('scroll', handlePinViewportResize);
+    }
+  }
+
   function startHeroPinChallenge(targetProfile, clickedItem, isExitingKids = false) {
     if (isSwitchingProfile || isHeroPinActive) return;
     isHeroPinActive = true;
+    isVerifyingPin = false;
     pendingPinProfile = targetProfile;
     pendingPinHeroItem = clickedItem;
 
-    const itemRect = clickedItem.getBoundingClientRect();
-    const itemCenterX = itemRect.left + itemRect.width / 2;
-    const itemCenterY = itemRect.top + itemRect.height / 2;
-    const viewportCenterX = window.innerWidth / 2;
-    const targetCenterY = (window.innerHeight / 2) - 105;
-    const deltaX = Math.round(viewportCenterX - itemCenterX);
-    const deltaY = Math.round(targetCenterY - itemCenterY);
-
-    clickedItem.dataset.heroDeltaX = deltaX;
-    clickedItem.dataset.heroDeltaY = deltaY;
-    clickedItem.dataset.itemCenterY = itemCenterY;
-
+    delete clickedItem.dataset.baseCenterX;
+    delete clickedItem.dataset.baseCenterY;
     clickedItem.classList.add('selected-hero');
-    clickedItem.style.zIndex = '9999';
-    clickedItem.style.transition = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
-    clickedItem.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.15)`;
+    positionHeroPinPrompt(clickedItem);
+    bindPinViewportResize(true);
 
     document.querySelectorAll('.ww-profile-item').forEach(el => {
       if (el !== clickedItem) el.classList.add('ww-dim-item');
@@ -389,14 +457,17 @@
       wwPinDigits.forEach(i => { i.value = ''; });
     }
     setTimeout(() => {
-      if (wwPinDigits && wwPinDigits[0]) wwPinDigits[0].focus();
+      if (wwPinDigits && wwPinDigits[0]) wwPinDigits[0].focus({ preventScroll: true });
     }, 120);
   }
 
   function cancelHeroPinChallenge() {
     if (!isHeroPinActive) return;
+    bindPinViewportResize(false);
     if (wwPinPrompt) {
       wwPinPrompt.hidden = true;
+      wwPinPrompt.style.top = '';
+      wwPinPrompt.classList.remove('ww-pin-compact');
     }
     if (pendingPinHeroItem) {
       const hero = pendingPinHeroItem;
@@ -404,6 +475,8 @@
       hero.style.transform = 'translate3d(0, 0, 0) scale(1)';
       setTimeout(() => {
         hero.classList.remove('selected-hero');
+        delete hero.dataset.baseCenterX;
+        delete hero.dataset.baseCenterY;
         hero.style.transform = '';
         hero.style.transition = '';
         hero.style.zIndex = '';
@@ -417,12 +490,14 @@
     if (wwMainActions) wwMainActions.classList.remove('ww-fade-element');
 
     isHeroPinActive = false;
+    isVerifyingPin = false;
     pendingPinProfile = null;
     pendingPinHeroItem = null;
   }
 
   async function submitHeroPin(enteredPin) {
-    if (!pendingPinProfile || !pendingPinHeroItem) return;
+    if (!pendingPinProfile || !pendingPinHeroItem || isVerifyingPin) return;
+    isVerifyingPin = true;
     const targetProfile = pendingPinProfile;
     const targetItem = pendingPinHeroItem;
 
@@ -445,11 +520,16 @@
       if (res.ok) {
         const data = await res.json();
         isSwitchingProfile = true;
+        bindPinViewportResize(false);
         currentActiveId = targetProfile.id;
 
         if (wwPinPrompt) {
           wwPinPrompt.style.opacity = '0';
-          setTimeout(() => { wwPinPrompt.hidden = true; }, 250);
+          setTimeout(() => {
+            wwPinPrompt.hidden = true;
+            wwPinPrompt.style.top = '';
+            wwPinPrompt.classList.remove('ww-pin-compact');
+          }, 250);
         }
 
         // Center hero completion transition (matching Netflix slide & load)
@@ -474,6 +554,7 @@
           window.location.href = '/';
         }, 500);
       } else {
+        isVerifyingPin = false;
         const errData = await res.json().catch(() => ({}));
         if (wwPinBoxes) {
           wwPinBoxes.classList.remove('pin-shake');
@@ -492,13 +573,21 @@
         }
       }
     } catch (err) {
+      isVerifyingPin = false;
       console.error('Error verifying PIN:', err);
+      if (wwPinError) {
+        wwPinError.textContent = 'Connection error. Please try again.';
+        wwPinError.style.display = 'block';
+      }
     }
   }
 
   function resetProfileSelectionAnimations() {
+    bindPinViewportResize(false);
     document.querySelectorAll('.ww-profile-item').forEach(el => {
       el.classList.remove('selected-hero', 'ww-dim-item');
+      delete el.dataset.baseCenterX;
+      delete el.dataset.baseCenterY;
       el.style.transform = '';
       el.style.transition = '';
       el.style.zIndex = '';
@@ -510,9 +599,12 @@
     if (wwPinPrompt) {
       wwPinPrompt.hidden = true;
       wwPinPrompt.style.opacity = '1';
+      wwPinPrompt.style.top = '';
+      wwPinPrompt.classList.remove('ww-pin-compact');
     }
     if (wwModal) wwModal.classList.remove('ww-modal-exiting');
     isHeroPinActive = false;
+    isVerifyingPin = false;
     pendingPinProfile = null;
     pendingPinHeroItem = null;
   }
@@ -605,11 +697,19 @@
       } else {
         isSwitchingProfile = false;
         resetProfileSelectionAnimations();
+        if (wwSelectSub) {
+          wwSelectSub.textContent = 'Could not switch profile right now. Please try again.';
+          wwSelectSub.style.display = 'block';
+        }
       }
     } catch (e) {
       console.error('Error switching profile:', e);
       isSwitchingProfile = false;
       resetProfileSelectionAnimations();
+      if (wwSelectSub) {
+        wwSelectSub.textContent = 'Connection error while switching profile. Please try again.';
+        wwSelectSub.style.display = 'block';
+      }
     }
   }
 
@@ -656,6 +756,10 @@
 
   function switchView(targetView) {
     resetDeleteBtn();
+    if (wwSaveBtn) {
+      wwSaveBtn.disabled = false;
+      wwSaveBtn.textContent = 'Save';
+    }
     [wwViewSelect, wwViewForm].forEach(v => {
       if (v) {
         if (v === targetView) {
@@ -845,7 +949,10 @@
     wwManageBtn.addEventListener('click', () => {
       isManageMode = !isManageMode;
       if (wwSelectTitle) wwSelectTitle.textContent = isManageMode ? 'Manage Profiles' : "Who's watching?";
-      if (wwSelectSub) wwSelectSub.textContent = '';
+      if (wwSelectSub) {
+        wwSelectSub.textContent = isManageMode ? 'Select a profile to edit.' : '';
+        wwSelectSub.style.display = isManageMode ? 'block' : 'none';
+      }
       wwManageBtn.textContent = isManageMode ? 'DONE' : 'MANAGE PROFILES';
       const isMandatory = document.body.dataset.showWhosWatching === 'true';
       if (wwCancelBtn) {
@@ -855,6 +962,42 @@
       renderProfiles();
     });
   }
+
+  // Keyboard shortcuts for Who's Watching: ArrowLeft / ArrowRight / Home / End + Escape
+  if (wwGrid) {
+    wwGrid.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+      const tiles = [...wwGrid.querySelectorAll('.ww-profile-item')].filter(el => el.offsetParent !== null);
+      if (!tiles.length) return;
+      const curIdx = tiles.indexOf(document.activeElement);
+      if (curIdx < 0 && e.key !== 'Home' && e.key !== 'End') return;
+      e.preventDefault();
+      let nextIdx = 0;
+      if (e.key === 'ArrowRight') nextIdx = (curIdx + 1) % tiles.length;
+      else if (e.key === 'ArrowLeft') nextIdx = (curIdx - 1 + tiles.length) % tiles.length;
+      else if (e.key === 'End') nextIdx = tiles.length - 1;
+      tiles[nextIdx]?.focus();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !wwModal || wwModal.hidden) return;
+    if (isHeroPinActive) {
+      e.preventDefault();
+      cancelHeroPinChallenge();
+    } else if (wwViewForm && !wwViewForm.hidden) {
+      e.preventDefault();
+      resetDeleteBtn();
+      wwViewForm.hidden = true;
+      if (wwViewSelect) wwViewSelect.hidden = false;
+    } else if (isManageMode) {
+      e.preventDefault();
+      wwManageBtn?.click();
+    } else if (document.body.dataset.showWhosWatching !== 'true' && window.location.pathname !== '/whos-watching') {
+      e.preventDefault();
+      closeWhosWatching();
+    }
+  });
   if (wwFormCancel) {
     wwFormCancel.addEventListener('click', () => {
       resetDeleteBtn();
@@ -1101,6 +1244,10 @@
       if (oldPinVal) payload.old_pin = oldPinVal;
 
       try {
+        if (wwSaveBtn) {
+          wwSaveBtn.disabled = true;
+          wwSaveBtn.textContent = 'Saving...';
+        }
         let res;
         if (editId) {
           res = await fetch(`/api/profiles/${editId}`, {
@@ -1170,9 +1317,17 @@
             }, 500);
             return;
           }
+          if (wwSaveBtn) {
+            wwSaveBtn.disabled = false;
+            wwSaveBtn.textContent = 'Save';
+          }
           await loadProfiles();
           switchView(wwViewSelect);
         } else {
+          if (wwSaveBtn) {
+            wwSaveBtn.disabled = false;
+            wwSaveBtn.textContent = 'Save';
+          }
           const errData = await res.json().catch(() => ({}));
           if (wwPinFormError) {
             wwPinFormError.textContent = errData.error || 'Failed to save profile.';
@@ -1180,7 +1335,15 @@
           }
         }
       } catch (err) {
+        if (wwSaveBtn) {
+          wwSaveBtn.disabled = false;
+          wwSaveBtn.textContent = 'Save';
+        }
         console.error('Error saving profile:', err);
+        if (wwPinFormError) {
+          wwPinFormError.textContent = 'Network error. Please try again.';
+          wwPinFormError.style.display = 'block';
+        }
       }
     });
   }

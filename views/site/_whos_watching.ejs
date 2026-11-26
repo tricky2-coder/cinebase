@@ -14,21 +14,11 @@
         <!-- Rendered profiles -->
         <% if (typeof userProfiles !== 'undefined' && userProfiles && userProfiles.length) { %>
           <% userProfiles.forEach(function(p) { %>
-          <div class="ww-profile-item <%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) ? 'active' : '' %>" data-id="<%= p.id %>">
+          <button type="button" class="ww-profile-item <%= (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) ? 'active' : '' %>" data-id="<%= p.id %>">
             <div class="ww-avatar-wrap">
               <img src="<%= p.avatar %>" alt="<%= p.name %>">
-              <% if (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) { %>
-                <span class="ww-active-badge">CURRENT</span>
-              <% } %>
               <% if (p.is_kids) { %>
                 <span class="ww-kids-badge">KIDS</span>
-              <% } %>
-              <% if (p.has_pin) { %>
-                <div class="ww-lock-badge" title="Profile Locked">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                  </svg>
-                </div>
               <% } %>
               <div class="ww-edit-overlay">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -37,23 +27,25 @@
                 </svg>
               </div>
             </div>
-            <span class="ww-profile-name"><%= p.name %></span>
-          </div>
-          <% }); %>
-        <% } else if (typeof activeProfile !== 'undefined' && activeProfile) { %>
-        <div class="ww-profile-item active" data-id="<%= activeProfile.id %>">
-          <div class="ww-avatar-wrap">
-            <img src="<%= activeProfile.avatar %>" alt="<%= activeProfile.name %>">
-            <span class="ww-active-badge">CURRENT</span>
-            <% if (activeProfile.is_kids) { %>
-              <span class="ww-kids-badge">KIDS</span>
-            <% } %>
-            <% if (activeProfile.has_pin) { %>
-              <div class="ww-lock-badge" title="Profile Locked">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <div class="ww-profile-label-row">
+              <span class="ww-profile-name"><%= p.name %></span>
+              <% if (p.has_pin) { %>
+                <svg class="ww-inline-lock" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-label="PIN protected">
                   <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
                 </svg>
-              </div>
+              <% } %>
+            </div>
+            <% if (typeof activeProfile !== 'undefined' && activeProfile && activeProfile.id === p.id) { %>
+              <span class="ww-active-tag">● Active</span>
+            <% } %>
+          </button>
+          <% }); %>
+        <% } else if (typeof activeProfile !== 'undefined' && activeProfile) { %>
+        <button type="button" class="ww-profile-item active" data-id="<%= activeProfile.id %>">
+          <div class="ww-avatar-wrap">
+            <img src="<%= activeProfile.avatar %>" alt="<%= activeProfile.name %>">
+            <% if (activeProfile.is_kids) { %>
+              <span class="ww-kids-badge">KIDS</span>
             <% } %>
             <div class="ww-edit-overlay">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -62,8 +54,16 @@
               </svg>
             </div>
           </div>
-          <span class="ww-profile-name"><%= activeProfile.name %></span>
-        </div>
+          <div class="ww-profile-label-row">
+            <span class="ww-profile-name"><%= activeProfile.name %></span>
+            <% if (activeProfile.has_pin) { %>
+              <svg class="ww-inline-lock" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-label="PIN protected">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+              </svg>
+            <% } %>
+          </div>
+          <span class="ww-active-tag">● Active</span>
+        </button>
         <% } %>
         <button type="button" class="ww-profile-item ww-add-item" id="btn-ww-add-profile">
           <div class="ww-avatar-wrap ww-add-wrap">

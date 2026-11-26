@@ -1661,7 +1661,7 @@
     const frame = () => pipFrame || iframe;
 
     const mirror = document.getElementById('p-mirror');
-    const MIRROR_KEY = 'cinebase.player';
+    const MIRROR_KEY = `cinebase.player.${cfg.key}`;
     const QUALITY_KEY = 'cinebase.quality';
     const mediaMount = document.getElementById('media-artplayer');
     const mediaMsg = document.getElementById('media-player-msg');
@@ -2053,8 +2053,9 @@
     const animeServerSel = document.getElementById('anime-server');
     const isAnimePlayer = Boolean(cfg.anime && animeMount);
 
+    const ANIME_SERVER_KEY = `cinebase.animeServer.${cfg.key}`;
     let animeAudio = localStorage.getItem('cinebase.animeAudio') === 'dub' ? 'dub' : 'sub';
-    let animeProvider = localStorage.getItem('cinebase.animeServer') || 'vidy';
+    let animeProvider = localStorage.getItem(ANIME_SERVER_KEY) || 'vidy';
     const animeBackupPill = document.getElementById('btn-anime-backup');
     if (animeBackupPill) {
       animeBackupPill.addEventListener('click', () => {
@@ -2067,7 +2068,7 @@
         } else {
           animeProvider = 'auto';
         }
-        try { localStorage.setItem('cinebase.animeServer', animeProvider); } catch {}
+        try { localStorage.setItem(ANIME_SERVER_KEY, animeProvider); } catch {}
         if (animeServerSel) animeServerSel.value = animeProvider;
         load(true);
       });
@@ -2097,7 +2098,7 @@
           vidyBtn.textContent = 'Play on Vidy';
           vidyBtn.addEventListener('click', () => {
             animeProvider = 'vidy';
-            try { localStorage.setItem('cinebase.animeServer', 'vidy'); } catch {}
+            try { localStorage.setItem(ANIME_SERVER_KEY, 'vidy'); } catch {}
             if (animeServerSel) animeServerSel.value = 'vidy';
             load(true);
           });
@@ -2130,7 +2131,7 @@
       animeServerSel.value = animeProvider;
       animeServerSel.addEventListener('change', () => {
         animeProvider = animeServerSel.value;
-        try { localStorage.setItem('cinebase.animeServer', animeProvider); } catch {}
+        try { localStorage.setItem(ANIME_SERVER_KEY, animeProvider); } catch {}
         load(true);
       });
     }

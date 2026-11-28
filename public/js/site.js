@@ -2852,6 +2852,18 @@
         prefetchTimer = setTimeout(() => {
           const nxt = step(1);
           if (!nxt) return;
+          if (mirror && mirror.value === 'artplayer') {
+            const qs = new URLSearchParams({
+              title: cfg.title || '',
+              year: String(cfg.year || ''),
+              tmdbId: String(cfg.tmdbId || cfg.id || ''),
+              type: 'Series',
+              season: String(nxt.s || 1),
+              episode: String(nxt.e || 1)
+            });
+            fetch(`/api/media/watch?${qs.toString()}`).catch(() => {});
+            return;
+          }
           try {
             const nextHref = url(nxt.s, nxt.e);
             let link = document.getElementById('p-prefetch-next');

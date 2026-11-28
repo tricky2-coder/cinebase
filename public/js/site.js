@@ -1348,12 +1348,44 @@
   // Chrome's "Leave site? Changes you made may not be saved." dialog when users close or refresh the tab.
 
   // Video Player Ad Shield & Anti-Sandbox Protection:
-  // Vidy engine has strict anti-sandbox detection that blocks playback with "Iframe Sandbox Detected".
-  // Under NO circumstance should the player iframe have an HTML sandbox attribute.
-  // Ads and redirects are shielded cleanly via top-level Navigation API & beforeunload traps.
-  function applyAdSandbox(iframeEl) {
-    if (!iframeEl) return;
-    iframeEl.removeAttribute('sandbox');
+  // - Vidy (vidy.st) detects HTML `sandbox` (`frameElement`, `document.domain`, PDF `<object>`) and halts playback,
+  //   so Vidy must NEVER have `sandbox`; its top-window redirects are shielded silently via Navigation API + window.open.
+  // - Non-Vidy embeds (Server 1 P-Stream, VidRock, VidSrc, etc.) receive `sandbox` without `allow-popups` or
+  //   `allow-top-navigation*` when Show Ads is off, blocking ad popups, popunders, and external redirects inside the frame.
+  const AD_SANDBOX_FLAGS = 'allow-scripts allow-same-origin allow-forms allow-presentation';
+
+  function isVidyUrl(rawUrl) {
+    if (!rawUrl || rawUrl === 'about:blank') return false;
+    try {
+      const host = new URL(rawUrl, window.location.href).hostname.toLowerCase();
+      return host === 'vidy.st' || host.endsWith('.vidy.st');
+    } catch {
+      return String(rawUrl).toLowerCase().includes('vidy.st');
+    }
+  }
+
+  function applyAdSandbox(iframeEl, targetUrl) {
+    if (!iframeEl) return iframeEl;
+    const srcStr = String(targetUrl || iframeEl.getAttribute('src') || iframeEl.src || '').trim();
+    const showAds = localStorage.getItem('cinebase.showAds') === 'true';
+    const wantSandbox = Boolean(srcStr && srcStr !== 'about:blank' && !showAds && !isVidyUrl(srcStr));
+    const curSandbox = iframeEl.getAttribute('sandbox');
+    const matches = wantSandbox ? curSandbox === AD_SANDBOX_FLAGS : curSandbox === null;
+    if (matches) return iframeEl;
+
+    // Recreate the iframe node when sandbox policy changes so browsers apply/clear flags cleanly on navigation
+    if (iframeEl.parentNode) {
+      const fresh = iframeEl.cloneNode(false);
+      if (wantSandbox) fresh.setAttribute('sandbox', AD_SANDBOX_FLAGS);
+      else fresh.removeAttribute('sandbox');
+      fresh.removeAttribute('src');
+      iframeEl.parentNode.replaceChild(fresh, iframeEl);
+      return fresh;
+    }
+
+    if (wantSandbox) iframeEl.setAttribute('sandbox', AD_SANDBOX_FLAGS);
+    else iframeEl.removeAttribute('sandbox');
+    return iframeEl;
   }
 
   const adsToggle = document.getElementById('toggle-show-ads');
@@ -1362,7 +1394,13 @@
     adsToggle.addEventListener('change', () => {
       localStorage.setItem('cinebase.showAds', adsToggle.checked ? 'true' : 'false');
       const activeIframe = document.querySelector('#player iframe');
-      applyAdSandbox(activeIframe);
+      if (activeIframe) {
+        const currentSrc = activeIframe.getAttribute('src') || activeIframe.src;
+        const updated = applyAdSandbox(activeIframe, currentSrc);
+        if (updated && currentSrc && currentSrc !== 'about:blank' && updated !== activeIframe) {
+          updated.src = currentSrc;
+        }
+      }
     });
   }
 
@@ -1610,8 +1648,8 @@
   const player = document.getElementById('player');
   if (player) {
     const cfg = JSON.parse(player.dataset.cfg);
-    const iframe = player.querySelector('iframe');
-    applyAdSandbox(iframe);
+    const mainIframe = () => player.querySelector('iframe');
+    applyAdSandbox(mainIframe());
     const EP_KEY = `cinebase.ep.${cfg.key}`;
     const AUTONEXT_KEY = 'cinebase.autonext';
     let autoNext = localStorage.getItem(AUTONEXT_KEY) !== 'false';
@@ -1658,7 +1696,7 @@
     // (Chrome/Edge) or, elsewhere, a plain pop-up window. While popped out the page frame is blank.
     let pipWin = null;   // the pop-out window
     let pipFrame = null; // player iframe inside a Document PiP window (null for a plain pop-up)
-    const frame = () => pipFrame || iframe;
+    const frame = () => pipFrame || mainIframe();
 
     const mirror = document.getElementById('p-mirror');
     const MIRROR_KEY = `cinebase.player.${cfg.key}`;
@@ -1987,9 +2025,10 @@
       if (!mediaMount) return;
       if (mediaAbort) mediaAbort.abort();
       mediaAbort = new AbortController();
-      if (iframe) {
-        iframe.hidden = true;
-        if (iframe.src && iframe.src !== 'about:blank') iframe.src = 'about:blank';
+      const mf = mainIframe();
+      if (mf) {
+        mf.hidden = true;
+        if (mf.src && mf.src !== 'about:blank') mf.src = 'about:blank';
       }
       mediaMount.hidden = false;
       const pBtn = document.getElementById('p-popout');
@@ -2170,7 +2209,7 @@
         btn.textContent = 'Retry';
         btn.addEventListener('click', () => load(true));
         actions.append(btn);
-        if (iframe) {
+        if (mainIframe()) {
           const vidyBtn = document.createElement('button');
           vidyBtn.type = 'button';
           vidyBtn.className = 'sbtn sbtn-glass';
@@ -2232,9 +2271,10 @@
       if (!isAnimePlayer) return;
       if (animeAbort) animeAbort.abort();
       animeAbort = new AbortController();
-      if (iframe) {
-        iframe.hidden = true;
-        if (iframe.src && iframe.src !== 'about:blank') iframe.src = 'about:blank';
+      const mf = mainIframe();
+      if (mf) {
+        mf.hidden = true;
+        if (mf.src && mf.src !== 'about:blank') mf.src = 'about:blank';
       }
       if (animeMount) animeMount.hidden = false;
       const pBtn = document.getElementById('p-popout');
@@ -2365,7 +2405,8 @@
         destroyArtplayer();
         hideAnimeMsg();
         if (animeMount) animeMount.hidden = true;
-        if (iframe) iframe.hidden = false;
+        const mf = mainIframe();
+        if (mf) mf.hidden = false;
         const pBtn = document.getElementById('p-popout');
         if (pBtn) pBtn.hidden = false;
       }
@@ -2378,15 +2419,17 @@
         destroyMediaArtplayer();
         hideMediaMsg();
         mediaMount.hidden = true;
-        if (iframe) iframe.hidden = false;
+        const mf = mainIframe();
+        if (mf) mf.hidden = false;
         const pBtn = document.getElementById('p-popout');
         if (pBtn) pBtn.hidden = false;
       }
       const u = url();
       if (pipWin && !pipFrame) { try { pipWin.location.href = u; } catch {} return; } // plain pop-up
-      const f = frame();
+      let f = frame();
       if (!f) return;
-      applyAdSandbox(f);
+      f = applyAdSandbox(f, u);
+      if (pipFrame && f !== pipFrame) pipFrame = f;
       f.referrerPolicy = u.includes('embed.pstream.cfd') ? 'no-referrer-when-downgrade' : 'no-referrer';
       if (force || f.src !== u) f.src = u;
     };
@@ -2624,11 +2667,12 @@
         const style = d.createElement('style');
         style.textContent = 'html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}';
         d.head.append(style);
+        const curFrame = mainIframe();
         pipFrame = d.createElement('iframe');
         for (const a of ['allow', 'referrerpolicy', 'allowfullscreen', 'title']) {
-          if (iframe.hasAttribute(a)) pipFrame.setAttribute(a, iframe.getAttribute(a));
+          if (curFrame?.hasAttribute(a)) pipFrame.setAttribute(a, curFrame.getAttribute(a));
         }
-        applyAdSandbox(pipFrame);
+        pipFrame = applyAdSandbox(pipFrame, u);
         pipFrame.src = u;
         d.body.append(pipFrame);
         pipWin.addEventListener('message', onPlayerMessage); // the player now reports to the pop-out window
@@ -2639,13 +2683,14 @@
         if (!pipWin) { popBtn.textContent = 'Allow pop-ups to pop out'; return; }
         pollClosed = setInterval(() => { if (pipWin?.closed) bringBack(); }, 700);
       }
-      iframe.src = 'about:blank'; // stop the page copy so audio doesn't play twice
+      const mf = mainIframe();
+      if (mf) mf.src = 'about:blank'; // stop the page copy so audio doesn't play twice
       player.classList.add('popped');
       popped.hidden = false;
       popBtn.textContent = '⤓ Bring back';
     }
 
-    if (popBtn && iframe) popBtn.addEventListener('click', popOut);
+    if (popBtn && mainIframe()) popBtn.addEventListener('click', popOut);
     const bringBackBtn = document.getElementById('p-bringback');
     if (bringBackBtn) bringBackBtn.addEventListener('click', bringBack);
     addEventListener('pagehide', () => { try { pipWin?.close(); } catch {} });
